@@ -26,6 +26,12 @@ importers:
 
   packages/base: {}
 
+  packages/primitives:
+    dependencies:
+      '@seqlok/base':
+        specifier: workspace:*
+        version: link:../base
+
   packages/schema: {}
 
 packages:

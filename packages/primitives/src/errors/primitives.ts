@@ -1,0 +1,207 @@
+import {
+  type AssertTrue,
+  type DomainDef,
+  type DomainRegistry,
+  defineErrorDomain,
+  type ErrorCodeOf,
+  type ErrorDetails,
+  type ErrorDomainWithFactory,
+  type ErrorKeyFromCode,
+  type ErrorKeyOf,
+  type IsExact,
+  type KeyedErrorFactoryOf,
+} from "@seqlok/base";
+
+export type PrimitivesErrorCode = ErrorCodeOf<PrimitivesDomain>;
+export type PrimitivesErrorKey = ErrorKeyFromCode<PrimitivesErrorCode>;
+
+export interface PrimitivesSeqlockTimeoutDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly spinBudget: number;
+  readonly actualSpins: number;
+  readonly retryBudget: number;
+  readonly retriesUsed: number;
+  readonly lockIndex: number;
+  readonly seqIndex: number;
+}
+
+export interface PrimitivesInvalidSpinBudgetDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly spinBudget: number;
+  readonly retryBudget: number;
+}
+
+export interface PrimitivesSeqlockInvalidPairDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly lockIndex: number;
+  readonly seqIndex: number;
+  readonly length: number;
+}
+
+export interface PrimitivesSwsrRingInvalidLayoutDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly capacity: number;
+  readonly wordsPerSlot: number;
+}
+
+export interface PrimitivesPlaneInvalidDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly plane: string;
+}
+
+export interface PrimitivesPlaneUnalignedDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly plane: string;
+  readonly offsetBytes: number;
+  readonly bytesPerElement: number;
+}
+
+export interface PrimitivesAlignmentInvalidDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly value: number;
+  readonly align: number;
+}
+
+export interface PrimitivesAtomicsFailedDetails extends ErrorDetails {
+  readonly where: string;
+  readonly detail: string;
+  readonly operation: "loadU32" | "addU32";
+  readonly index: number;
+  readonly length: number;
+  readonly delta?: number;
+}
+
+interface PrimitivesDomainDefs {
+  readonly seqlockTimeout: DomainDef;
+  readonly invalidSpinBudget: DomainDef;
+  readonly seqlockInvalidPair: DomainDef;
+  readonly swsrRingInvalidLayout: DomainDef;
+  readonly planeInvalid: DomainDef;
+  readonly planeUnaligned: DomainDef;
+  readonly alignmentInvalid: DomainDef;
+  readonly atomicsFailed: DomainDef;
+}
+
+const PRIMITIVES_DEFS: PrimitivesDomainDefs = {
+  seqlockTimeout: {
+    message: "Seqlock acquisition timeout",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  invalidSpinBudget: {
+    message: "Spin and retry budgets must be non-negative integers",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  seqlockInvalidPair: {
+    message: "Seqlock pair is invalid",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  swsrRingInvalidLayout: {
+    message: "SWSR ring layout is invalid",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
+  planeInvalid: {
+    message: "Plane key is invalid",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  planeUnaligned: {
+    message: "Plane offset is not aligned to element size",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
+  alignmentInvalid: {
+    message: "Alignment request is invalid",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  atomicsFailed: {
+    message: "Atomics operation failed",
+    meta: {
+      severity: "fatal",
+      recoverable: false,
+      boundarySafe: false,
+    },
+  },
+};
+
+export const PRIMITIVES_DOMAIN: ErrorDomainWithFactory<"primitives", PrimitivesDomainDefs> =
+  defineErrorDomain("primitives", PRIMITIVES_DEFS);
+
+export type PrimitivesDomain = typeof PRIMITIVES_DOMAIN;
+export type PrimitivesErrorsMap = DomainRegistry<"primitives", PrimitivesDomainDefs>;
+
+export const PRIMITIVES_ERRORS: PrimitivesErrorsMap =
+  PRIMITIVES_DOMAIN.registry as PrimitivesErrorsMap;
+
+type ExpectedPrimitivesErrorCode =
+  | "primitives.seqlockTimeout"
+  | "primitives.invalidSpinBudget"
+  | "primitives.seqlockInvalidPair"
+  | "primitives.swsrRingInvalidLayout"
+  | "primitives.planeInvalid"
+  | "primitives.planeUnaligned"
+  | "primitives.alignmentInvalid"
+  | "primitives.atomicsFailed";
+
+export type _PrimitivesCodesMatch = AssertTrue<
+  IsExact<PrimitivesErrorCode, ExpectedPrimitivesErrorCode>
+>;
+
+export interface PrimitivesErrorDetailsByKey {
+  readonly seqlockTimeout: PrimitivesSeqlockTimeoutDetails;
+  readonly invalidSpinBudget: PrimitivesInvalidSpinBudgetDetails;
+  readonly seqlockInvalidPair: PrimitivesSeqlockInvalidPairDetails;
+  readonly swsrRingInvalidLayout: PrimitivesSwsrRingInvalidLayoutDetails;
+  readonly planeInvalid: PrimitivesPlaneInvalidDetails;
+  readonly planeUnaligned: PrimitivesPlaneUnalignedDetails;
+  readonly alignmentInvalid: PrimitivesAlignmentInvalidDetails;
+  readonly atomicsFailed: PrimitivesAtomicsFailedDetails;
+}
+
+export type _PrimitivesDetailKeysMatch = AssertTrue<
+  IsExact<keyof PrimitivesErrorDetailsByKey, ErrorKeyOf<PrimitivesDomain>>
+>;
+
+export type PrimitivesErrorFactory = KeyedErrorFactoryOf<
+  PrimitivesDomain,
+  PrimitivesErrorDetailsByKey
+>;
+
+export const createPrimitivesError: PrimitivesErrorFactory = (key, details, cause) =>
+  PRIMITIVES_DOMAIN.createError(key, details, cause);
+
+type DomainKeys = ErrorKeyOf<PrimitivesDomain>;
+type KeysEqual = IsExact<PrimitivesErrorKey, DomainKeys>;
+export type _PrimitivesKeysMatch = AssertTrue<KeysEqual>;

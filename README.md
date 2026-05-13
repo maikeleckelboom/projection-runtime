@@ -10,10 +10,10 @@ Currently landed:
 
 - `@seqlok/base`
 - `@seqlok/schema`
+- `@seqlok/primitives`
 
 Planned later:
 
-- `@seqlok/primitives`
 - `@seqlok/core`
 
 Packages such as commands, stream buffers, diagnostics, worklet mounting,

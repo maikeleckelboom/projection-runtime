@@ -1,4 +1,8 @@
 {
-  "references": [{ "path": "./packages/base" }, { "path": "./packages/schema" }],
+  "references": [
+    { "path": "./packages/base" },
+    { "path": "./packages/schema" },
+    { "path": "./packages/primitives" }
+  ],
   "files": []
 }
