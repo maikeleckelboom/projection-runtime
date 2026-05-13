@@ -221,10 +221,41 @@ describe("@seqlok/primitives swsr ring", () => {
 
     expect(captureThrow(() => allocateSwsrRing({ capacity: 0, wordsPerSlot: 1 }))).toMatchObject({
       code: "primitives.swsrRingInvalidLayout",
+      details: { detail: "capacity must be an integer greater than or equal to 2" },
     });
     expect(captureThrow(() => allocateSwsrRing({ capacity: 1, wordsPerSlot: 0 }))).toMatchObject({
       code: "primitives.swsrRingInvalidLayout",
     });
+  });
+
+  it("rejects one-slot rings and treats capacity two as the smallest usable ring", () => {
+    expect(captureThrow(() => allocateSwsrRing({ capacity: 1, wordsPerSlot: 1 }))).toMatchObject({
+      code: "primitives.swsrRingInvalidLayout",
+      details: { detail: "capacity must be an integer greater than or equal to 2" },
+    });
+
+    const backing = allocateSwsrRing({ capacity: 2, wordsPerSlot: 1 });
+    const producer = bindSwsrRingProducer(backing, encodeNumber);
+    const consumer = bindSwsrRingConsumer(backing, decodeNumber);
+
+    expect(producer.enqueue(21)).toBe(true);
+    expect(producer.enqueue(22)).toBe(false);
+    expect(producer.stats()).toEqual({ dropped: 1 });
+
+    const values: number[] = [];
+    consumer.drain((value) => {
+      values.push(value);
+    });
+
+    expect(values).toEqual([21]);
+    expect(producer.enqueue(23)).toBe(true);
+
+    const afterDrain: number[] = [];
+    consumer.drain((value) => {
+      afterDrain.push(value);
+    });
+
+    expect(afterDrain).toEqual([23]);
   });
 
   it("enqueues, drops when full, drains in FIFO order, and tracks header counters", () => {
@@ -284,7 +315,6 @@ describe("@seqlok/primitives errors and public surface", () => {
       "atomicsFailed",
       "invalidSpinBudget",
       "planeInvalid",
-      "planeUnaligned",
       "seqlockInvalidPair",
       "seqlockTimeout",
       "swsrRingInvalidLayout",

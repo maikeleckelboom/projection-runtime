@@ -54,14 +54,6 @@ export interface PrimitivesPlaneInvalidDetails extends ErrorDetails {
   readonly plane: string;
 }
 
-export interface PrimitivesPlaneUnalignedDetails extends ErrorDetails {
-  readonly where: string;
-  readonly detail: string;
-  readonly plane: string;
-  readonly offsetBytes: number;
-  readonly bytesPerElement: number;
-}
-
 export interface PrimitivesAlignmentInvalidDetails extends ErrorDetails {
   readonly where: string;
   readonly detail: string;
@@ -84,7 +76,6 @@ interface PrimitivesDomainDefs {
   readonly seqlockInvalidPair: DomainDef;
   readonly swsrRingInvalidLayout: DomainDef;
   readonly planeInvalid: DomainDef;
-  readonly planeUnaligned: DomainDef;
   readonly alignmentInvalid: DomainDef;
   readonly atomicsFailed: DomainDef;
 }
@@ -130,14 +121,6 @@ const PRIMITIVES_DEFS: PrimitivesDomainDefs = {
       boundarySafe: true,
     },
   },
-  planeUnaligned: {
-    message: "Plane offset is not aligned to element size",
-    meta: {
-      severity: "error",
-      recoverable: false,
-      boundarySafe: true,
-    },
-  },
   alignmentInvalid: {
     message: "Alignment request is invalid",
     meta: {
@@ -171,7 +154,6 @@ type ExpectedPrimitivesErrorCode =
   | "primitives.seqlockInvalidPair"
   | "primitives.swsrRingInvalidLayout"
   | "primitives.planeInvalid"
-  | "primitives.planeUnaligned"
   | "primitives.alignmentInvalid"
   | "primitives.atomicsFailed";
 
@@ -185,7 +167,6 @@ export interface PrimitivesErrorDetailsByKey {
   readonly seqlockInvalidPair: PrimitivesSeqlockInvalidPairDetails;
   readonly swsrRingInvalidLayout: PrimitivesSwsrRingInvalidLayoutDetails;
   readonly planeInvalid: PrimitivesPlaneInvalidDetails;
-  readonly planeUnaligned: PrimitivesPlaneUnalignedDetails;
   readonly alignmentInvalid: PrimitivesAlignmentInvalidDetails;
   readonly atomicsFailed: PrimitivesAtomicsFailedDetails;
 }

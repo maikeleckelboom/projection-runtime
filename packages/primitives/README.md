@@ -85,7 +85,9 @@ reported through the primitives error domain.
   `SwsrRingConsumer`, `SwsrRingEncode`, `SwsrRingDecode`, `SwsrRingStats`
 
 The ring is a fixed-width slot transport over `SharedArrayBuffer`. Typed command
-contracts and bus composition belong above this layer.
+contracts and bus composition belong above this layer. A ring layout must use
+`capacity >= 2`; one-slot rings are rejected because the full check would leave
+no slot available for transport.
 
 ## Examples
 

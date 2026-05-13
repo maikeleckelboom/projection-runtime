@@ -38,7 +38,7 @@ export function addU32(plane: Uint32Array, index: number, delta: number): number
   }
 }
 
-export interface SpinUntilEvenResult {
+interface SpinUntilEvenResult {
   readonly value: number;
   readonly spins: number;
 }

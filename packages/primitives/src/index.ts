@@ -1,4 +1,3 @@
-export type { SpinUntilEvenResult } from "./atomics";
 export { addU32, loadU32, spinUntilEven } from "./atomics";
 export type {
   PrimitivesAlignmentInvalidDetails,
@@ -11,7 +10,6 @@ export type {
   PrimitivesErrorsMap,
   PrimitivesInvalidSpinBudgetDetails,
   PrimitivesPlaneInvalidDetails,
-  PrimitivesPlaneUnalignedDetails,
   PrimitivesSeqlockInvalidPairDetails,
   PrimitivesSeqlockTimeoutDetails,
   PrimitivesSwsrRingInvalidLayoutDetails,

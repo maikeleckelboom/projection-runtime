@@ -45,10 +45,10 @@ export interface SwsrRingConsumer<T> {
 export function allocateSwsrRing(layout: SwsrRingLayout): SwsrRingBacking {
   const { capacity, wordsPerSlot } = layout;
 
-  invariant(Number.isInteger(capacity) && capacity > 0, () =>
+  invariant(Number.isInteger(capacity) && capacity >= 2, () =>
     createPrimitivesError("swsrRingInvalidLayout", {
       where: "primitives.swsrRing.allocateSwsrRing",
-      detail: "capacity must be a positive integer",
+      detail: "capacity must be an integer greater than or equal to 2",
       capacity,
       wordsPerSlot,
     }),
