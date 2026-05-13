@@ -10,6 +10,13 @@ export default defineConfig({
           include: ["packages/base/tests/**/*.test.ts", "packages/base/src/**/*.test.ts"],
         },
       },
+      {
+        test: {
+          name: "@seqlok/schema",
+          environment: "node",
+          include: ["packages/schema/tests/**/*.test.ts", "packages/schema/src/**/*.test.ts"],
+        },
+      },
     ],
   },
 });

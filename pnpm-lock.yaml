@@ -26,6 +26,8 @@ importers:
 
   packages/base: {}
 
+  packages/schema: {}
+
 packages:
 
   '@babel/runtime@7.29.2':

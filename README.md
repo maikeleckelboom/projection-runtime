@@ -9,10 +9,10 @@ with code landing incrementally into a lean public v1 target.
 Currently landed:
 
 - `@seqlok/base`
+- `@seqlok/schema`
 
 Planned later:
 
-- `@seqlok/schema`
 - `@seqlok/primitives`
 - `@seqlok/core`
 

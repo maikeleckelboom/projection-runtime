@@ -1,0 +1,32 @@
+{
+  "name": "@seqlok/schema",
+  "version": "0.0.0",
+  "description": "Canonical authored spec AST for Seqlok packages.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec-ast/v1.json": "./spec-ast/v1.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "spec-ast",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run --root ../.. --project @seqlok/schema",
+    "test:watch": "vitest --root ../.. --project @seqlok/schema"
+  }
+}
