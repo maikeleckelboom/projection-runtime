@@ -4,9 +4,14 @@ Seqlok is a deterministic shared-memory contract system for timing-sensitive,
 multithreaded TypeScript engines.
 
 This repository is the new clean public extraction of Seqlok. It is library-only,
-with a lean public v1 target:
+with code landing incrementally into a lean public v1 target.
+
+Currently landed:
 
 - `@seqlok/base`
+
+Planned later:
+
 - `@seqlok/schema`
 - `@seqlok/primitives`
 - `@seqlok/core`
@@ -14,5 +19,6 @@ with a lean public v1 target:
 Packages such as commands, stream buffers, diagnostics, worklet mounting,
 introspection, and all app/demo/lab surfaces are intentionally excluded for now.
 
-Code will land incrementally into this scaffold. This repo is not a bulk copy of
-the old research-and-development workspace.
+Root build, typecheck, and test scripts only reference packages that have
+actually landed. This repo is not a bulk copy of the old
+research-and-development workspace.
