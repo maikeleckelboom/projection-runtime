@@ -1,9 +1,3 @@
-export {
-  SeqlokError,
-  createErrorFactory,
-  defineErrorDomain,
-  isSeqlokError,
-} from "./error.js";
 export type {
   DomainDef,
   DomainRegistry,
@@ -20,9 +14,15 @@ export type {
   ErrorRegistry,
   ErrorSeverity,
   KeyedErrorFactoryOf,
-} from "./error.js";
-export { invariant } from "./invariant.js";
-export type { InvariantErrorFactory } from "./invariant.js";
-export type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from "./json.js";
-export { panic } from "./panic.js";
-export type { AssertTrue, IsExact, IsExtends, TypedArrayName } from "./types.js";
+} from "./error";
+export {
+  createErrorFactory,
+  defineErrorDomain,
+  isSeqlokError,
+  SeqlokError,
+} from "./error";
+export type { InvariantErrorFactory } from "./invariant";
+export { invariant } from "./invariant";
+export type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from "./json";
+export { panic } from "./panic";
+export type { AssertTrue, IsExact, IsExtends, TypedArrayName } from "./types";

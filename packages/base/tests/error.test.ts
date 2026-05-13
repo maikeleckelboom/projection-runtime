@@ -1,16 +1,16 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
-  SeqlokError,
   createErrorFactory,
   defineErrorDomain,
-  invariant,
-  isSeqlokError,
   type ErrorCodeOf,
   type ErrorDetails,
-  type ErrorMeta,
   type ErrorKeyOf,
-} from "../src/index.js";
+  type ErrorMeta,
+  invariant,
+  isSeqlokError,
+  SeqlokError,
+} from "../src/index";
 
 const meta = {
   severity: "error",

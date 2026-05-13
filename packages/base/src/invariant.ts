@@ -1,4 +1,4 @@
-import type { SeqlokError } from "./error.js";
+import type { SeqlokError } from "./error";
 
 export type InvariantErrorFactory<E extends SeqlokError = SeqlokError> = () => E;
 

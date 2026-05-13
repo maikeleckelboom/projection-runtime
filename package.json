@@ -16,7 +16,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "check": "biome check . && pnpm typecheck && pnpm test",
     "changeset": "changeset",
     "version-packages": "changeset version"
   },

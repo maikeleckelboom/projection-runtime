@@ -1,10 +1,3 @@
-export { normalizeSpecAst } from "./normalization";
-export { SPEC_AST_V1_ID } from "./schema-id";
-export {
-  SchemaValidationError,
-  validateSpecAst,
-  type SchemaValidationIssue,
-} from "./validation";
 export type {
   ArrayKind,
   EnumVocabulary,
@@ -17,3 +10,10 @@ export type {
   SpecAst,
   SpecNamespace,
 } from "./ast";
+export { normalizeSpecAst } from "./normalization";
+export { SPEC_AST_V1_ID } from "./schema-id";
+export {
+  SchemaValidationError,
+  type SchemaValidationIssue,
+  validateSpecAst,
+} from "./validation";

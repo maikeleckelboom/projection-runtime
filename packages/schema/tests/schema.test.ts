@@ -1,17 +1,17 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import schemaArtifact from "../spec-ast/v1.json";
+import * as schema from "../src/index";
 import {
-  SPEC_AST_V1_ID,
-  SchemaValidationError,
-  normalizeSpecAst,
-  validateSpecAst,
   type MeterDef,
+  normalizeSpecAst,
   type ParamDef,
+  SchemaValidationError,
+  SPEC_AST_V1_ID,
   type SpecAst,
   type SpecNamespace,
+  validateSpecAst,
 } from "../src/index";
-import * as schema from "../src/index";
 
 describe("@seqlok/schema", () => {
   it("validates a minimal authored spec", () => {

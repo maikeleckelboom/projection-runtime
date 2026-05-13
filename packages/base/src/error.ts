@@ -1,6 +1,5 @@
-import { panic } from "./panic.js";
-
-import type { JsonValue } from "./json.js";
+import type { JsonValue } from "./json";
+import { panic } from "./panic";
 
 export type ErrorSeverity = "warning" | "error" | "fatal";
 
