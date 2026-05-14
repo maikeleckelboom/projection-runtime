@@ -1,19 +1,29 @@
 export type {
-  ArrayKind,
-  EnumVocabulary,
-  MeterDef,
-  MeterKind,
-  NumericRange,
-  ParamDef,
-  ParamKind,
-  ScalarKind,
-  SpecAst,
-  SpecNamespace,
+  AuthoredBoundedArrayField,
+  AuthoredBoundedMapField,
+  AuthoredColdLaneDeclaration,
+  AuthoredFieldDef,
+  AuthoredFieldShape,
+  AuthoredFieldTree,
+  AuthoredFixedEnumField,
+  AuthoredFixedScalarField,
+  AuthoredFixedStringEncodedField,
+  AuthoredFixedVectorField,
+  AuthoredHotLaneDeclaration,
+  AuthoredLaneDeclarations,
+  AuthoredProjectionContract,
+  AuthoredVariableMapField,
+  AuthoredVariableStringField,
+  AuthoredWarmLaneDeclaration,
+  ContractKey,
+  EnumStorageType,
+  ProjectionFamily,
+  ScalarType,
+  StringEncoding,
 } from "./ast";
-export { normalizeSpecAst } from "./normalization";
-export { SPEC_AST_V1_ID } from "./schema-id";
+export { AUTHORED_PROJECTION_CONTRACT_V1_ID } from "./schema-id";
 export {
   SchemaValidationError,
   type SchemaValidationIssue,
-  validateSpecAst,
+  validateAuthoredProjectionContract,
 } from "./validation";

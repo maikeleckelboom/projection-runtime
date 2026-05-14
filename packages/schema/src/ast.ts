@@ -1,52 +1,112 @@
-export type ScalarKind = "f32" | "i32" | "u32" | "bool" | "enum";
+export type ProjectionFamily = "replaceable-snapshot";
 
-export type ArrayKind =
-  | "f32.array"
-  | "i32.array"
-  | "u32.array"
-  | "u8.array"
-  | "i8.array"
-  | "i16.array"
-  | "u16.array"
-  | "bool.array"
-  | "enum.array";
+export type ContractKey = string;
 
-export type ParamKind = ScalarKind | ArrayKind;
+export type ScalarType =
+  | "bool"
+  | "u8"
+  | "u16"
+  | "u32"
+  | "u64"
+  | "i8"
+  | "i16"
+  | "i32"
+  | "i64"
+  | "f32"
+  | "f64";
 
-export type MeterKind = ScalarKind | "f64" | ArrayKind | "f64.array";
+export type EnumStorageType = "u8" | "u16" | "u32";
 
-export interface SpecNamespace<Leaf> {
-  readonly [key: string]: Leaf | SpecNamespace<Leaf>;
-}
+export type StringEncoding = "utf8" | "ascii";
 
-export interface NumericRange {
-  readonly min?: number;
-  readonly max?: number;
-}
-
-export type EnumVocabulary = readonly [string, ...string[]];
-
-export type ParamDef =
-  | Readonly<{ kind: "f32" } & NumericRange>
-  | Readonly<{ kind: "i32" } & NumericRange>
-  | Readonly<{ kind: "u32" } & NumericRange>
-  | Readonly<{ kind: "bool" }>
-  | Readonly<{ kind: "enum"; values: EnumVocabulary }>
-  | Readonly<{ kind: Exclude<ArrayKind, "enum.array">; length: number }>
-  | Readonly<{ kind: "enum.array"; values: EnumVocabulary; length: number }>;
-
-export type MeterDef =
-  | Readonly<{ kind: Exclude<MeterKind, ArrayKind | "enum"> }>
-  | Readonly<{ kind: "enum"; values: EnumVocabulary }>
-  | Readonly<{
-      kind: Exclude<MeterKind, ScalarKind | "f64" | "enum" | "enum.array">;
-      length: number;
-    }>
-  | Readonly<{ kind: "enum.array"; values: EnumVocabulary; length: number }>;
-
-export interface SpecAst {
+export interface AuthoredProjectionContract {
   readonly $schema?: string;
-  readonly id?: string;
-  readonly params?: SpecNamespace<ParamDef>;
-  readonly meters?: SpecNamespace<MeterDef>;
+  readonly key: ContractKey;
+  readonly family: ProjectionFamily;
+  readonly fields: AuthoredFieldTree;
+  readonly lanes?: AuthoredLaneDeclarations;
+  readonly revisionNote?: string;
+}
+
+export interface AuthoredFieldTree {
+  readonly [segment: string]: AuthoredFieldDef | AuthoredFieldTree;
+}
+
+export type AuthoredFieldDef = AuthoredFieldShape;
+
+export type AuthoredFieldShape =
+  | AuthoredFixedScalarField
+  | AuthoredFixedEnumField
+  | AuthoredFixedVectorField
+  | AuthoredBoundedArrayField
+  | AuthoredBoundedMapField
+  | AuthoredVariableMapField
+  | AuthoredFixedStringEncodedField
+  | AuthoredVariableStringField;
+
+export interface AuthoredFixedScalarField {
+  readonly kind: "fixed-scalar";
+  readonly type: ScalarType;
+  readonly nanSentinel?: true;
+}
+
+export interface AuthoredFixedEnumField {
+  readonly kind: "fixed-enum";
+  readonly variants: readonly [string, ...string[]];
+  readonly storage: EnumStorageType;
+}
+
+export interface AuthoredFixedVectorField {
+  readonly kind: "fixed-vector";
+  readonly elementType: ScalarType;
+  readonly length: number;
+}
+
+export interface AuthoredBoundedArrayField {
+  readonly kind: "bounded-array";
+  readonly elementType: ScalarType;
+  readonly maxLength: number;
+  readonly hotReservation?: true;
+}
+
+export interface AuthoredBoundedMapField {
+  readonly kind: "bounded-map";
+  readonly keyEncoding: "fixed-ascii";
+  readonly keyByteLength: number;
+  readonly valueShape: AuthoredFixedScalarField | AuthoredFixedEnumField | AuthoredFixedVectorField;
+  readonly maxEntries: number;
+  readonly hotReservation?: true;
+}
+
+export interface AuthoredVariableMapField {
+  readonly kind: "variable-map";
+  readonly valueShape: AuthoredFieldShape;
+}
+
+export interface AuthoredFixedStringEncodedField {
+  readonly kind: "fixed-string-encoded";
+  readonly byteLength: number;
+  readonly encoding: StringEncoding;
+}
+
+export interface AuthoredVariableStringField {
+  readonly kind: "variable-string";
+}
+
+export interface AuthoredLaneDeclarations {
+  readonly hot?: AuthoredHotLaneDeclaration;
+  readonly warm?: AuthoredWarmLaneDeclaration;
+  readonly cold?: AuthoredColdLaneDeclaration;
+}
+
+export interface AuthoredHotLaneDeclaration {
+  readonly reservations?: readonly string[];
+}
+
+export interface AuthoredWarmLaneDeclaration {
+  readonly codec?: "framed-snapshot";
+}
+
+export interface AuthoredColdLaneDeclaration {
+  readonly materialization?: "latest-snapshot" | "checkpointed-snapshot";
 }

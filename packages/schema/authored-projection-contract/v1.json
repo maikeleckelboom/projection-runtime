@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seqlok.dev/schema/authored-projection-contract/v1.json",
+  "title": "SeqlokAuthoredProjectionContractV1",
+  "description": "Authored projection contract syntax for Seqlok. This artifact validates authored structure only; compiler-owned normalization, canonical manifest emission, lane planning, version derivation, generated bindings, and conformance fixtures are out of scope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["key", "family", "fields"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key": {
+      "$ref": "#/$defs/Path"
+    },
+    "family": {
+      "const": "replaceable-snapshot"
+    },
+    "fields": {
+      "$ref": "#/$defs/AuthoredFieldTree"
+    },
+    "lanes": {
+      "$ref": "#/$defs/AuthoredLaneDeclarations"
+    },
+    "revisionNote": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "Segment": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*$"
+    },
+    "Path": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+    },
+    "PositiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ScalarType": {
+      "enum": ["bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64"]
+    },
+    "EnumStorageType": {
+      "enum": ["u8", "u16", "u32"]
+    },
+    "EnumVariants": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "AuthoredFieldTree": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/Segment"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/AuthoredFieldShape"
+          },
+          {
+            "$ref": "#/$defs/AuthoredFieldTree"
+          }
+        ]
+      }
+    },
+    "AuthoredFieldShape": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FixedScalar"
+        },
+        {
+          "$ref": "#/$defs/FixedEnum"
+        },
+        {
+          "$ref": "#/$defs/FixedVector"
+        },
+        {
+          "$ref": "#/$defs/BoundedArray"
+        },
+        {
+          "$ref": "#/$defs/BoundedMap"
+        },
+        {
+          "$ref": "#/$defs/VariableMap"
+        },
+        {
+          "$ref": "#/$defs/FixedStringEncoded"
+        },
+        {
+          "$ref": "#/$defs/VariableString"
+        }
+      ]
+    },
+    "FixedValueShape": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FixedScalar"
+        },
+        {
+          "$ref": "#/$defs/FixedEnum"
+        },
+        {
+          "$ref": "#/$defs/FixedVector"
+        }
+      ]
+    },
+    "FixedScalar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type"],
+      "properties": {
+        "kind": {
+          "const": "fixed-scalar"
+        },
+        "type": {
+          "$ref": "#/$defs/ScalarType"
+        },
+        "nanSentinel": {
+          "const": true
+        }
+      }
+    },
+    "FixedEnum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "variants", "storage"],
+      "properties": {
+        "kind": {
+          "const": "fixed-enum"
+        },
+        "variants": {
+          "$ref": "#/$defs/EnumVariants"
+        },
+        "storage": {
+          "$ref": "#/$defs/EnumStorageType"
+        }
+      }
+    },
+    "FixedVector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "elementType", "length"],
+      "properties": {
+        "kind": {
+          "const": "fixed-vector"
+        },
+        "elementType": {
+          "$ref": "#/$defs/ScalarType"
+        },
+        "length": {
+          "$ref": "#/$defs/PositiveInteger"
+        }
+      }
+    },
+    "BoundedArray": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "elementType", "maxLength"],
+      "properties": {
+        "kind": {
+          "const": "bounded-array"
+        },
+        "elementType": {
+          "$ref": "#/$defs/ScalarType"
+        },
+        "maxLength": {
+          "$ref": "#/$defs/PositiveInteger"
+        },
+        "hotReservation": {
+          "const": true
+        }
+      }
+    },
+    "BoundedMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "keyEncoding", "keyByteLength", "valueShape", "maxEntries"],
+      "properties": {
+        "kind": {
+          "const": "bounded-map"
+        },
+        "keyEncoding": {
+          "const": "fixed-ascii"
+        },
+        "keyByteLength": {
+          "$ref": "#/$defs/PositiveInteger"
+        },
+        "valueShape": {
+          "$ref": "#/$defs/FixedValueShape"
+        },
+        "maxEntries": {
+          "$ref": "#/$defs/PositiveInteger"
+        },
+        "hotReservation": {
+          "const": true
+        }
+      }
+    },
+    "VariableMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "valueShape"],
+      "properties": {
+        "kind": {
+          "const": "variable-map"
+        },
+        "valueShape": {
+          "$ref": "#/$defs/AuthoredFieldShape"
+        }
+      }
+    },
+    "FixedStringEncoded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "byteLength", "encoding"],
+      "properties": {
+        "kind": {
+          "const": "fixed-string-encoded"
+        },
+        "byteLength": {
+          "$ref": "#/$defs/PositiveInteger"
+        },
+        "encoding": {
+          "enum": ["utf8", "ascii"]
+        }
+      }
+    },
+    "VariableString": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "const": "variable-string"
+        }
+      }
+    },
+    "AuthoredLaneDeclarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hot": {
+          "$ref": "#/$defs/AuthoredHotLaneDeclaration"
+        },
+        "warm": {
+          "$ref": "#/$defs/AuthoredWarmLaneDeclaration"
+        },
+        "cold": {
+          "$ref": "#/$defs/AuthoredColdLaneDeclaration"
+        }
+      }
+    },
+    "AuthoredHotLaneDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reservations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Path"
+          }
+        }
+      }
+    },
+    "AuthoredWarmLaneDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "const": "framed-snapshot"
+        }
+      }
+    },
+    "AuthoredColdLaneDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "materialization": {
+          "enum": ["latest-snapshot", "checkpointed-snapshot"]
+        }
+      }
+    }
+  }
+}

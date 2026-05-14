@@ -1,91 +1,87 @@
 # @seqlok/schema
 
-`@seqlok/schema` publishes the canonical authored spec AST for Seqlok.
+`@seqlok/schema` publishes authored projection contract types and syntactic validation for Seqlok.
 
-It owns authored structure: TypeScript AST types, structural validation,
-deterministic authored-layer normalization, the versioned JSON Schema artifact,
-and the artifact `$id`.
-
-It does not compile an authored spec into runtime behavior. That boundary belongs
-to `@seqlok/core`.
+This package owns the authored projection contract syntax: the pre-canonical contract shape that authors write before
+compiler normalization. It validates syntactic legality and structural shape, and it publishes the versioned JSON Schema
+artifact for contract interchange.
 
 ## What Belongs Here
 
-- `SpecAst`, `SpecNamespace`, `ParamDef`, `MeterDef`, and related authored AST
-  types.
-- `validateSpecAst(...)` for structural validation of authored AST objects.
+- `AuthoredProjectionContract`, `AuthoredFieldTree`, `AuthoredFieldDef`, and authored field-shape types.
+- `AuthoredLaneDeclarations` and lane declaration syntax types.
+- `validateAuthoredProjectionContract(...)` for syntax and structural validation before compiler normalization.
 - `SchemaValidationError` for structural validation failures.
-- `normalizeSpecAst(...)` for deterministic authored-layer normalization.
-- `SPEC_AST_V1_ID`, the `$id` of the published AST artifact.
-- `spec-ast/v1.json`, the versioned JSON Schema artifact for the authored AST.
+- `AUTHORED_PROJECTION_CONTRACT_V1_ID`, the `$id` of the published artifact.
+- `authored-projection-contract/v1.json`, the versioned JSON Schema artifact.
 
 ## What Does Not Belong Here
 
-- Builder DSL sugar.
-- `defineSpec(...)`.
-- Semantic compilation.
-- Runtime namespace flattening.
-- Canonical runtime key generation.
-- `keysOf(...)`.
-- Runtime defaults.
-- Runtime identity generation.
-- Planning, backing, handoff, or bindings.
-- Product semantics or convenience helpers over runtime behavior.
+- Authored contract normalization.
+- Canonical manifest emission.
+- Lane planning.
+- Lane admissibility decisions.
+- `semanticVersion`, `hotLayoutVersion`, `warmCodecVersion`, or `coldCodecVersion` derivation.
+- Field id derivation, field offset planning, layout decisions, codec legality, or semantic hashing.
+- Generated bindings, runtime bindings, generated fixtures, or conformance runners.
+
+Those responsibilities belong to the compiler and lane/conformance packages defined by the projection-runtime specs.
 
 ## Structural Validation
 
-`validateSpecAst(...)` checks authored structure only:
+`validateAuthoredProjectionContract(...)` checks authored syntax only:
 
 - legal top-level keys
-- recursive namespace shape
-- legal param and meter leaf kinds
-- required fields for enum and array leaves
+- contract key and field path grammar
+- recursive authored field tree shape
+- supported authored field-shape kinds
+- required properties for each field-shape kind
 - enum vocabulary shape
-- positive integer array lengths
+- positive integer bounds for bounded and fixed-size shapes
+- lane declaration object shape and known lane declaration strings
 - unknown property rejection
 
-It deliberately does not decide whether `min < max`, whether namespaces collide
-after flattening, how runtime defaults are filled, whether a runtime plan is
-legal, or whether two compiled contracts are compatible.
-
-## Authored Normalization
-
-`normalizeSpecAst(...)` validates the object, then returns a deterministic copy.
-It sorts authored object keys, sorts leaf object keys, preserves enum order,
-preserves namespace nesting, and omits empty `params` and `meters` planes.
-
-It does not flatten namespaces, fill runtime defaults, generate runtime
-identities, compute runtime keys, hash specs, or interpret product meaning.
+It deliberately does not normalize or sort authored field trees. It also does not decide whether a declared hot lane can
+carry every field, whether a reserved field is semantically admissible, whether resource bodies can travel on warm, how
+field ids are derived, or whether derived versions and manifests are legal.
 
 ## JSON Schema Artifact
 
-Current artifact: `@seqlok/schema/spec-ast/v1.json`
+Current artifact: `@seqlok/schema/authored-projection-contract/v1.json`
 
-Current `$id`: `https://seqlok.dev/schema/spec-ast/v1.json`
+Current `$id`: `https://seqlok.dev/schema/authored-projection-contract/v1.json`
 
-`v1` is the authored AST artifact version. It is not a runtime contract version,
-planner version, handoff version, or compatibility policy.
+`v1` is the authored contract artifact version. It is not a semantic contract version, lane layout version, codec
+version, planner version, or compatibility policy.
 
 ```ts
-import schema from "@seqlok/schema/spec-ast/v1.json";
-import { SPEC_AST_V1_ID } from "@seqlok/schema";
+import schema from "@seqlok/schema/authored-projection-contract/v1.json";
+import { AUTHORED_PROJECTION_CONTRACT_V1_ID } from "@seqlok/schema";
 
-console.assert(schema.$id === SPEC_AST_V1_ID);
+console.assert(schema.$id === AUTHORED_PROJECTION_CONTRACT_V1_ID);
 ```
 
 ## Usage
 
 ```ts
-import { normalizeSpecAst, validateSpecAst, type SpecAst } from "@seqlok/schema";
+import {
+  type AuthoredProjectionContract,
+  validateAuthoredProjectionContract,
+} from "@seqlok/schema";
 
-const spec: SpecAst = {
-  id: "transport",
-  params: {
-    tempo: { kind: "f32", min: 40, max: 240 },
-    mode: { kind: "enum", values: ["vinyl", "cdj", "sync"] },
+const contract: AuthoredProjectionContract = {
+  key: "deck.runtime",
+  family: "replaceable-snapshot",
+  fields: {
+    transport: {
+      tempo: { kind: "fixed-scalar", type: "f64" },
+      playing: { kind: "fixed-scalar", type: "bool" },
+    },
+  },
+  lanes: {
+    warm: { codec: "framed-snapshot" },
   },
 };
 
-validateSpecAst(spec);
-const normalized = normalizeSpecAst(spec);
+validateAuthoredProjectionContract(contract);
 ```

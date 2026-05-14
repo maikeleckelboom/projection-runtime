@@ -1,7 +1,7 @@
 {
   "name": "@seqlok/schema",
   "version": "0.0.0",
-  "description": "Canonical authored spec AST for Seqlok packages.",
+  "description": "Authored projection contract types and syntactic validation for Seqlok.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -12,12 +12,12 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./spec-ast/v1.json": "./spec-ast/v1.json",
+    "./authored-projection-contract/v1.json": "./authored-projection-contract/v1.json",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "spec-ast",
+    "authored-projection-contract",
     "README.md"
   ],
   "publishConfig": {

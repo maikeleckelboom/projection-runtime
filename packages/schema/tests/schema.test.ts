@@ -1,116 +1,176 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import schemaArtifact from "../spec-ast/v1.json";
+import schemaArtifact from "../authored-projection-contract/v1.json";
 import * as schema from "../src/index";
 import {
-  type MeterDef,
-  normalizeSpecAst,
-  type ParamDef,
+  AUTHORED_PROJECTION_CONTRACT_V1_ID,
+  type AuthoredBoundedArrayField,
+  type AuthoredProjectionContract,
+  type AuthoredVariableStringField,
   SchemaValidationError,
-  SPEC_AST_V1_ID,
-  type SpecAst,
-  type SpecNamespace,
-  validateSpecAst,
+  validateAuthoredProjectionContract,
 } from "../src/index";
 
 describe("@seqlok/schema", () => {
-  it("validates a minimal authored spec", () => {
-    const spec = {
-      id: "transport",
-      params: {
-        gain: { kind: "f32", min: 0, max: 1 },
-        lane: {
-          mode: { kind: "enum", values: ["vinyl", "sync"] },
+  it("validates a minimal authored projection contract", () => {
+    const contract = {
+      key: "deck.runtime",
+      family: "replaceable-snapshot",
+      fields: {
+        transport: {
+          tempo: { kind: "fixed-scalar", type: "f64" },
+          playing: { kind: "fixed-scalar", type: "bool" },
         },
       },
-      meters: {
-        peak: { kind: "f64" },
-      },
-    } satisfies SpecAst;
+    } satisfies AuthoredProjectionContract;
 
-    expect(validateSpecAst(spec)).toBe(true);
+    expect(validateAuthoredProjectionContract(contract)).toBe(true);
   });
 
-  it("keeps runtime exports narrow", () => {
-    expect(Object.keys(schema).sort()).toEqual([
-      "SPEC_AST_V1_ID",
-      "SchemaValidationError",
-      "normalizeSpecAst",
-      "validateSpecAst",
-    ]);
-  });
+  it("rejects invalid identifier grammar", () => {
+    for (const key of ["Deck.runtime", "deck_runtime", "deck-runtime", ".deck", "deck.", "deck..runtime"]) {
+      expect(() =>
+        validateAuthoredProjectionContract({
+          key,
+          family: "replaceable-snapshot",
+          fields: {
+            ok: { kind: "fixed-scalar", type: "u32" },
+          },
+        }),
+      ).toThrow(SchemaValidationError);
+    }
 
-  it("aligns the exported schema id with the public artifact", () => {
-    expect(schemaArtifact.$id).toBe(SPEC_AST_V1_ID);
-  });
-
-  it("rejects unknown authored properties", () => {
     expect(() =>
-      validateSpecAst({
-        params: {
-          gain: { kind: "f32", step: 0.1 },
+      validateAuthoredProjectionContract({
+        key: "deck.runtime",
+        family: "replaceable-snapshot",
+        fields: {
+          bad_name: { kind: "fixed-scalar", type: "u32" },
         },
+      }),
+    ).toThrow(SchemaValidationError);
+  });
+
+  it("rejects unknown top-level properties", () => {
+    expect(() =>
+      validateAuthoredProjectionContract({
+        key: "deck.runtime",
+        family: "replaceable-snapshot",
+        fields: {
+          tempo: { kind: "fixed-scalar", type: "f64" },
+        },
+        [["par", "ams"].join("")]: {},
       }),
     ).toThrow(SchemaValidationError);
   });
 
   it("collects multiple structural issues", () => {
     try {
-      validateSpecAst({
+      validateAuthoredProjectionContract({
         extra: true,
-        params: {
-          mode: { kind: "enum", values: ["a", "a"] },
-          flags: { kind: "bool.array", length: 0 },
+        key: "Deck.runtime",
+        family: "replaceable-snapshot",
+        fields: {
+          mode: { kind: "fixed-enum", variants: ["a", "a"], storage: "u8" },
+          samples: { kind: "bounded-array", elementType: "f32", maxLength: 0 },
         },
       });
     } catch (error) {
       expect(error).toBeInstanceOf(SchemaValidationError);
-      expect((error as SchemaValidationError).issues).toEqual([
-        { path: "extra", message: "unknown top-level property" },
-        { path: "params.mode.values[1]", message: "duplicate enum label" },
-        { path: "params.flags.length", message: "must be a positive integer" },
-      ]);
+      const issues = (error as SchemaValidationError).issues;
+
+      expect(issues).toEqual(
+        expect.arrayContaining([
+          { path: "extra", message: "unknown property" },
+          { path: "key", message: "invalid path grammar" },
+          { path: "fields.mode.variants[1]", message: "duplicate enum variant" },
+          { path: "fields.samples.maxLength", message: "must be a positive integer" },
+        ]),
+      );
+      expect(issues.length).toBeGreaterThanOrEqual(4);
     }
   });
 
-  it("does not perform semantic range validation", () => {
+  it("aligns the exported schema id with the public artifact", () => {
+    expect(schemaArtifact.$id).toBe(AUTHORED_PROJECTION_CONTRACT_V1_ID);
+  });
+
+  it("keeps runtime exports on the new public surface", () => {
+    expect(Object.keys(schema).sort()).toEqual([
+      "AUTHORED_PROJECTION_CONTRACT_V1_ID",
+      "SchemaValidationError",
+      "validateAuthoredProjectionContract",
+    ]);
+
+    for (const removedExport of [
+      ["normalize", "Spec", "Ast"].join(""),
+      ["Spec", "Ast"].join(""),
+      ["Param", "Def"].join(""),
+      ["Meter", "Def"].join(""),
+      ["SPEC", "AST", "V1", "ID"].join("_"),
+    ]) {
+      expect(removedExport in schema).toBe(false);
+    }
+  });
+
+  it("validates lane declaration syntax without enforcing lane admissibility", () => {
     expect(
-      validateSpecAst({
-        params: {
-          inverted: { kind: "f32", min: 10, max: 1 },
+      validateAuthoredProjectionContract({
+        key: "workspace.runtime",
+        family: "replaceable-snapshot",
+        fields: {
+          layout: {
+            realizationKey: { kind: "variable-string" },
+          },
+        },
+        lanes: {
+          hot: {
+            reservations: ["layout.realizationKey"],
+          },
+          warm: {
+            codec: "framed-snapshot",
+          },
+          cold: {
+            materialization: "latest-snapshot",
+          },
         },
       }),
     ).toBe(true);
+
+    expect(() =>
+      validateAuthoredProjectionContract({
+        key: "workspace.runtime",
+        family: "replaceable-snapshot",
+        fields: {
+          layout: {
+            realizationKey: { kind: "variable-string" },
+          },
+        },
+        lanes: {
+          warm: { codec: "delta-frame" },
+        },
+      }),
+    ).toThrow(SchemaValidationError);
   });
 
-  it("normalizes only authored-layer structure", () => {
-    const normalized = normalizeSpecAst({
-      meters: {},
-      params: {
-        zed: { max: 1, kind: "f32", min: 0 },
-        nested: {
-          beta: { values: ["b", "a"], kind: "enum" },
-          alpha: { length: 2, kind: "u8.array" },
-        },
+  it("does not normalize or sort field trees", () => {
+    const contract: AuthoredProjectionContract = {
+      key: "deck.runtime",
+      family: "replaceable-snapshot",
+      fields: {
+        zed: { kind: "fixed-scalar", type: "u32" },
+        alpha: { kind: "fixed-scalar", type: "u32" },
       },
-    });
+    };
+    const beforeKeys = Object.keys(contract.fields);
 
-    expect(normalized).toEqual({
-      params: {
-        nested: {
-          alpha: { kind: "u8.array", length: 2 },
-          beta: { kind: "enum", values: ["b", "a"] },
-        },
-        zed: { kind: "f32", max: 1, min: 0 },
-      },
-    });
+    expect(validateAuthoredProjectionContract(contract)).toBe(true);
+    expect(Object.keys(contract.fields)).toEqual(beforeKeys);
   });
 
-  it("exports the canonical authored AST type surface", () => {
-    expectTypeOf<Extract<ParamDef, { kind: "enum" }>["values"]>().toEqualTypeOf<
-      readonly [string, ...string[]]
-    >();
-    expectTypeOf<Extract<MeterDef, { kind: "f64.array" }>["length"]>().toEqualTypeOf<number>();
-    expectTypeOf<SpecAst["params"]>().toEqualTypeOf<SpecNamespace<ParamDef> | undefined>();
+  it("exports the authored projection type surface", () => {
+    expectTypeOf<AuthoredProjectionContract["family"]>().toEqualTypeOf<"replaceable-snapshot">();
+    expectTypeOf<AuthoredBoundedArrayField["maxLength"]>().toEqualTypeOf<number>();
+    expectTypeOf<AuthoredVariableStringField["kind"]>().toEqualTypeOf<"variable-string">();
   });
 });
