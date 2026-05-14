@@ -20,6 +20,9 @@ const {
   encodeHotBlockAHeader,
   decodeHotBlockAHeader,
   validateHotBlockAHeader,
+  encodeHotBlockBHeader,
+  decodeHotBlockBHeader,
+  validateHotBlockBHeader,
 } = require("@seqlok/hot-codec");
 
 const authoredContractPath = resolve(fixtureRoot, "authored-contract.json");
@@ -27,6 +30,7 @@ const canonicalManifestPath = resolve(fixtureRoot, "canonical-manifest.json");
 const hotLayoutManifestPath = resolve(fixtureRoot, "hot-layout-manifest.json");
 const hotByteFixturePath = resolve(fixtureRoot, "hot-byte-fixture.json");
 const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
+const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
 const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
 
 const hotBasicSampleValues = {
@@ -57,6 +61,7 @@ await writeJson(canonicalManifestPath, resolved.manifest);
 await writeJson(hotLayoutManifestPath, hotLayoutManifest);
 await writeJson(hotByteFixturePath, createHotByteFixture(hotLayoutManifest, hotBasicSampleValues));
 await writeJson(hotBlockAFixturePath, createHotBlockAFixture(hotLayoutManifest, resolved));
+await writeJson(hotBlockBFixturePath, createHotBlockBFixture());
 await writeJson(resolvedContractPath, resolved);
 formatGeneratedJson();
 
@@ -166,6 +171,34 @@ function createHotBlockAFixture(hotLayoutManifest, resolved) {
   };
 }
 
+function createHotBlockBFixture() {
+  const input = {
+    seqlockCounter: 2n,
+    baselineEpoch: 7,
+    continuityGeneration: 3,
+    publicationSequence: 42n,
+  };
+  const blockBBytes = encodeHotBlockBHeader(input);
+  const decoded = decodeHotBlockBHeader(blockBBytes);
+  const validation = validateHotBlockBHeader(blockBBytes, input);
+
+  if (!validation.ok) {
+    throw new Error(`hot-block-b-fixture validation failed: ${validation.error.message}`);
+  }
+
+  return {
+    fixtureKind: "hot-block-b-fixture",
+    seqlockCounter: input.seqlockCounter,
+    baselineEpoch: input.baselineEpoch,
+    continuityGeneration: input.continuityGeneration,
+    publicationSequence: input.publicationSequence,
+    expected: {
+      blockBBytesHex: bytesToHex(blockBBytes),
+      decoded,
+    },
+  };
+}
+
 function registerWorkspaceTsRequireHook() {
   const typescript = require("typescript");
   const aliases = new Map([
@@ -208,6 +241,7 @@ function formatGeneratedJson() {
       "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-byte-fixture.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-block-a-fixture.json",
+      "fixtures/projection-runtime/hot-basic-v0/hot-block-b-fixture.json",
       "fixtures/projection-runtime/hot-basic-v0/resolved-contract.json",
     ],
     { cwd: repoRoot, stdio: "inherit" },

@@ -32,6 +32,13 @@ size from the compiler output. It verifies that decoding those bytes returns the
 validation against the expected input succeeds. It does not encode Block B, manage seqlock lifecycle, or create a valid
 full runtime region.
 
+`hot-block-b-fixture.json` adds deterministic Block B publication-header bytes. It encodes the standalone 24-byte slice
+for `seqlockCounter`, `baselineEpoch`, `continuityGeneration`, and `publicationSequence`, verifies lowercase
+little-endian bytes, verifies decoding, and validates the decoded header metadata through public `@seqlok/hot-codec`
+APIs. It does not perform publication lifecycle, seqlock retry, Atomics operations, SAB lifecycle management, runtime
+handle creation, live mapping binding, reader creation, or writer creation. It does not create a valid coherent runtime
+read by itself.
+
 Regenerate derived artifacts from the repo root:
 
 ```sh

@@ -1,3 +1,5 @@
+import { createConformanceError } from "./error";
+
 export function encodeFixtureJson(value: unknown): unknown {
   if (typeof value === "bigint") {
     return encodeU64Hex(value);
@@ -24,7 +26,10 @@ function compareObjectKeys(left: string, right: string): number {
 
 function encodeU64Hex(value: bigint): string {
   if (value < 0n || value > 0xffff_ffff_ffff_ffffn) {
-    throw new RangeError("fixture u64 value is out of range");
+    throw createConformanceError("fixtureShapeRejected", {
+      detail: "fixture u64 value is out of range",
+      failureCode: "u64OutOfRange",
+    });
   }
 
   return value.toString(16).padStart(16, "0");

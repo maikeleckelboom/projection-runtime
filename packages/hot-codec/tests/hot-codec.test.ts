@@ -9,20 +9,25 @@ import * as hotCodec from "../src/index";
 import {
   bytesToHex,
   decodeHotBlockAHeader,
+  decodeHotBlockBHeader,
   decodeHotFieldValues,
   deriveHotLayoutVersion,
   encodeHotBlockAHeader,
+  encodeHotBlockBHeader,
   encodeHotFieldData,
   encodeHotFieldValues,
   encodeHotFixtureRegion,
   HOT_BASELINE_EPOCH_U32_OFFSET,
   HOT_BLOCK_A_BYTE_LENGTH,
+  HOT_BLOCK_B_BYTE_LENGTH,
   HOT_BLOCK_B_BYTE_OFFSET,
+  HOT_BLOCK_B_END_OFFSET,
   HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_FIELD_DATA_BYTE_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
   type HotBlockAHeaderInput,
+  type HotBlockBHeaderInput,
   type HotByteCodecError,
   type HotCodecError,
   type HotFieldValues,
@@ -35,6 +40,7 @@ import {
   hexToBytes,
   planHotLayoutManifest,
   validateHotBlockAHeader,
+  validateHotBlockBHeader,
 } from "../src/index";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -154,6 +160,8 @@ describe("@seqlok/hot-codec constants", () => {
   it("exports fixed Block A and Block B offsets", () => {
     expect(HOT_BLOCK_A_BYTE_LENGTH).toBe(72);
     expect(HOT_BLOCK_B_BYTE_OFFSET).toBe(72);
+    expect(HOT_BLOCK_B_BYTE_LENGTH).toBe(24);
+    expect(HOT_BLOCK_B_END_OFFSET).toBe(96);
     expect(HOT_FIELD_DATA_BYTE_OFFSET).toBe(96);
     expect(HOT_SEQLOCK_U64_OFFSET).toBe(72);
     expect(HOT_BASELINE_EPOCH_U32_OFFSET).toBe(80);
@@ -737,6 +745,117 @@ describe("@seqlok/hot-codec Block A header", () => {
   });
 });
 
+describe("@seqlok/hot-codec Block B header", () => {
+  const validInput: HotBlockBHeaderInput = {
+    seqlockCounter: 2n,
+    baselineEpoch: 7,
+    continuityGeneration: 3,
+    publicationSequence: 42n,
+  };
+
+  it("encodeHotBlockBHeader returns exactly 24 bytes", () => {
+    expect(encodeHotBlockBHeader(validInput).byteLength).toBe(24);
+  });
+
+  it("seqlockCounter is encoded u64 little-endian", () => {
+    const bytes = encodeHotBlockBHeader({ ...validInput, seqlockCounter: 0x0102_0304_0506_0708n });
+    expect(bytesToHex(bytes.subarray(0, 8))).toBe("0807060504030201");
+  });
+
+  it("baselineEpoch is encoded u32 little-endian", () => {
+    const bytes = encodeHotBlockBHeader({ ...validInput, baselineEpoch: 0x0102_0304 });
+    expect(bytesToHex(bytes.subarray(8, 12))).toBe("04030201");
+  });
+
+  it("continuityGeneration is encoded u32 little-endian", () => {
+    const bytes = encodeHotBlockBHeader({ ...validInput, continuityGeneration: 0x0102_0304 });
+    expect(bytesToHex(bytes.subarray(12, 16))).toBe("04030201");
+  });
+
+  it("publicationSequence is encoded u64 little-endian", () => {
+    const bytes = encodeHotBlockBHeader({
+      ...validInput,
+      publicationSequence: 0x0102_0304_0506_0708n,
+    });
+    expect(bytesToHex(bytes.subarray(16, 24))).toBe("0807060504030201");
+  });
+
+  it("decodeHotBlockBHeader round-trips the fixture", () => {
+    const fixturePath = resolve(
+      repoRoot,
+      "fixtures/projection-runtime/hot-basic-v0/hot-block-b-fixture.json",
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as Record<string, unknown>;
+    const expected = fixture.expected as Record<string, unknown>;
+    const decodedExpected = expected.decoded as Record<string, unknown>;
+    const decoded = decodeHotBlockBHeader(hexToBytes(expected.blockBBytesHex as string));
+
+    expect(decoded.seqlockCounter).toBe(BigInt(`0x${decodedExpected.seqlockCounter}`));
+    expect(decoded.baselineEpoch).toBe(decodedExpected.baselineEpoch);
+    expect(decoded.continuityGeneration).toBe(decodedExpected.continuityGeneration);
+    expect(decoded.publicationSequence).toBe(BigInt(`0x${decodedExpected.publicationSequence}`));
+  });
+
+  it("validateHotBlockBHeader succeeds for matching expected input", () => {
+    const bytes = encodeHotBlockBHeader(validInput);
+    const result = validateHotBlockBHeader(bytes, validInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected validation to succeed");
+    }
+    expect(result.value.publicationSequence).toBe(validInput.publicationSequence);
+  });
+
+  it("rejects wrong byte length with typed issue code header.blockBByteLengthInvalid", () => {
+    const error = expectHotByteCodecError(() => decodeHotBlockBHeader(new Uint8Array(23)));
+    expect(error.details.issues.map((i) => i.code)).toContain("header.blockBByteLengthInvalid");
+  });
+
+  it("rejects out-of-range u64 and u32 inputs with typed issue codes", () => {
+    expect(
+      expectHotByteCodecError(() =>
+        encodeHotBlockBHeader({ ...validInput, seqlockCounter: -1n }),
+      ).details.issues.map((i) => i.code),
+    ).toContain("header.seqlockCounterOutOfRange");
+    expect(
+      expectHotByteCodecError(() =>
+        encodeHotBlockBHeader({ ...validInput, publicationSequence: 0x1_0000_0000_0000_0000n }),
+      ).details.issues.map((i) => i.code),
+    ).toContain("header.publicationSequenceOutOfRange");
+    expect(
+      expectHotByteCodecError(() =>
+        encodeHotBlockBHeader({ ...validInput, baselineEpoch: 0x1_0000_0000 }),
+      ).details.issues.map((i) => i.code),
+    ).toContain("header.baselineEpochOutOfRange");
+    expect(
+      expectHotByteCodecError(() =>
+        encodeHotBlockBHeader({ ...validInput, continuityGeneration: -1 }),
+      ).details.issues.map((i) => i.code),
+    ).toContain("header.continuityGenerationOutOfRange");
+  });
+
+  it("rejects validation mismatches with typed issue codes", () => {
+    const bytes = encodeHotBlockBHeader(validInput);
+    const result = validateHotBlockBHeader(bytes, {
+      seqlockCounter: 4n,
+      baselineEpoch: 8,
+      continuityGeneration: 9,
+      publicationSequence: 43n,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.details.issues.map((i) => i.code).sort()).toEqual([
+      "header.baselineEpochMismatch",
+      "header.continuityGenerationMismatch",
+      "header.publicationSequenceMismatch",
+      "header.seqlockCounterMismatch",
+    ]);
+  });
+});
+
 describe("@seqlok/hot-codec error model", () => {
   const validInput: HotBlockAHeaderInput = {
     contractKey: "fixture.hotBasic",
@@ -770,9 +889,11 @@ describe("@seqlok/hot-codec error model", () => {
     expect(error.details.issues.map((i) => i.code)).toContain("header.magicInvalid");
   });
 
-  it("has no production throw new Error", () => {
+  it("has no production generic Error subclass construction", () => {
     const text = sourceText(hotCodecSourceRoot);
     expect(text).not.toContain("throw new Error");
+    expect(text).not.toContain("throw new RangeError");
+    expect(text).not.toContain("throw new TypeError");
   });
 
   it("has no production code: string in issue types", () => {
@@ -913,7 +1034,9 @@ describe("@seqlok/hot-codec public surface", () => {
       "HOT_ABI_VERSION",
       "HOT_BASELINE_EPOCH_U32_OFFSET",
       "HOT_BLOCK_A_BYTE_LENGTH",
+      "HOT_BLOCK_B_BYTE_LENGTH",
       "HOT_BLOCK_B_BYTE_OFFSET",
+      "HOT_BLOCK_B_END_OFFSET",
       "HOT_CODEC_ERRORS",
       "HOT_CODEC_ISSUE_DEFS",
       "HOT_CONTINUITY_GENERATION_U32_OFFSET",
@@ -927,9 +1050,11 @@ describe("@seqlok/hot-codec public surface", () => {
       "createHotCodecIssue",
       "createHotLayoutRejectedError",
       "decodeHotBlockAHeader",
+      "decodeHotBlockBHeader",
       "decodeHotFieldValues",
       "deriveHotLayoutVersion",
       "encodeHotBlockAHeader",
+      "encodeHotBlockBHeader",
       "encodeHotFieldData",
       "encodeHotFieldValues",
       "encodeHotFixtureRegion",
@@ -937,6 +1062,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "isHotCodecError",
       "planHotLayoutManifest",
       "validateHotBlockAHeader",
+      "validateHotBlockBHeader",
     ]);
 
     expect("HotByteCodecError" in hotCodec).toBe(false);

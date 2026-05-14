@@ -13,6 +13,7 @@ export type ConformanceArtifactName =
   | "authored-contract"
   | "canonical-manifest"
   | "hot-block-a-fixture"
+  | "hot-block-b-fixture"
   | "hot-byte-fixture"
   | "hot-layout-manifest"
   | "readme"
@@ -42,6 +43,7 @@ export type ConformanceFailureCode =
   | "missingResolvedContract"
   | "mutableRegionByteLengthMismatch"
   | "semanticVersionMismatch"
+  | "u64OutOfRange"
   | "valuesNotObject";
 
 export interface ConformanceErrorDetails extends ErrorDetails {
@@ -51,7 +53,6 @@ export interface ConformanceErrorDetails extends ErrorDetails {
   readonly fixtureFile?: string;
   readonly relativePath?: string;
   readonly artifact?: ConformanceFailureArtifactName;
-  readonly reason?: ConformanceFailureCode;
   readonly failureCode?: ConformanceFailureCode;
   readonly path?: string;
 }
@@ -72,6 +73,7 @@ export interface ConformanceFixtureShapeRejectedDetails extends ConformanceError
     | "fixtureNotObject"
     | "missingHotLayoutManifest"
     | "missingResolvedContract"
+    | "u64OutOfRange"
     | "valuesNotObject";
 }
 

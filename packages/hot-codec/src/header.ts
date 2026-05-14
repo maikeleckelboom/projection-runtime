@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { bytesToHex } from "./byte";
-import { HOT_ABI_VERSION, HOT_BLOCK_A_BYTE_LENGTH, HOT_REGION_MAGIC_BYTES } from "./constants";
+import {
+  HOT_ABI_VERSION,
+  HOT_BLOCK_A_BYTE_LENGTH,
+  HOT_BLOCK_B_BYTE_LENGTH,
+  HOT_REGION_MAGIC_BYTES,
+} from "./constants";
 import {
   createHotByteRejectedError,
   createHotCodecIssue,
@@ -33,6 +38,24 @@ export type HotBlockAHeader = {
 
 export type HotBlockAHeaderValidationResult =
   | { readonly ok: true; readonly value: HotBlockAHeader }
+  | { readonly ok: false; readonly error: HotByteCodecError };
+
+export type HotBlockBHeaderInput = {
+  readonly seqlockCounter: bigint;
+  readonly baselineEpoch: number;
+  readonly continuityGeneration: number;
+  readonly publicationSequence: bigint;
+};
+
+export type HotBlockBHeader = {
+  readonly seqlockCounter: bigint;
+  readonly baselineEpoch: number;
+  readonly continuityGeneration: number;
+  readonly publicationSequence: bigint;
+};
+
+export type HotBlockBHeaderValidationResult =
+  | { readonly ok: true; readonly value: HotBlockBHeader }
   | { readonly ok: false; readonly error: HotByteCodecError };
 
 export function encodeHotBlockAHeader(input: HotBlockAHeaderInput): Uint8Array {
@@ -194,6 +217,101 @@ export function validateHotBlockAHeader(
   return { ok: true, value: decoded };
 }
 
+export function encodeHotBlockBHeader(input: HotBlockBHeaderInput): Uint8Array {
+  validateBlockBInput(input);
+  const bytes = new Uint8Array(HOT_BLOCK_B_BYTE_LENGTH);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  view.setBigUint64(0, input.seqlockCounter, true);
+  view.setUint32(8, input.baselineEpoch, true);
+  view.setUint32(12, input.continuityGeneration, true);
+  view.setBigUint64(16, input.publicationSequence, true);
+
+  return bytes;
+}
+
+export function decodeHotBlockBHeader(bytes: Uint8Array): HotBlockBHeader {
+  if (bytes.byteLength !== HOT_BLOCK_B_BYTE_LENGTH) {
+    throw headerError(
+      "header.blockBByteLengthInvalid",
+      "bytes",
+      `Block B header must be exactly ${HOT_BLOCK_B_BYTE_LENGTH} bytes, got ${bytes.byteLength}`,
+    );
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  return {
+    seqlockCounter: view.getBigUint64(0, true),
+    baselineEpoch: view.getUint32(8, true),
+    continuityGeneration: view.getUint32(12, true),
+    publicationSequence: view.getBigUint64(16, true),
+  };
+}
+
+export function validateHotBlockBHeader(
+  bytes: Uint8Array,
+  expected: HotBlockBHeaderInput,
+): HotBlockBHeaderValidationResult {
+  let decoded: HotBlockBHeader;
+  try {
+    decoded = decodeHotBlockBHeader(bytes);
+  } catch (error) {
+    if (isHotCodecError(error) && error.code === "hotCodec.byteRejected") {
+      return { ok: false, error };
+    }
+    throw error;
+  }
+
+  const issues: HotCodecIssue[] = [];
+
+  if (decoded.seqlockCounter !== expected.seqlockCounter) {
+    issues.push(
+      createHotCodecIssue(
+        "header.seqlockCounterMismatch",
+        "expected.seqlockCounter",
+        `seqlockCounter mismatch: expected ${expected.seqlockCounter}, got ${decoded.seqlockCounter}`,
+      ),
+    );
+  }
+
+  if (decoded.baselineEpoch !== expected.baselineEpoch) {
+    issues.push(
+      createHotCodecIssue(
+        "header.baselineEpochMismatch",
+        "expected.baselineEpoch",
+        `baselineEpoch mismatch: expected ${expected.baselineEpoch}, got ${decoded.baselineEpoch}`,
+      ),
+    );
+  }
+
+  if (decoded.continuityGeneration !== expected.continuityGeneration) {
+    issues.push(
+      createHotCodecIssue(
+        "header.continuityGenerationMismatch",
+        "expected.continuityGeneration",
+        `continuityGeneration mismatch: expected ${expected.continuityGeneration}, got ${decoded.continuityGeneration}`,
+      ),
+    );
+  }
+
+  if (decoded.publicationSequence !== expected.publicationSequence) {
+    issues.push(
+      createHotCodecIssue(
+        "header.publicationSequenceMismatch",
+        "expected.publicationSequence",
+        `publicationSequence mismatch: expected ${expected.publicationSequence}, got ${decoded.publicationSequence}`,
+      ),
+    );
+  }
+
+  if (issues.length > 0) {
+    return { ok: false, error: createHotByteRejectedError(issues) };
+  }
+
+  return { ok: true, value: decoded };
+}
+
 function validateInput(input: HotBlockAHeaderInput): void {
   const issues: HotCodecIssue[] = [];
 
@@ -231,6 +349,42 @@ function validateInput(input: HotBlockAHeaderInput): void {
         "header.mutableRegionByteLengthOutOfRange",
         "input.mutableRegionByteLength",
       ),
+    );
+  }
+
+  if (issues.length > 0) {
+    throw createHotByteRejectedError(issues);
+  }
+}
+
+function validateBlockBInput(input: HotBlockBHeaderInput): void {
+  const issues: HotCodecIssue[] = [];
+
+  if (input.seqlockCounter < 0n || input.seqlockCounter > 0xffff_ffff_ffff_ffffn) {
+    issues.push(createHotCodecIssue("header.seqlockCounterOutOfRange", "input.seqlockCounter"));
+  }
+
+  if (
+    !Number.isSafeInteger(input.baselineEpoch) ||
+    input.baselineEpoch < 0 ||
+    input.baselineEpoch > 0xffff_ffff
+  ) {
+    issues.push(createHotCodecIssue("header.baselineEpochOutOfRange", "input.baselineEpoch"));
+  }
+
+  if (
+    !Number.isSafeInteger(input.continuityGeneration) ||
+    input.continuityGeneration < 0 ||
+    input.continuityGeneration > 0xffff_ffff
+  ) {
+    issues.push(
+      createHotCodecIssue("header.continuityGenerationOutOfRange", "input.continuityGeneration"),
+    );
+  }
+
+  if (input.publicationSequence < 0n || input.publicationSequence > 0xffff_ffff_ffff_ffffn) {
+    issues.push(
+      createHotCodecIssue("header.publicationSequenceOutOfRange", "input.publicationSequence"),
     );
   }
 

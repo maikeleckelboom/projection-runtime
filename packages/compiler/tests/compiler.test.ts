@@ -891,9 +891,11 @@ describe("@seqlok/compiler error model", () => {
     expect(error.details.issueCount).toBe(error.details.issues.length);
   });
 
-  it("has no production throw new Error", () => {
+  it("has no production generic Error subclass construction", () => {
     const text = sourceText(compilerSourceRoot);
     expect(text).not.toContain("throw new Error");
+    expect(text).not.toContain("throw new RangeError");
+    expect(text).not.toContain("throw new TypeError");
   });
 
   it("has no production code: string in issue types", () => {

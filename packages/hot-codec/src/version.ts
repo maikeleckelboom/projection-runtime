@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { panic } from "@seqlok/base";
 
+import { createHotCodecIssue, createHotLayoutRejectedError } from "./error";
 import type { HotFieldEntry, HotLayoutManifest, HotLayoutVersion } from "./manifest";
 import type { HotLayoutPlanningShape } from "./shape";
 import { compareUtf8 } from "./shape";
@@ -183,5 +184,11 @@ function assertUnsignedInteger(value: number, max: number, label: string): void 
     return;
   }
 
-  throw new RangeError(`canonical hot layout ${label} value is out of range`);
+  throw createHotLayoutRejectedError([
+    createHotCodecIssue(
+      "layout.numericOutOfRange",
+      `canonicalHotLayout.${label}`,
+      `canonical hot layout ${label} value is out of range`,
+    ),
+  ]);
 }

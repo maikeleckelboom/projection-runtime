@@ -80,6 +80,15 @@ export const HOT_CODEC_ISSUE_DEFS = {
   "header.hotLayoutVersionMismatch": "hotLayoutVersion mismatch",
   "header.fieldCountMismatch": "fieldCount mismatch",
   "header.mutableRegionByteLengthMismatch": "mutableRegionByteLength mismatch",
+  "header.blockBByteLengthInvalid": "Block B header byte length is invalid",
+  "header.seqlockCounterOutOfRange": "seqlockCounter must be a u64",
+  "header.baselineEpochOutOfRange": "baselineEpoch must be a u32",
+  "header.continuityGenerationOutOfRange": "continuityGeneration must be a u32",
+  "header.publicationSequenceOutOfRange": "publicationSequence must be a u64",
+  "header.seqlockCounterMismatch": "seqlockCounter mismatch",
+  "header.baselineEpochMismatch": "baselineEpoch mismatch",
+  "header.continuityGenerationMismatch": "continuityGeneration mismatch",
+  "header.publicationSequenceMismatch": "publicationSequence mismatch",
 } as const;
 
 export type HotCodecIssueCode = keyof typeof HOT_CODEC_ISSUE_DEFS;

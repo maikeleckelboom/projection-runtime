@@ -15,7 +15,9 @@ export {
   HOT_ABI_VERSION,
   HOT_BASELINE_EPOCH_U32_OFFSET,
   HOT_BLOCK_A_BYTE_LENGTH,
+  HOT_BLOCK_B_BYTE_LENGTH,
   HOT_BLOCK_B_BYTE_OFFSET,
+  HOT_BLOCK_B_END_OFFSET,
   HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_FIELD_DATA_BYTE_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
@@ -39,11 +41,17 @@ export {
 } from "./error";
 export {
   decodeHotBlockAHeader,
+  decodeHotBlockBHeader,
   encodeHotBlockAHeader,
+  encodeHotBlockBHeader,
   type HotBlockAHeader,
   type HotBlockAHeaderInput,
   type HotBlockAHeaderValidationResult,
+  type HotBlockBHeader,
+  type HotBlockBHeaderInput,
+  type HotBlockBHeaderValidationResult,
   validateHotBlockAHeader,
+  validateHotBlockBHeader,
 } from "./header";
 export type {
   HotFieldEntry,

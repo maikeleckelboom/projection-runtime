@@ -16,6 +16,7 @@ export interface ProjectionRuntimeFixtureArtifacts {
   readonly canonicalManifest: unknown;
   readonly hotByteFixture: unknown;
   readonly hotBlockAFixture: unknown;
+  readonly hotBlockBFixture: unknown;
   readonly hotLayoutManifest: unknown;
   readonly resolvedContract: unknown;
 }
@@ -62,6 +63,11 @@ const hotByteFixtureFile = {
 const hotBlockAFixtureFile = {
   fileName: "hot-block-a-fixture.json",
   artifactName: "hot-block-a-fixture",
+} satisfies RequiredFixtureFile;
+
+const hotBlockBFixtureFile = {
+  fileName: "hot-block-b-fixture.json",
+  artifactName: "hot-block-b-fixture",
 } satisfies RequiredFixtureFile;
 
 const resolvedContractFile = {
@@ -122,6 +128,12 @@ export async function loadProjectionRuntimeFixture(
     fixtureName,
     hotBlockAFixtureFile,
   );
+  const hotBlockBFixture = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    hotBlockBFixtureFile,
+  );
   const resolvedContract = await readRequiredJson(
     fixturePath,
     relativeFixturePath,
@@ -138,6 +150,7 @@ export async function loadProjectionRuntimeFixture(
       canonicalManifest,
       hotByteFixture,
       hotBlockAFixture,
+      hotBlockBFixture,
       hotLayoutManifest,
       resolvedContract,
     },
@@ -171,7 +184,6 @@ function assertDirectFixtureName(fixtureName: ProjectionRuntimeFixtureName): voi
       detail: `invalid projection-runtime fixture name: ${fixtureName}`,
       failureCode: "invalidFixtureName",
       fixtureName,
-      reason: "invalidFixtureName",
     });
   }
 }
@@ -239,7 +251,6 @@ function fileError(
       fixturePath: relativeFixturePath,
       fixtureFile: file.fileName,
       relativePath,
-      reason: failureCode,
     },
     cause,
   );

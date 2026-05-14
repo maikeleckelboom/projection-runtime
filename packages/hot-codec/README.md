@@ -5,9 +5,10 @@
 It is build-time planning code. It owns hot ABI constants, hot field layout planning, reservation metadata, region
 sizing, `hotLayoutVersion` derivation, and pure deterministic hot field byte codec helpers.
 
-The byte helpers encode and decode values against an already-planned `HotLayoutManifest`. They can produce field-data
-bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures. These fixture bytes are not
-valid runtime hot regions: Block A and Block B are zero-filled because real header/seqlock values are a runtime concern.
+The field byte helpers encode and decode values against an already-planned `HotLayoutManifest`. They can produce
+field-data bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures. These fixture
+region bytes are not valid runtime hot regions: Block A and Block B are zero-filled because runtime publication backing
+is owned elsewhere.
 
 Hot-codec throws and returns `SeqlokError` values with package-domain codes. Planning failures expose code
 `hotCodec.layoutRejected` and a sorted `details.issues` list of `HotCodecIssue` objects with stable typed issue codes
@@ -32,3 +33,13 @@ semantic version, layout version, field count, and mutable region size. These he
 encode Block B, the seqlock counter, baseline epoch, continuity generation, or publication sequence. They do not manage
 seqlock lifecycle, allocate SharedArrayBuffer, or create valid full runtime regions by themselves. `encodeHotFixtureRegion`
 remains a zero-filled fixture-region helper and is not a valid runtime hot region.
+
+## Block B header helpers
+
+`encodeHotBlockBHeader`, `decodeHotBlockBHeader`, and `validateHotBlockBHeader` encode static publication-header bytes
+for fixture and conformance use. Block B contains `seqlockCounter`, `baselineEpoch`, `continuityGeneration`, and
+`publicationSequence` as a standalone 24-byte little-endian slice. These helpers do not encode Block A or field data.
+
+The Block B helpers do not perform publication lifecycle, seqlock retry, Atomics operations, SharedArrayBuffer lifecycle
+management, runtime handle creation, live mapping binding, reader creation, or writer creation. They do not interpret
+odd/even seqlock state as runtime validity and do not create valid coherent runtime reads by themselves.

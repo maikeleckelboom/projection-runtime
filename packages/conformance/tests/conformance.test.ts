@@ -87,6 +87,10 @@ describe("@seqlok/conformance fixture loading", () => {
       fixtureKind: "hot-block-a-fixture",
       contractKey: "fixture.hotBasic",
     });
+    expect(fixture.artifacts.hotBlockBFixture).toMatchObject({
+      fixtureKind: "hot-block-b-fixture",
+      seqlockCounter: "0000000000000002",
+    });
     expect(fixture.artifacts.resolvedContract).toMatchObject({
       manifest: { key: "fixture.hotBasic" },
     });
@@ -195,6 +199,50 @@ describe("@seqlok/conformance fixture loading", () => {
       expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-block-a-fixture.json");
     });
   });
+
+  it("loads hot-basic-v0 hot-block-b-fixture.json with deterministic metadata", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockBFixture = cloneRecord(fixture.artifacts.hotBlockBFixture);
+    const expected = cloneRecord(hotBlockBFixture.expected);
+
+    expect(hotBlockBFixture).toMatchObject({
+      fixtureKind: "hot-block-b-fixture",
+      seqlockCounter: "0000000000000002",
+      baselineEpoch: 7,
+      continuityGeneration: 3,
+      publicationSequence: "000000000000002a",
+    });
+    expect(expected.blockBBytesHex).toBe("020000000000000007000000030000002a00000000000000");
+    expect(expected.decoded).toEqual({
+      seqlockCounter: "0000000000000002",
+      baselineEpoch: 7,
+      continuityGeneration: 3,
+      publicationSequence: "000000000000002a",
+    });
+  });
+
+  it("reports missing hot-block-b-fixture.json explicitly", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-block-b-fixture.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
+          fixtureFile: "hot-block-b-fixture.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-block-b-fixture.json");
+    });
+  });
 });
 
 describe("@seqlok/conformance execution", () => {
@@ -277,6 +325,22 @@ describe("@seqlok/conformance execution", () => {
     expect(failure.reason).toBe("hot-block-a-fixture does not match golden artifact");
   });
 
+  it("reports hot-block-b-fixture failures for changed in-memory expected bytes", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockBFixture = cloneRecord(fixture.artifacts.hotBlockBFixture);
+    const expected = cloneRecord(hotBlockBFixture.expected);
+    expected.blockBBytesHex = "000000000000000007000000030000002a00000000000000";
+    hotBlockBFixture.expected = expected;
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockBFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-b-fixture");
+    expect(failure.failureCode).toBe("headerValidationFailed");
+    expect(failure.reason).toContain("hot-block-b-fixture validation failed");
+  });
+
   it("reports resolved-contract failures for changed in-memory expected contracts", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
     const resolvedContract = cloneRecord(fixture.artifacts.resolvedContract);
@@ -324,7 +388,6 @@ describe("@seqlok/conformance error model", () => {
     const error: ConformanceError = createConformanceError("fixtureFileRejected", {
       failureCode: "invalidFixtureName",
       fixtureName: "test",
-      reason: "invalidFixtureName",
     });
     expect(error).toBeInstanceOf(SeqlokError);
     expect(error.code).toBe("conformance.fixtureFileRejected");
@@ -350,9 +413,11 @@ describe("@seqlok/conformance error model", () => {
     });
   });
 
-  it("has no production throw new Error", () => {
+  it("has no production generic Error subclass construction", () => {
     const text = sourceText(conformanceSourceRoot);
     expect(text).not.toContain("throw new Error");
+    expect(text).not.toContain("throw new RangeError");
+    expect(text).not.toContain("throw new TypeError");
   });
 
   it("has no production code: string in issue types", () => {

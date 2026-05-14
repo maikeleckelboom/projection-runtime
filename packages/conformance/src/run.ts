@@ -4,13 +4,18 @@ import { compileAuthoredProjectionContract } from "@seqlok/compiler";
 import {
   bytesToHex,
   decodeHotBlockAHeader,
+  decodeHotBlockBHeader,
   decodeHotFieldValues,
   encodeHotBlockAHeader,
+  encodeHotBlockBHeader,
   encodeHotFieldValues,
   type HotBlockAHeaderInput,
+  type HotBlockBHeaderInput,
   type HotFieldValues,
   type HotLayoutManifest,
+  hexToBytes,
   validateHotBlockAHeader,
+  validateHotBlockBHeader,
 } from "@seqlok/hot-codec";
 
 import { encodeFixtureJson } from "./encode";
@@ -69,6 +74,7 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
       | "canonicalManifest"
       | "hotByteFixture"
       | "hotBlockAFixture"
+      | "hotBlockBFixture"
       | "hotLayoutManifest"
       | "resolvedContract"
     >
@@ -97,6 +103,8 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.hotByteFixture ?? artifacts.hotByteFixture;
   const expectedHotBlockAFixture =
     options.expectedArtifacts?.hotBlockAFixture ?? artifacts.hotBlockAFixture;
+  const expectedHotBlockBFixture =
+    options.expectedArtifacts?.hotBlockBFixture ?? artifacts.hotBlockBFixture;
   const expectedHotLayoutManifest =
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
@@ -139,6 +147,7 @@ export async function runProjectionRuntimeFixture(
   );
   appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
   appendHotBlockAFixtureComparison(failures, expectedHotBlockAFixture, hotLayoutManifest, resolved);
+  appendHotBlockBFixtureComparison(failures, expectedHotBlockBFixture);
   appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
   appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
   appendHotLayoutVersionCheck(failures, "actual", resolved);
@@ -221,7 +230,6 @@ function createHotByteFixtureArtifact(
       artifact: "hot-byte-fixture",
       detail: "hot-byte-fixture requires a hot layout manifest",
       failureCode: "missingHotLayoutManifest",
-      reason: "missingHotLayoutManifest",
     });
   }
 
@@ -231,7 +239,6 @@ function createHotByteFixtureArtifact(
       artifact: "hot-byte-fixture",
       detail: "hot-byte-fixture values must be an object",
       failureCode: "valuesNotObject",
-      reason: "valuesNotObject",
     });
   }
 
@@ -249,7 +256,6 @@ function createHotByteFixtureArtifact(
       artifact: "hot-byte-fixture",
       detail: "hot-byte-fixture field and region decoding diverged",
       failureCode: "fieldRegionDecodeDiverged",
-      reason: "fieldRegionDecodeDiverged",
     });
   }
 
@@ -298,7 +304,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: "hot-block-a-fixture requires a hot layout manifest",
       failureCode: "missingHotLayoutManifest",
-      reason: "missingHotLayoutManifest",
     });
   }
   if (!isRecord(resolved)) {
@@ -306,7 +311,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: "hot-block-a-fixture requires resolved contract",
       failureCode: "missingResolvedContract",
-      reason: "missingResolvedContract",
     });
   }
   if (!isRecord(expectedHotBlockAFixture)) {
@@ -314,7 +318,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: "hot-block-a-fixture must be an object",
       failureCode: "fixtureNotObject",
-      reason: "fixtureNotObject",
     });
   }
 
@@ -355,7 +358,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
       failureCode: "semanticVersionMismatch",
-      reason: "semanticVersionMismatch",
     });
   }
 
@@ -365,7 +367,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
       failureCode: "hotLayoutVersionMismatch",
-      reason: "hotLayoutVersionMismatch",
     });
   }
 
@@ -374,7 +375,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: `hot-block-a-fixture fieldCount mismatch: expected ${fieldCount}, manifest ${hotLayoutManifest.fields.length}`,
       failureCode: "fieldCountMismatch",
-      reason: "fieldCountMismatch",
     });
   }
 
@@ -383,7 +383,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: `hot-block-a-fixture mutableRegionByteLength mismatch: expected ${mutableRegionByteLength}, manifest ${hotLayoutManifest.mutableRegionByteLength}`,
       failureCode: "mutableRegionByteLengthMismatch",
-      reason: "mutableRegionByteLengthMismatch",
     });
   }
 
@@ -405,7 +404,6 @@ function createHotBlockAFixtureArtifact(
       artifact: "hot-block-a-fixture",
       detail: `hot-block-a-fixture validation failed: ${validation.error.message}`,
       failureCode: "headerValidationFailed",
-      reason: "headerValidationFailed",
     });
   }
 
@@ -424,6 +422,101 @@ function createHotBlockAFixtureArtifact(
   };
 }
 
+function appendHotBlockBFixtureComparison(
+  failures: ProjectionRuntimeFixtureFailure[],
+  expectedHotBlockBFixture: unknown,
+): void {
+  try {
+    appendArtifactComparison(
+      failures,
+      "hot-block-b-fixture",
+      expectedHotBlockBFixture,
+      createHotBlockBFixtureArtifact(expectedHotBlockBFixture),
+    );
+  } catch (error) {
+    failures.push(
+      conformanceFailureFromError(error, "hot-block-b-fixture", expectedHotBlockBFixture),
+    );
+  }
+}
+
+function createHotBlockBFixtureArtifact(expectedHotBlockBFixture: unknown): unknown {
+  if (!isRecord(expectedHotBlockBFixture)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-block-b-fixture",
+      detail: "hot-block-b-fixture must be an object",
+      failureCode: "fixtureNotObject",
+    });
+  }
+
+  const seqlockCounter = getStringProperty(
+    expectedHotBlockBFixture,
+    "seqlockCounter",
+    "expected.seqlockCounter",
+  );
+  const baselineEpoch = getNumberProperty(
+    expectedHotBlockBFixture,
+    "baselineEpoch",
+    "expected.baselineEpoch",
+  );
+  const continuityGeneration = getNumberProperty(
+    expectedHotBlockBFixture,
+    "continuityGeneration",
+    "expected.continuityGeneration",
+  );
+  const publicationSequence = getStringProperty(
+    expectedHotBlockBFixture,
+    "publicationSequence",
+    "expected.publicationSequence",
+  );
+  const expected = getObjectProperty(expectedHotBlockBFixture, "expected");
+  if (!isRecord(expected)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-block-b-fixture",
+      detail: "hot-block-b-fixture expected must be an object",
+      failureCode: "fixtureNotObject",
+      path: "expected",
+    });
+  }
+  const expectedBlockBBytesHex = getStringProperty(
+    expected,
+    "blockBBytesHex",
+    "expected.blockBBytesHex",
+  );
+
+  const input: HotBlockBHeaderInput = {
+    seqlockCounter: BigInt(`0x${seqlockCounter}`),
+    baselineEpoch,
+    continuityGeneration,
+    publicationSequence: BigInt(`0x${publicationSequence}`),
+  };
+
+  const blockBBytes = encodeHotBlockBHeader(input);
+  const expectedBlockBBytes = hexToBytes(expectedBlockBBytesHex);
+  const decoded = decodeHotBlockBHeader(expectedBlockBBytes);
+  const validation = validateHotBlockBHeader(expectedBlockBBytes, input);
+
+  if (!validation.ok) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-b-fixture",
+      detail: `hot-block-b-fixture validation failed: ${validation.error.message}`,
+      failureCode: "headerValidationFailed",
+    });
+  }
+
+  return {
+    fixtureKind: "hot-block-b-fixture",
+    seqlockCounter,
+    baselineEpoch,
+    continuityGeneration,
+    publicationSequence,
+    expected: {
+      blockBBytesHex: bytesToHex(blockBBytes),
+      decoded,
+    },
+  };
+}
+
 function getStringProperty(obj: Record<string, unknown>, key: string, path: string): string {
   const value = obj[key];
   if (typeof value !== "string") {
@@ -431,7 +524,6 @@ function getStringProperty(obj: Record<string, unknown>, key: string, path: stri
       detail: `expected ${key} to be a string`,
       failureCode: "expectedString",
       path,
-      reason: "expectedString",
     });
   }
   return value;
@@ -444,7 +536,6 @@ function getNumberProperty(obj: Record<string, unknown>, key: string, path: stri
       detail: `expected ${key} to be a number`,
       failureCode: "expectedNumber",
       path,
-      reason: "expectedNumber",
     });
   }
   return value;
