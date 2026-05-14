@@ -12,7 +12,7 @@ compatibility. It also does not run runtime hot read/write tests, generate bindi
 Fixture regeneration remains owned by:
 
 ```sh
-node scripts/write-projection-runtime-fixture.mjs
+node scripts/write-projection-runtime-fixture.mts
 ```
 
 Fixture failures are machine-readable and artifact-specific. Load failures throw `SeqlokError` values with

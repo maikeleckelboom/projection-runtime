@@ -42,5 +42,5 @@ read by itself.
 Regenerate derived artifacts from the repo root:
 
 ```sh
-node scripts/write-projection-runtime-fixture.mjs
+node scripts/write-projection-runtime-fixture.mts
 ```
