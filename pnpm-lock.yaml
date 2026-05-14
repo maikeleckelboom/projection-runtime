@@ -32,6 +32,12 @@ importers:
         specifier: workspace:*
         version: link:../schema
 
+  packages/hot-codec:
+    dependencies:
+      '@seqlok/base':
+        specifier: workspace:*
+        version: link:../base
+
   packages/primitives:
     dependencies:
       '@seqlok/base':
