@@ -15,3 +15,12 @@ lifecycle, bind live mappings, create handles, subscribe to publications, or gen
 This package intentionally does not import `@seqlok/compiler`. The compiler is expected to consume hot-codec in the
 next slice to emit hot lane manifests, so hot-codec defines a local structural planning input compatible with canonical
 compiler manifests instead of depending on compiler types.
+
+## Block A header helpers
+
+`encodeHotBlockAHeader`, `decodeHotBlockAHeader`, and `validateHotBlockAHeader` encode static immutable Block A header
+bytes for fixture generation and bind-time validation. Block A contains the region magic, ABI version, identity hashes,
+semantic version, layout version, field count, and mutable region size. These helpers encode exactly 72 bytes and do not
+encode Block B, the seqlock counter, baseline epoch, continuity generation, or publication sequence. They do not manage
+seqlock lifecycle, allocate SharedArrayBuffer, or create valid full runtime regions by themselves. `encodeHotFixtureRegion`
+remains a zero-filled fixture-region helper and is not a valid runtime hot region.

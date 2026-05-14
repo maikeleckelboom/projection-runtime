@@ -26,6 +26,12 @@ For this byte fixture, Block A and the Block B header/prefix bytes are intention
 field byte semantics only. It does not claim to initialize an authority-owned mapped region, prove Rust writer
 compatibility, prove runtime seqlock read/write behavior, or cover Electron/SAB lifecycle behavior.
 
+`hot-block-a-fixture.json` adds deterministic Block A header bytes for this layout. It encodes the 72-byte immutable
+Block A header using the contract key, instance key, semantic version, layout version, field count, and mutable region
+size from the compiler output. It verifies that decoding those bytes returns the expected header fields and that
+validation against the expected input succeeds. It does not encode Block B, manage seqlock lifecycle, or create a valid
+full runtime region.
+
 Regenerate derived artifacts from the repo root:
 
 ```sh

@@ -19,10 +19,19 @@ export {
   HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_FIELD_DATA_BYTE_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
+  HOT_REGION_MAGIC_BYTES,
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
 export type { HotCodecIssue } from "./error";
 export { HotByteCodecError, HotCodecError } from "./error";
+export {
+  decodeHotBlockAHeader,
+  encodeHotBlockAHeader,
+  type HotBlockAHeader,
+  type HotBlockAHeaderInput,
+  type HotBlockAHeaderValidationResult,
+  validateHotBlockAHeader,
+} from "./header";
 export type {
   HotFieldEntry,
   HotLayoutManifest,

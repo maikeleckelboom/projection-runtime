@@ -60,6 +60,10 @@ describe("@seqlok/conformance fixture loading", () => {
       fixtureKind: "hot-byte-fixture",
       contractKey: "fixture.hotBasic",
     });
+    expect(fixture.artifacts.hotBlockAFixture).toMatchObject({
+      fixtureKind: "hot-block-a-fixture",
+      contractKey: "fixture.hotBasic",
+    });
     expect(fixture.artifacts.resolvedContract).toMatchObject({
       manifest: { key: "fixture.hotBasic" },
     });
@@ -106,6 +110,22 @@ describe("@seqlok/conformance fixture loading", () => {
     });
   });
 
+  it("loads hot-basic-v0 hot-block-a-fixture.json with layout-matched metadata", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotLayoutManifest = cloneRecord(fixture.artifacts.hotLayoutManifest);
+    const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
+
+    expect(hotBlockAFixture.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
+    expect(hotBlockAFixture.fieldCount).toBe(hotLayoutManifest.fields.length);
+    expect(hotBlockAFixture.mutableRegionByteLength).toBe(
+      hotLayoutManifest.mutableRegionByteLength,
+    );
+    expect(hotBlockAFixture.semanticVersion).toBe(
+      (fixture.artifacts.resolvedContract as Record<string, unknown>).semanticVersion,
+    );
+    expect(hotBlockAFixture.instanceKey).toBe("hot-basic-v0.instance");
+  });
+
   it("reports missing hot-byte-fixture.json explicitly", async () => {
     await withTempFixtureRoot(async (root) => {
       const copiedFixtureRoot = resolve(root, "broken-fixture");
@@ -125,6 +145,28 @@ describe("@seqlok/conformance fixture loading", () => {
         }),
       ]);
       expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-byte-fixture.json");
+    });
+  });
+
+  it("reports missing hot-block-a-fixture.json explicitly", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-block-a-fixture.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          fixtureFile: "hot-block-a-fixture.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-block-a-fixture.json");
     });
   });
 });
@@ -192,6 +234,21 @@ describe("@seqlok/conformance execution", () => {
 
     const failure = expectFailure(result.failures, "hot-byte-fixture");
     expect(failure.reason).toBe("hot-byte-fixture does not match golden artifact");
+  });
+
+  it("reports hot-block-a-fixture failures for changed in-memory expected bytes", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
+    const expected = cloneRecord(hotBlockAFixture.expected);
+    expected.blockABytesHex = "00";
+    hotBlockAFixture.expected = expected;
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockAFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-a-fixture");
+    expect(failure.reason).toBe("hot-block-a-fixture does not match golden artifact");
   });
 
   it("reports resolved-contract failures for changed in-memory expected contracts", async () => {

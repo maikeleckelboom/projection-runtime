@@ -7,8 +7,10 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import * as hotCodec from "../src/index";
 import {
   bytesToHex,
+  decodeHotBlockAHeader,
   decodeHotFieldValues,
   deriveHotLayoutVersion,
+  encodeHotBlockAHeader,
   encodeHotFieldData,
   encodeHotFieldValues,
   encodeHotFixtureRegion,
@@ -19,6 +21,7 @@ import {
   HOT_FIELD_DATA_BYTE_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
+  type HotBlockAHeaderInput,
   HotByteCodecError,
   HotCodecError,
   type HotFieldValues,
@@ -30,6 +33,7 @@ import {
   type HotLayoutPlanSuccess,
   hexToBytes,
   planHotLayoutManifest,
+  validateHotBlockAHeader,
 } from "../src/index";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -507,6 +511,221 @@ describe("@seqlok/hot-codec byte helpers", () => {
   });
 });
 
+describe("@seqlok/hot-codec Block A header", () => {
+  const validInput: HotBlockAHeaderInput = {
+    contractKey: "fixture.hotBasic",
+    instanceKey: "hot-basic-v0.instance",
+    semanticVersion: 0x67b271f31c6b06a0n,
+    hotLayoutVersion: 0x8f3eb897fd88495cn,
+    fieldCount: 5,
+    mutableRegionByteLength: 64,
+  };
+
+  it("encodeHotBlockAHeader returns exactly 72 bytes", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    expect(bytes.byteLength).toBe(72);
+  });
+
+  it("encoded bytes contain magic 53514c4b", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    expect(bytesToHex(bytes.subarray(0, 4))).toBe("53514c4b");
+  });
+
+  it("hotAbiVersion is encoded u32 little-endian", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    expect(view.getUint32(4, true)).toBe(1);
+    expect(view.getUint32(4, false)).not.toBe(1);
+  });
+
+  it("semanticVersion and hotLayoutVersion are encoded u64 little-endian", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    expect(view.getBigUint64(40, true)).toBe(validInput.semanticVersion);
+    expect(view.getBigUint64(48, true)).toBe(validInput.hotLayoutVersion);
+  });
+
+  it("contractKeyHash and instanceKeyHash are deterministic", () => {
+    const first = encodeHotBlockAHeader(validInput);
+    const second = encodeHotBlockAHeader(validInput);
+    expect(bytesToHex(first.subarray(8, 24))).toBe(bytesToHex(second.subarray(8, 24)));
+    expect(bytesToHex(first.subarray(24, 40))).toBe(bytesToHex(second.subarray(24, 40)));
+  });
+
+  it("fieldCount and mutableRegionByteLength are encoded u32 little-endian", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    expect(view.getUint32(56, true)).toBe(validInput.fieldCount);
+    expect(view.getUint32(60, true)).toBe(validInput.mutableRegionByteLength);
+  });
+
+  it("reserved bytes are zero", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    expect(bytesToHex(bytes.subarray(64, 72))).toBe("0000000000000000");
+  });
+
+  it("decodeHotBlockAHeader round-trips the fixture", () => {
+    const fixturePath = resolve(
+      repoRoot,
+      "fixtures/projection-runtime/hot-basic-v0/hot-block-a-fixture.json",
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as Record<string, unknown>;
+    const expected = fixture.expected as Record<string, unknown>;
+    const decodedExpected = expected.decoded as Record<string, unknown>;
+    const bytes = hexToBytes(expected.blockABytesHex as string);
+    const decoded = decodeHotBlockAHeader(bytes);
+
+    expect(decoded.regionMagicHex).toBe("53514c4b");
+    expect(decoded.hotAbiVersion).toBe(1);
+    expect(decoded.contractKeyHashHex).toBe(decodedExpected.contractKeyHashHex);
+    expect(decoded.instanceKeyHashHex).toBe(decodedExpected.instanceKeyHashHex);
+    expect(decoded.semanticVersion).toBe(BigInt(`0x${decodedExpected.semanticVersion}`));
+    expect(decoded.hotLayoutVersion).toBe(BigInt(`0x${decodedExpected.hotLayoutVersion}`));
+    expect(decoded.fieldCount).toBe(decodedExpected.fieldCount);
+    expect(decoded.mutableRegionByteLength).toBe(decodedExpected.mutableRegionByteLength);
+    expect(decoded.reservedHex).toBe("0000000000000000");
+  });
+
+  it("validateHotBlockAHeader succeeds for matching expected input", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, validInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected validation to succeed");
+    }
+    expect(result.value.semanticVersion).toBe(validInput.semanticVersion);
+  });
+
+  it("rejects bad magic", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    bytes[0] = 0xde;
+    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+  });
+
+  it("rejects unsupported hotAbiVersion", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    view.setUint32(4, 2, true);
+    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+  });
+
+  it("rejects non-zero reserved bytes", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    bytes[64] = 0xff;
+    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+  });
+
+  it("fails validation for mismatched contractKey", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, contractKey: "other" });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain("header.contractKeyHashMismatch");
+  });
+
+  it("fails validation for mismatched instanceKey", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, instanceKey: "other" });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain("header.instanceKeyHashMismatch");
+  });
+
+  it("fails validation for mismatched semanticVersion", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, semanticVersion: 0n });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain("header.semanticVersionMismatch");
+  });
+
+  it("fails validation for mismatched hotLayoutVersion", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, hotLayoutVersion: 0n });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain("header.hotLayoutVersionMismatch");
+  });
+
+  it("fails validation for mismatched fieldCount", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, fieldCount: 99 });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain("header.fieldCountMismatch");
+  });
+
+  it("fails validation for mismatched mutableRegionByteLength", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    const result = validateHotBlockAHeader(bytes, { ...validInput, mutableRegionByteLength: 99 });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected validation to fail");
+    }
+    expect(result.error.issues.map((i) => i.code)).toContain(
+      "header.mutableRegionByteLengthMismatch",
+    );
+  });
+
+  it("rejects empty contractKey", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, contractKey: "" })).toThrow(
+      HotByteCodecError,
+    );
+  });
+
+  it("rejects empty instanceKey", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, instanceKey: "" })).toThrow(
+      HotByteCodecError,
+    );
+  });
+
+  it("rejects semanticVersion outside u64 range", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, semanticVersion: -1n })).toThrow(
+      HotByteCodecError,
+    );
+    expect(() =>
+      encodeHotBlockAHeader({ ...validInput, semanticVersion: 0x1_0000_0000_0000_0000n }),
+    ).toThrow(HotByteCodecError);
+  });
+
+  it("rejects hotLayoutVersion outside u64 range", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, hotLayoutVersion: -1n })).toThrow(
+      HotByteCodecError,
+    );
+    expect(() =>
+      encodeHotBlockAHeader({ ...validInput, hotLayoutVersion: 0x1_0000_0000_0000_0000n }),
+    ).toThrow(HotByteCodecError);
+  });
+
+  it("rejects fieldCount outside u32 range", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, fieldCount: -1 })).toThrow(
+      HotByteCodecError,
+    );
+    expect(() => encodeHotBlockAHeader({ ...validInput, fieldCount: 0x1_0000_0000 })).toThrow(
+      HotByteCodecError,
+    );
+  });
+
+  it("rejects mutableRegionByteLength outside u32 range", () => {
+    expect(() => encodeHotBlockAHeader({ ...validInput, mutableRegionByteLength: -1 })).toThrow(
+      HotByteCodecError,
+    );
+    expect(() =>
+      encodeHotBlockAHeader({ ...validInput, mutableRegionByteLength: 0x1_0000_0000 }),
+    ).toThrow(HotByteCodecError);
+  });
+});
+
 describe("@seqlok/hot-codec rejections", () => {
   it("rejects unsupported hot codec names", () => {
     const error = expectFailure(
@@ -627,17 +846,21 @@ describe("@seqlok/hot-codec public surface", () => {
       "HOT_CONTINUITY_GENERATION_U32_OFFSET",
       "HOT_FIELD_DATA_BYTE_OFFSET",
       "HOT_PUBLICATION_SEQUENCE_U64_OFFSET",
+      "HOT_REGION_MAGIC_BYTES",
       "HOT_SEQLOCK_U64_OFFSET",
       "HotByteCodecError",
       "HotCodecError",
       "bytesToHex",
+      "decodeHotBlockAHeader",
       "decodeHotFieldValues",
       "deriveHotLayoutVersion",
+      "encodeHotBlockAHeader",
       "encodeHotFieldData",
       "encodeHotFieldValues",
       "encodeHotFixtureRegion",
       "hexToBytes",
       "planHotLayoutManifest",
+      "validateHotBlockAHeader",
     ]);
 
     for (const runtimeExport of [

@@ -3,10 +3,14 @@ import { isDeepStrictEqual } from "node:util";
 import { compileAuthoredProjectionContract } from "@seqlok/compiler";
 import {
   bytesToHex,
+  decodeHotBlockAHeader,
   decodeHotFieldValues,
+  encodeHotBlockAHeader,
   encodeHotFieldValues,
+  type HotBlockAHeaderInput,
   type HotFieldValues,
   type HotLayoutManifest,
+  validateHotBlockAHeader,
 } from "@seqlok/hot-codec";
 
 import { encodeFixtureJson } from "./encode";
@@ -23,6 +27,7 @@ import {
 export type ProjectionRuntimeArtifactName =
   | "canonical-manifest"
   | "hot-byte-fixture"
+  | "hot-block-a-fixture"
   | "hot-layout-manifest"
   | "resolved-contract";
 
@@ -60,7 +65,11 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
   readonly expectedArtifacts?: Partial<
     Pick<
       ProjectionRuntimeFixtureArtifacts,
-      "canonicalManifest" | "hotByteFixture" | "hotLayoutManifest" | "resolvedContract"
+      | "canonicalManifest"
+      | "hotByteFixture"
+      | "hotBlockAFixture"
+      | "hotLayoutManifest"
+      | "resolvedContract"
     >
   >;
 }
@@ -85,6 +94,8 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.canonicalManifest ?? artifacts.canonicalManifest;
   const expectedHotByteFixture =
     options.expectedArtifacts?.hotByteFixture ?? artifacts.hotByteFixture;
+  const expectedHotBlockAFixture =
+    options.expectedArtifacts?.hotBlockAFixture ?? artifacts.hotBlockAFixture;
   const expectedHotLayoutManifest =
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
@@ -125,6 +136,7 @@ export async function runProjectionRuntimeFixture(
     hotLayoutManifest,
   );
   appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
+  appendHotBlockAFixtureComparison(failures, expectedHotBlockAFixture, hotLayoutManifest, resolved);
   appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
   appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
   appendHotLayoutVersionCheck(failures, "actual", resolved);
@@ -240,6 +252,127 @@ function createHotByteFixtureArtifact(
       decodedValues: decodedFromRegion,
     },
   };
+}
+
+function appendHotBlockAFixtureComparison(
+  failures: ProjectionRuntimeFixtureFailure[],
+  expectedHotBlockAFixture: unknown,
+  hotLayoutManifest: HotLayoutManifest | undefined,
+  resolved: unknown,
+): void {
+  try {
+    appendArtifactComparison(
+      failures,
+      "hot-block-a-fixture",
+      expectedHotBlockAFixture,
+      createHotBlockAFixtureArtifact(hotLayoutManifest, resolved, expectedHotBlockAFixture),
+    );
+  } catch (error) {
+    failures.push({
+      artifact: "hot-block-a-fixture",
+      reason: error instanceof Error ? error.message : "failed to verify hot-block-a-fixture",
+      expected: encodeFixtureJson(expectedHotBlockAFixture),
+    });
+  }
+}
+
+function createHotBlockAFixtureArtifact(
+  hotLayoutManifest: HotLayoutManifest | undefined,
+  resolved: unknown,
+  expectedHotBlockAFixture: unknown,
+): unknown {
+  if (hotLayoutManifest === undefined) {
+    throw new Error("hot-block-a-fixture requires a hot layout manifest");
+  }
+  if (!isRecord(resolved)) {
+    throw new Error("hot-block-a-fixture requires resolved contract");
+  }
+  if (!isRecord(expectedHotBlockAFixture)) {
+    throw new Error("hot-block-a-fixture must be an object");
+  }
+
+  const semanticVersion = getStringProperty(expectedHotBlockAFixture, "semanticVersion");
+  const hotLayoutVersion = getStringProperty(expectedHotBlockAFixture, "hotLayoutVersion");
+  const fieldCount = getNumberProperty(expectedHotBlockAFixture, "fieldCount");
+  const mutableRegionByteLength = getNumberProperty(
+    expectedHotBlockAFixture,
+    "mutableRegionByteLength",
+  );
+  const contractKey = getStringProperty(expectedHotBlockAFixture, "contractKey");
+  const instanceKey = getStringProperty(expectedHotBlockAFixture, "instanceKey");
+
+  const resolvedSemanticVersion = encodeFixtureJson(resolved.semanticVersion);
+  if (semanticVersion !== resolvedSemanticVersion) {
+    throw new Error(
+      `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
+    );
+  }
+
+  const manifestHotLayoutVersion = encodeFixtureJson(hotLayoutManifest.hotLayoutVersion);
+  if (hotLayoutVersion !== manifestHotLayoutVersion) {
+    throw new Error(
+      `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
+    );
+  }
+
+  if (fieldCount !== hotLayoutManifest.fields.length) {
+    throw new Error(
+      `hot-block-a-fixture fieldCount mismatch: expected ${fieldCount}, manifest ${hotLayoutManifest.fields.length}`,
+    );
+  }
+
+  if (mutableRegionByteLength !== hotLayoutManifest.mutableRegionByteLength) {
+    throw new Error(
+      `hot-block-a-fixture mutableRegionByteLength mismatch: expected ${mutableRegionByteLength}, manifest ${hotLayoutManifest.mutableRegionByteLength}`,
+    );
+  }
+
+  const input: HotBlockAHeaderInput = {
+    contractKey,
+    instanceKey,
+    semanticVersion: BigInt(`0x${semanticVersion}`),
+    hotLayoutVersion: BigInt(`0x${hotLayoutVersion}`),
+    fieldCount,
+    mutableRegionByteLength,
+  };
+
+  const blockABytes = encodeHotBlockAHeader(input);
+  const decoded = decodeHotBlockAHeader(blockABytes);
+  const validation = validateHotBlockAHeader(blockABytes, input);
+
+  if (!validation.ok) {
+    throw new Error(`hot-block-a-fixture validation failed: ${validation.error.message}`);
+  }
+
+  return {
+    fixtureKind: "hot-block-a-fixture",
+    contractKey,
+    instanceKey,
+    semanticVersion,
+    hotLayoutVersion,
+    fieldCount,
+    mutableRegionByteLength,
+    expected: {
+      blockABytesHex: bytesToHex(blockABytes),
+      decoded,
+    },
+  };
+}
+
+function getStringProperty(obj: Record<string, unknown>, key: string): string {
+  const value = obj[key];
+  if (typeof value !== "string") {
+    throw new Error(`expected ${key} to be a string`);
+  }
+  return value;
+}
+
+function getNumberProperty(obj: Record<string, unknown>, key: string): number {
+  const value = obj[key];
+  if (typeof value !== "number") {
+    throw new Error(`expected ${key} to be a number`);
+  }
+  return value;
 }
 
 function appendHotLayoutVersionCheck(

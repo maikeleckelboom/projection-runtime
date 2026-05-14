@@ -13,12 +13,20 @@ const require = createRequire(import.meta.url);
 registerWorkspaceTsRequireHook();
 
 const { compileAuthoredProjectionContract } = require("@seqlok/compiler");
-const { bytesToHex, decodeHotFieldValues, encodeHotFieldValues } = require("@seqlok/hot-codec");
+const {
+  bytesToHex,
+  decodeHotFieldValues,
+  encodeHotFieldValues,
+  encodeHotBlockAHeader,
+  decodeHotBlockAHeader,
+  validateHotBlockAHeader,
+} = require("@seqlok/hot-codec");
 
 const authoredContractPath = resolve(fixtureRoot, "authored-contract.json");
 const canonicalManifestPath = resolve(fixtureRoot, "canonical-manifest.json");
 const hotLayoutManifestPath = resolve(fixtureRoot, "hot-layout-manifest.json");
 const hotByteFixturePath = resolve(fixtureRoot, "hot-byte-fixture.json");
+const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
 const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
 
 const hotBasicSampleValues = {
@@ -48,6 +56,7 @@ if (hotLayoutManifest === undefined) {
 await writeJson(canonicalManifestPath, resolved.manifest);
 await writeJson(hotLayoutManifestPath, hotLayoutManifest);
 await writeJson(hotByteFixturePath, createHotByteFixture(hotLayoutManifest, hotBasicSampleValues));
+await writeJson(hotBlockAFixturePath, createHotBlockAFixture(hotLayoutManifest, resolved));
 await writeJson(resolvedContractPath, resolved);
 formatGeneratedJson();
 
@@ -71,7 +80,7 @@ function toFixtureJson(value) {
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([key, nested]) => [key, toFixtureJson(nested)]),
     );
   }
@@ -112,6 +121,47 @@ function createHotByteFixture(hotLayoutManifest, values) {
       fieldBytesHex,
       fixtureRegionBytesHex,
       decodedValues: encoded.decodedValues,
+    },
+  };
+}
+
+function createHotBlockAFixture(hotLayoutManifest, resolved) {
+  const instanceKey = "hot-basic-v0.instance";
+  const semanticVersion =
+    typeof resolved.semanticVersion === "bigint"
+      ? resolved.semanticVersion
+      : BigInt(`0x${resolved.semanticVersion}`);
+  const hotLayoutVersion =
+    typeof hotLayoutManifest.hotLayoutVersion === "bigint"
+      ? hotLayoutManifest.hotLayoutVersion
+      : BigInt(`0x${hotLayoutManifest.hotLayoutVersion}`);
+  const input = {
+    contractKey: hotLayoutManifest.contractKey,
+    instanceKey,
+    semanticVersion,
+    hotLayoutVersion,
+    fieldCount: hotLayoutManifest.fields.length,
+    mutableRegionByteLength: hotLayoutManifest.mutableRegionByteLength,
+  };
+  const blockABytes = encodeHotBlockAHeader(input);
+  const decoded = decodeHotBlockAHeader(blockABytes);
+  const validation = validateHotBlockAHeader(blockABytes, input);
+
+  if (!validation.ok) {
+    throw new Error(`hot-block-a-fixture validation failed: ${validation.error.message}`);
+  }
+
+  return {
+    fixtureKind: "hot-block-a-fixture",
+    contractKey: input.contractKey,
+    instanceKey: input.instanceKey,
+    semanticVersion: resolved.semanticVersion,
+    hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
+    fieldCount: input.fieldCount,
+    mutableRegionByteLength: input.mutableRegionByteLength,
+    expected: {
+      blockABytesHex: bytesToHex(blockABytes),
+      decoded,
     },
   };
 }
@@ -157,6 +207,7 @@ function formatGeneratedJson() {
       "fixtures/projection-runtime/hot-basic-v0/canonical-manifest.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-byte-fixture.json",
+      "fixtures/projection-runtime/hot-basic-v0/hot-block-a-fixture.json",
       "fixtures/projection-runtime/hot-basic-v0/resolved-contract.json",
     ],
     { cwd: repoRoot, stdio: "inherit" },

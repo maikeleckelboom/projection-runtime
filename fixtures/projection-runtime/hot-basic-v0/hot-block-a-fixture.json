@@ -1,0 +1,23 @@
+{
+  "contractKey": "fixture.hotBasic",
+  "expected": {
+    "blockABytesHex": "53514c4b01000000c1879d023474d4a3bf2efeb101e6c7a56bfdf9c4ab5400e4eb43e196fac78389a0066b1cf371b2675c4988fd97b83e8f05000000400000000000000000000000",
+    "decoded": {
+      "contractKeyHashHex": "c1879d023474d4a3bf2efeb101e6c7a5",
+      "fieldCount": 5,
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "8f3eb897fd88495c",
+      "instanceKeyHashHex": "6bfdf9c4ab5400e4eb43e196fac78389",
+      "mutableRegionByteLength": 64,
+      "regionMagicHex": "53514c4b",
+      "reservedHex": "0000000000000000",
+      "semanticVersion": "67b271f31c6b06a0"
+    }
+  },
+  "fieldCount": 5,
+  "fixtureKind": "hot-block-a-fixture",
+  "hotLayoutVersion": "8f3eb897fd88495c",
+  "instanceKey": "hot-basic-v0.instance",
+  "mutableRegionByteLength": 64,
+  "semanticVersion": "67b271f31c6b06a0"
+}

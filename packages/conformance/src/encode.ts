@@ -10,12 +10,16 @@ export function encodeFixtureJson(value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareObjectKeys(left, right))
         .map(([key, nested]) => [key, encodeFixtureJson(nested)]),
     );
   }
 
   return value;
+}
+
+function compareObjectKeys(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function encodeU64Hex(value: bigint): string {
