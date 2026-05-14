@@ -7,7 +7,7 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "references": [{ "path": "../schema" }],
+  "references": [{ "path": "../schema" }, { "path": "../hot-codec" }],
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "tests"]
 }

@@ -1,7 +1,11 @@
+import type {
+  HotLayoutVersion as HotCodecLayoutVersion,
+  HotLayoutManifest,
+} from "@seqlok/hot-codec";
 import type { EnumStorageType, ProjectionFamily, ScalarType, StringEncoding } from "@seqlok/schema";
 
 export type SemanticVersion = bigint;
-export type HotLayoutVersion = bigint;
+export type HotLayoutVersion = HotCodecLayoutVersion;
 export type WarmCodecVersion = bigint;
 export type ColdCodecVersion = bigint;
 
@@ -103,4 +107,9 @@ export interface ResolvedProjectionContract {
   readonly hotLayoutVersion?: HotLayoutVersion;
   readonly warmCodecVersion?: WarmCodecVersion;
   readonly coldCodecVersion?: ColdCodecVersion;
+  readonly laneManifests?: LaneManifests;
+}
+
+export interface LaneManifests {
+  readonly hot?: HotLayoutManifest;
 }

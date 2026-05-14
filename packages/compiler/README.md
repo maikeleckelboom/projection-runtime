@@ -17,6 +17,7 @@ The compiler v0 emits:
 - deterministic `fieldId` values
 - canonical lane declarations
 - a `ResolvedProjectionContract` shell with derived `semanticVersion`
+- a hot lane layout manifest when a hot lane is declared
 
 The compiler does not own runtime behavior. Runtime packages consume emitted artifacts; they do not plan layout,
 derive versions, or reinterpret authored contracts during live operation.
@@ -26,13 +27,15 @@ derive versions, or reinterpret authored contracts during live operation.
 Compiler v0 does not:
 
 - generate runtime bindings
-- implement hot layout planning
 - implement warm frame encoding
 - ratify or implement a cold codec
 - create runtime descriptor instances, live handles, mappings, subscriptions, or adapters
+- implement runtime hot readers or writers
+- integrate Electron, SAB lifecycle management, or host adapters
 
-Hot layout, warm codec, cold materialization, generated bindings, conformance fixture emission, and Electron adapter
-behavior belong to later packages or later compiler slices.
+Hot layout planning is delegated to `@seqlok/hot-codec`. Warm codec manifests, cold materialization manifests,
+resource lane manifests, generated bindings, conformance fixture emission, runtime readers/writers, and Electron
+adapter behavior belong to later packages or later compiler slices.
 
 ## Determinism
 
@@ -57,6 +60,27 @@ Hot lane declarations are canonicalized to `{ codec: "mapped-fixed", reservation
 admissibility for every field. `BoundedArray` and `BoundedMap` fields are hot-admissible only when their dot path is in
 the canonical reservation set. The canonical reservation set is the sorted, deduplicated union of preferred
 `lanes.hot.reservations` entries and legacy field-local `hotReservation: true` markers.
+
+When a hot lane is declared, the compiler calls `@seqlok/hot-codec` to plan the deterministic `HotLayoutManifest`.
+Successful compiler output includes:
+
+```ts
+type ResolvedProjectionContract = {
+  readonly manifest: CanonicalProjectionManifest;
+  readonly semanticVersion: SemanticVersion;
+  readonly hotLayoutVersion?: HotLayoutVersion;
+  readonly warmCodecVersion?: WarmCodecVersion;
+  readonly coldCodecVersion?: ColdCodecVersion;
+  readonly laneManifests?: {
+    readonly hot?: HotLayoutManifest;
+  };
+};
+```
+
+`hotLayoutVersion` is copied from `laneManifests.hot.hotLayoutVersion`; it remains owned and derived by
+`@seqlok/hot-codec`. If no hot lane is declared, the compiler omits `laneManifests.hot` and omits `hotLayoutVersion`.
+If hot layout planning rejects the input, compilation returns `ok: false` with compiler issues that preserve the
+`hot-codec` issue source and cause code.
 
 Warm declarations are retained as `{ codec: "framed-snapshot" }`, but compiler v0 does not emit warm codec manifests or
 derive `warmCodecVersion`.

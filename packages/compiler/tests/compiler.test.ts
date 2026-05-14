@@ -25,6 +25,46 @@ function expectFailure(result: CompileProjectionResult): CompilerError {
   return result.error;
 }
 
+function unwrapHotManifest(
+  resolved: ResolvedProjectionContract,
+): NonNullable<NonNullable<ResolvedProjectionContract["laneManifests"]>["hot"]> {
+  const hotManifest = resolved.laneManifests?.hot;
+  expect(hotManifest).toBeDefined();
+  if (hotManifest === undefined) {
+    throw new Error("expected hot lane manifest");
+  }
+
+  return hotManifest;
+}
+
+function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "fixture.hot",
+    family: "replaceable-snapshot",
+    fields: {
+      cursor: { kind: "fixed-scalar", type: "u8" },
+      tempo: { kind: "fixed-scalar", type: "f64" },
+      phase: { kind: "fixed-scalar", type: "f64" },
+      flags: { kind: "fixed-string-encoded", byteLength: 3, encoding: "ascii" },
+      peaks: { kind: "bounded-array", elementType: "f32", maxLength: 3 },
+      meters: { kind: "fixed-vector", elementType: "f32", length: 2 },
+      lookup: {
+        kind: "bounded-map",
+        keyEncoding: "fixed-ascii",
+        keyByteLength: 4,
+        valueShape: { kind: "fixed-scalar", type: "f32" },
+        maxEntries: 2,
+      },
+    },
+    lanes: {
+      hot: {
+        reservations: ["lookup", "peaks"],
+      },
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
 describe("@seqlok/compiler happy path", () => {
   it("compiles a minimal authored projection contract", () => {
     const resolved = unwrap(
@@ -44,6 +84,8 @@ describe("@seqlok/compiler happy path", () => {
       shape: { kind: "FixedScalar", type: "f64" },
     });
     expectTypeOf(resolved.semanticVersion).toEqualTypeOf<bigint>();
+    expect("laneManifests" in resolved).toBe(false);
+    expect("hotLayoutVersion" in resolved).toBe(false);
   });
 
   it("sorts fields lexicographically by dotPath", () => {
@@ -400,6 +442,274 @@ describe("@seqlok/compiler lane admissibility", () => {
     );
 
     expect(error.issues.map((issue) => issue.code)).toContain("lane.hotReservationWithoutHotLane");
+  });
+});
+
+describe("@seqlok/compiler hot lane manifests", () => {
+  it("omits hot layout data when no hot lane is declared", () => {
+    const resolved = unwrap(
+      compileAuthoredProjectionContract({
+        key: "fixture.warm",
+        family: "replaceable-snapshot",
+        fields: {
+          title: { kind: "variable-string" },
+        },
+        lanes: {
+          warm: {},
+        },
+      }),
+    );
+
+    expect(resolved.manifest.lanes.hot).toBeUndefined();
+    expect(resolved.laneManifests?.hot).toBeUndefined();
+    expect("laneManifests" in resolved).toBe(false);
+    expect("hotLayoutVersion" in resolved).toBe(false);
+  });
+
+  it("emits a hot manifest and top-level hotLayoutVersion when hot is declared", () => {
+    const resolved = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+    const hotManifest = unwrapHotManifest(resolved);
+
+    expect(hotManifest.contractKey).toBe(resolved.manifest.key);
+    expect(resolved.hotLayoutVersion).toBe(hotManifest.hotLayoutVersion);
+  });
+
+  it("carries hot ABI constants from hot-codec planning", () => {
+    const hotManifest = unwrapHotManifest(
+      unwrap(compileAuthoredProjectionContract(hotLayoutFixture())),
+    );
+
+    expect(hotManifest).toMatchObject({
+      blockASize: 72,
+      blockBStartOffset: 72,
+      fieldDataOrigin: 96,
+      seqlockOffset: 72,
+    });
+  });
+
+  it("emits deterministic hot field offsets for a small generic fixture", () => {
+    const hotManifest = unwrapHotManifest(
+      unwrap(compileAuthoredProjectionContract(hotLayoutFixture())),
+    );
+
+    expect(
+      hotManifest.fields.map(({ dotPath, absoluteOffset, byteSpan, alignment }) => ({
+        dotPath,
+        absoluteOffset,
+        byteSpan,
+        alignment,
+      })),
+    ).toEqual([
+      { dotPath: "cursor", absoluteOffset: 96, byteSpan: 1, alignment: 1 },
+      { dotPath: "flags", absoluteOffset: 97, byteSpan: 3, alignment: 1 },
+      { dotPath: "lookup", absoluteOffset: 100, byteSpan: 20, alignment: 4 },
+      { dotPath: "meters", absoluteOffset: 120, byteSpan: 8, alignment: 4 },
+      { dotPath: "peaks", absoluteOffset: 128, byteSpan: 16, alignment: 4 },
+      { dotPath: "phase", absoluteOffset: 144, byteSpan: 8, alignment: 8 },
+      { dotPath: "tempo", absoluteOffset: 152, byteSpan: 8, alignment: 8 },
+    ]);
+    expect(hotManifest.reservations).toEqual([
+      {
+        dotPath: "lookup",
+        countFieldOffset: 100,
+        elementsOffset: 104,
+        maxCount: 2,
+        unitByteLength: 8,
+      },
+      {
+        dotPath: "peaks",
+        countFieldOffset: 128,
+        elementsOffset: 132,
+        maxCount: 3,
+        unitByteLength: 4,
+      },
+    ]);
+  });
+
+  it("produces identical hot manifests for equivalent authored inputs", () => {
+    const left = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+    const right = unwrap(
+      compileAuthoredProjectionContract({
+        ...hotLayoutFixture(),
+        revisionNote: "object order should not matter",
+        fields: {
+          tempo: { type: "f64", kind: "fixed-scalar" },
+          lookup: {
+            maxEntries: 2,
+            valueShape: { type: "f32", kind: "fixed-scalar" },
+            keyByteLength: 4,
+            keyEncoding: "fixed-ascii",
+            kind: "bounded-map",
+          },
+          meters: { length: 2, elementType: "f32", kind: "fixed-vector" },
+          peaks: { maxLength: 3, elementType: "f32", kind: "bounded-array" },
+          flags: { encoding: "ascii", byteLength: 3, kind: "fixed-string-encoded" },
+          phase: { type: "f64", kind: "fixed-scalar" },
+          cursor: { type: "u8", kind: "fixed-scalar" },
+        },
+        lanes: {
+          hot: {
+            reservations: ["peaks", "lookup"],
+          },
+        },
+      }),
+    );
+
+    expect(right).toEqual(left);
+    expect(right.hotLayoutVersion).toBe(left.hotLayoutVersion);
+  });
+
+  it("changes hotLayoutVersion when a hot field width changes", () => {
+    const f32Layout = unwrap(
+      compileAuthoredProjectionContract(
+        hotLayoutFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f32" },
+          },
+          lanes: {
+            hot: {},
+          },
+        }),
+      ),
+    );
+    const f64Layout = unwrap(
+      compileAuthoredProjectionContract(
+        hotLayoutFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+          lanes: {
+            hot: {},
+          },
+        }),
+      ),
+    );
+
+    expect(f64Layout.laneManifests?.hot?.hotLayoutVersion).not.toBe(
+      f32Layout.laneManifests?.hot?.hotLayoutVersion,
+    );
+  });
+
+  it("changes hotLayoutVersion when a hot field encoding changes", () => {
+    const asciiLayout = unwrap(
+      compileAuthoredProjectionContract({
+        ...hotLayoutFixture(),
+        fields: {
+          flags: { kind: "fixed-string-encoded", byteLength: 4, encoding: "ascii" },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+    const utf8Layout = unwrap(
+      compileAuthoredProjectionContract({
+        ...hotLayoutFixture(),
+        fields: {
+          flags: { kind: "fixed-string-encoded", byteLength: 4, encoding: "utf8" },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+
+    expect(utf8Layout.laneManifests?.hot?.hotLayoutVersion).not.toBe(
+      asciiLayout.laneManifests?.hot?.hotLayoutVersion,
+    );
+  });
+
+  it("changes hotLayoutVersion when a hot field is added", () => {
+    const oneField = unwrap(
+      compileAuthoredProjectionContract({
+        key: "fixture.hot",
+        family: "replaceable-snapshot",
+        fields: {
+          tempo: { kind: "fixed-scalar", type: "f64" },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+    const twoFields = unwrap(
+      compileAuthoredProjectionContract({
+        key: "fixture.hot",
+        family: "replaceable-snapshot",
+        fields: {
+          phase: { kind: "fixed-scalar", type: "f64" },
+          tempo: { kind: "fixed-scalar", type: "f64" },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+
+    expect(twoFields.laneManifests?.hot?.hotLayoutVersion).not.toBe(
+      oneField.laneManifests?.hot?.hotLayoutVersion,
+    );
+  });
+
+  it("does not change hotLayoutVersion when revisionNote changes", () => {
+    const left = unwrap(
+      compileAuthoredProjectionContract(hotLayoutFixture({ revisionNote: "left" })),
+    );
+    const right = unwrap(
+      compileAuthoredProjectionContract(hotLayoutFixture({ revisionNote: "right" })),
+    );
+
+    expect(right.laneManifests?.hot?.hotLayoutVersion).toBe(
+      left.laneManifests?.hot?.hotLayoutVersion,
+    );
+  });
+
+  it("does not change hotLayoutVersion when warm or cold declarations change", () => {
+    const hotOnly = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+    const withWarmCold = unwrap(
+      compileAuthoredProjectionContract(
+        hotLayoutFixture({
+          lanes: {
+            hot: { reservations: ["lookup", "peaks"] },
+            warm: {},
+            cold: { materialization: "checkpointed-snapshot" },
+          },
+        }),
+      ),
+    );
+
+    expect(withWarmCold.laneManifests?.hot?.hotLayoutVersion).toBe(
+      hotOnly.laneManifests?.hot?.hotLayoutVersion,
+    );
+  });
+
+  it("preserves hot-codec issue identity when hot planning rejects input", () => {
+    const error = expectFailure(
+      compileAuthoredProjectionContract({
+        key: "fixture.hot",
+        family: "replaceable-snapshot",
+        fields: {
+          peaks: {
+            kind: "bounded-array",
+            elementType: "f64",
+            maxLength: 0xffffffff,
+          },
+        },
+        lanes: {
+          hot: { reservations: ["peaks"] },
+        },
+      }),
+    );
+
+    expect(error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "hot-codec",
+          code: "hot-codec.planningFailed",
+          causeCode: "layout.numericOutOfRange",
+        }),
+      ]),
+    );
   });
 });
 

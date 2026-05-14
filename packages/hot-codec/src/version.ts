@@ -155,16 +155,16 @@ class ByteWriter {
 
   writeU16Le(value: number): void {
     assertUnsignedInteger(value, 0xffff, "u16");
-    this.writeU8(value);
-    this.writeU8(value >> 8);
+    this.writeU8(value & 0xff);
+    this.writeU8((value >>> 8) & 0xff);
   }
 
   writeU32Le(value: number): void {
     assertUnsignedInteger(value, 0xffffffff, "u32");
-    this.writeU8(value);
-    this.writeU8(value >> 8);
-    this.writeU8(value >> 16);
-    this.writeU8(value >> 24);
+    this.writeU8(value & 0xff);
+    this.writeU8((value >>> 8) & 0xff);
+    this.writeU8((value >>> 16) & 0xff);
+    this.writeU8((value >>> 24) & 0xff);
   }
 
   writeUtf8(value: string): void {

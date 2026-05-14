@@ -7,6 +7,7 @@ import {
 import { CompilerError, type CompilerIssue } from "./error";
 import type { FieldIdDeriver } from "./field-id";
 import { flattenAuthoredFields } from "./fields";
+import { compileHotLayoutManifest } from "./hot";
 import { canonicalizeLanes } from "./lanes";
 import type { ResolvedProjectionContract } from "./manifest";
 import { deriveSemanticVersion } from "./version";
@@ -61,12 +62,23 @@ export function compileAuthoredProjectionContractWithOptions(
     lanes: canonicalLanes.lanes,
   };
   const semanticVersion = deriveSemanticVersion(manifest);
+  const hotLayout =
+    manifest.lanes.hot === undefined ? undefined : compileHotLayoutManifest(manifest);
+  if (hotLayout?.ok === false) {
+    return failure(hotLayout.issues);
+  }
 
   return {
     ok: true,
     value: {
       manifest,
       semanticVersion,
+      ...(hotLayout === undefined
+        ? {}
+        : {
+            hotLayoutVersion: hotLayout.value.hotLayoutVersion,
+            laneManifests: { hot: hotLayout.value },
+          }),
     },
   };
 }
@@ -78,6 +90,7 @@ function validateSchemaBoundary(contract: AuthoredProjectionContract): readonly 
   } catch (error) {
     if (error instanceof SchemaValidationError) {
       return error.issues.map((issue) => ({
+        source: "schema",
         code: "schema.invalid",
         path: issue.path,
         message: issue.message,
@@ -86,6 +99,7 @@ function validateSchemaBoundary(contract: AuthoredProjectionContract): readonly 
 
     return [
       {
+        source: "schema",
         code: "schema.invalid",
         path: "",
         message: "schema validation failed",

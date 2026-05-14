@@ -117,6 +117,15 @@ describe("@seqlok/hot-codec deterministic layout", () => {
     expect(second).toEqual(first);
     expect(second.hotLayoutVersion).toBe(first.hotLayoutVersion);
   });
+
+  it("accepts field ids across the full u32 range when deriving layout versions", () => {
+    const manifest = unwrap(
+      planHotLayoutManifest(input([field("tempo", 0xf0000000, scalar("f64"))])),
+    );
+
+    expect(manifest.fields[0]?.fieldId).toBe(0xf0000000);
+    expectTypeOf(manifest.hotLayoutVersion).toEqualTypeOf<bigint>();
+  });
 });
 
 describe("@seqlok/hot-codec alignment", () => {

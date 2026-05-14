@@ -15,6 +15,7 @@ export type {
   CanonicalWarmLaneDeclaration,
   ColdCodecVersion,
   HotLayoutVersion,
+  LaneManifests,
   ResolvedProjectionContract,
   SemanticVersion,
   WarmCodecVersion,

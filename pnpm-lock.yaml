@@ -28,6 +28,9 @@ importers:
 
   packages/compiler:
     dependencies:
+      '@seqlok/hot-codec':
+        specifier: workspace:*
+        version: link:../hot-codec
       '@seqlok/schema':
         specifier: workspace:*
         version: link:../schema

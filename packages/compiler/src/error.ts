@@ -2,6 +2,8 @@ export interface CompilerIssue {
   readonly code: string;
   readonly path: string;
   readonly message: string;
+  readonly source?: "schema" | "compiler" | "hot-codec";
+  readonly causeCode?: string;
 }
 
 export class CompilerError extends Error {
