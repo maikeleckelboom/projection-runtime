@@ -1,0 +1,33 @@
+{
+  "name": "@seqlok/compiler",
+  "version": "0.0.0",
+  "description": "Build-time compiler for Seqlok authored projection contracts.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run --root ../.. --project @seqlok/compiler",
+    "test:watch": "vitest --root ../.. --project @seqlok/compiler"
+  },
+  "dependencies": {
+    "@seqlok/schema": "workspace:*"
+  }
+}

@@ -8,6 +8,7 @@ const workspaceAliases = {
     new URL("./packages/primitives/src/index.ts", import.meta.url),
   ),
   "@seqlok/schema": fileURLToPath(new URL("./packages/schema/src/index.ts", import.meta.url)),
+  "@seqlok/compiler": fileURLToPath(new URL("./packages/compiler/src/index.ts", import.meta.url)),
 };
 
 export default defineConfig({
@@ -34,6 +35,16 @@ export default defineConfig({
           name: "@seqlok/schema",
           environment: "node",
           include: ["packages/schema/tests/**/*.test.ts", "packages/schema/src/**/*.test.ts"],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@seqlok/compiler",
+          environment: "node",
+          include: ["packages/compiler/tests/**/*.test.ts", "packages/compiler/src/**/*.test.ts"],
         },
       },
       {

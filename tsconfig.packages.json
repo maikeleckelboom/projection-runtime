@@ -2,6 +2,7 @@
   "references": [
     { "path": "./packages/base" },
     { "path": "./packages/schema" },
+    { "path": "./packages/compiler" },
     { "path": "./packages/primitives" }
   ],
   "files": []
