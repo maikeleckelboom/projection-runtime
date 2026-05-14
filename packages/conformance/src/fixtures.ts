@@ -14,6 +14,7 @@ export interface ProjectionRuntimeFixtureArtifacts {
   readonly readme: string;
   readonly authoredContract: unknown;
   readonly canonicalManifest: unknown;
+  readonly hotByteFixture: unknown;
   readonly hotLayoutManifest: unknown;
   readonly resolvedContract: unknown;
 }
@@ -50,6 +51,11 @@ const canonicalManifestFile = {
 const hotLayoutManifestFile = {
   fileName: "hot-layout-manifest.json",
   artifactName: "hot-layout-manifest",
+} satisfies RequiredFixtureFile;
+
+const hotByteFixtureFile = {
+  fileName: "hot-byte-fixture.json",
+  artifactName: "hot-byte-fixture",
 } satisfies RequiredFixtureFile;
 
 const resolvedContractFile = {
@@ -98,6 +104,12 @@ export async function loadProjectionRuntimeFixture(
     fixtureName,
     hotLayoutManifestFile,
   );
+  const hotByteFixture = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    hotByteFixtureFile,
+  );
   const resolvedContract = await readRequiredJson(
     fixturePath,
     relativeFixturePath,
@@ -112,6 +124,7 @@ export async function loadProjectionRuntimeFixture(
       readme,
       authoredContract,
       canonicalManifest,
+      hotByteFixture,
       hotLayoutManifest,
       resolvedContract,
     },

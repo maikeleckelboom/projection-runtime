@@ -40,6 +40,9 @@ importers:
       '@seqlok/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@seqlok/hot-codec':
+        specifier: workspace:*
+        version: link:../hot-codec
 
   packages/hot-codec:
     dependencies:

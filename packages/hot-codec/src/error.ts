@@ -23,13 +23,29 @@ export interface HotCodecLayoutRejectedDetails extends ErrorDetails {
   readonly issues: readonly HotCodecIssue[];
 }
 
+export interface HotByteCodecRejectedDetails extends ErrorDetails {
+  readonly where: "hotByteCodec";
+  readonly detail: string;
+  readonly issueCount: number;
+  readonly issues: readonly HotCodecIssue[];
+}
+
 interface HotCodecDomainDefs {
   readonly layoutRejected: DomainDef;
+  readonly byteRejected: DomainDef;
 }
 
 const HOT_CODEC_DEFS: HotCodecDomainDefs = {
   layoutRejected: {
     message: "Hot layout planning input was rejected",
+    meta: {
+      severity: "error",
+      recoverable: true,
+      boundarySafe: true,
+    },
+  },
+  byteRejected: {
+    message: "Hot byte codec input was rejected",
     meta: {
       severity: "error",
       recoverable: true,
@@ -65,6 +81,27 @@ export class HotCodecError extends SeqlokError<"hotCodec.layoutRejected"> {
         issues: sortedIssues,
       } satisfies HotCodecLayoutRejectedDetails,
       HOT_CODEC_ERRORS.layoutRejected.meta,
+      cause,
+    );
+    this.issues = sortedIssues;
+  }
+}
+
+export class HotByteCodecError extends SeqlokError<"hotCodec.byteRejected"> {
+  readonly issues: readonly HotCodecIssue[];
+
+  constructor(issues: readonly HotCodecIssue[], cause?: unknown) {
+    const sortedIssues = sortHotCodecIssues(issues);
+    super(
+      HOT_CODEC_ERRORS.byteRejected.code,
+      HOT_CODEC_ERRORS.byteRejected.message,
+      {
+        where: "hotByteCodec",
+        detail: formatHotCodecDetail(sortedIssues),
+        issueCount: sortedIssues.length,
+        issues: sortedIssues,
+      } satisfies HotByteCodecRejectedDetails,
+      HOT_CODEC_ERRORS.byteRejected.meta,
       cause,
     );
     this.issues = sortedIssues;

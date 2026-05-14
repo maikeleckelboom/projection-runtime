@@ -1,6 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
 
 import { compileAuthoredProjectionContract } from "@seqlok/compiler";
+import {
+  bytesToHex,
+  decodeHotFieldValues,
+  encodeHotFieldValues,
+  type HotFieldValues,
+  type HotLayoutManifest,
+} from "@seqlok/hot-codec";
 
 import { encodeFixtureJson } from "./encode";
 import { ConformanceError } from "./error";
@@ -15,6 +22,7 @@ import {
 
 export type ProjectionRuntimeArtifactName =
   | "canonical-manifest"
+  | "hot-byte-fixture"
   | "hot-layout-manifest"
   | "resolved-contract";
 
@@ -52,7 +60,7 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
   readonly expectedArtifacts?: Partial<
     Pick<
       ProjectionRuntimeFixtureArtifacts,
-      "canonicalManifest" | "hotLayoutManifest" | "resolvedContract"
+      "canonicalManifest" | "hotByteFixture" | "hotLayoutManifest" | "resolvedContract"
     >
   >;
 }
@@ -75,6 +83,8 @@ export async function runProjectionRuntimeFixture(
   const artifacts = loadedFixture.artifacts;
   const expectedCanonicalManifest =
     options.expectedArtifacts?.canonicalManifest ?? artifacts.canonicalManifest;
+  const expectedHotByteFixture =
+    options.expectedArtifacts?.hotByteFixture ?? artifacts.hotByteFixture;
   const expectedHotLayoutManifest =
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
@@ -114,6 +124,7 @@ export async function runProjectionRuntimeFixture(
     expectedHotLayoutManifest,
     hotLayoutManifest,
   );
+  appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
   appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
   appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
   appendHotLayoutVersionCheck(failures, "actual", resolved);
@@ -169,6 +180,65 @@ function appendArtifactComparison(
   });
 }
 
+function appendHotByteFixtureComparison(
+  failures: ProjectionRuntimeFixtureFailure[],
+  expectedHotByteFixture: unknown,
+  hotLayoutManifest: HotLayoutManifest | undefined,
+): void {
+  try {
+    appendArtifactComparison(
+      failures,
+      "hot-byte-fixture",
+      expectedHotByteFixture,
+      createHotByteFixtureArtifact(hotLayoutManifest, expectedHotByteFixture),
+    );
+  } catch (error) {
+    failures.push({
+      artifact: "hot-byte-fixture",
+      reason: error instanceof Error ? error.message : "failed to verify hot-byte-fixture",
+      expected: encodeFixtureJson(expectedHotByteFixture),
+    });
+  }
+}
+
+function createHotByteFixtureArtifact(
+  hotLayoutManifest: HotLayoutManifest | undefined,
+  expectedHotByteFixture: unknown,
+): unknown {
+  if (hotLayoutManifest === undefined) {
+    throw new Error("hot-byte-fixture requires a hot layout manifest");
+  }
+
+  const values = getObjectProperty(expectedHotByteFixture, "values");
+  if (!isRecord(values)) {
+    throw new Error("hot-byte-fixture values must be an object");
+  }
+
+  const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
+  const decodedFromField = decodeHotFieldValues(hotLayoutManifest, encoded.fieldBytes).values;
+  const decodedFromRegion = decodeHotFieldValues(hotLayoutManifest, encoded.regionBytes).values;
+
+  if (
+    !isDeepStrictEqual(encodeFixtureJson(decodedFromField), encodeFixtureJson(decodedFromRegion))
+  ) {
+    throw new Error("hot-byte-fixture field and region decoding diverged");
+  }
+
+  return {
+    fixtureKind: "hot-byte-fixture",
+    contractKey: hotLayoutManifest.contractKey,
+    hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
+    totalRegionByteLength: hotLayoutManifest.totalRegionByteLength,
+    fieldDataOrigin: hotLayoutManifest.fieldDataOrigin,
+    values,
+    expected: {
+      fieldBytesHex: bytesToHex(encoded.fieldBytes),
+      regionBytesHex: bytesToHex(encoded.regionBytes),
+      decodedValues: decodedFromRegion,
+    },
+  };
+}
+
 function appendHotLayoutVersionCheck(
   failures: ProjectionRuntimeFixtureFailure[],
   source: "actual" | "expected",
@@ -203,6 +273,10 @@ function getObjectProperty(value: unknown, key: string): unknown {
   }
 
   return (value as Record<string, unknown>)[key];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function fixtureFileFailureResult(

@@ -1,4 +1,17 @@
 export {
+  bytesToHex,
+  decodeHotFieldValues,
+  encodeHotFieldData,
+  encodeHotFieldValues,
+  encodeHotRegion,
+  type HotByteDecodeResult,
+  type HotByteEncodeResult,
+  type HotFieldScalarValue,
+  type HotFieldValue,
+  type HotFieldValues,
+  hexToBytes,
+} from "./byte";
+export {
   HOT_ABI_VERSION,
   HOT_BASELINE_EPOCH_U32_OFFSET,
   HOT_BLOCK_A_BYTE_LENGTH,
@@ -9,7 +22,7 @@ export {
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
 export type { HotCodecIssue } from "./error";
-export { HotCodecError } from "./error";
+export { HotByteCodecError, HotCodecError } from "./error";
 export type {
   HotFieldEntry,
   HotLayoutManifest,

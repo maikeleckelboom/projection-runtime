@@ -56,9 +56,32 @@ describe("@seqlok/conformance fixture loading", () => {
     expect(fixture.artifacts.hotLayoutManifest).toMatchObject({
       contractKey: "fixture.hotBasic",
     });
+    expect(fixture.artifacts.hotByteFixture).toMatchObject({
+      fixtureKind: "hot-byte-fixture",
+      contractKey: "fixture.hotBasic",
+    });
     expect(fixture.artifacts.resolvedContract).toMatchObject({
       manifest: { key: "fixture.hotBasic" },
     });
+  });
+
+  it("loads hot-basic-v0 hot-byte-fixture.json with layout-matched metadata", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotLayoutManifest = cloneRecord(fixture.artifacts.hotLayoutManifest);
+    const hotByteFixture = cloneRecord(fixture.artifacts.hotByteFixture);
+    const expected = cloneRecord(hotByteFixture.expected);
+
+    expect(hotByteFixture.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
+    expect(hotByteFixture.totalRegionByteLength).toBe(hotLayoutManifest.totalRegionByteLength);
+    expect(hotByteFixture.fieldDataOrigin).toBe(96);
+    expect(hotByteFixture.values).toEqual({
+      cursor: 123,
+      health: "warn",
+      level: 0.75,
+      peaks: [0.125, 0.25, 0.5],
+      phase: 12.5,
+    });
+    expect(expected.decodedValues).toEqual(hotByteFixture.values);
   });
 
   it("reports missing required fixture files explicitly", async () => {
@@ -80,6 +103,28 @@ describe("@seqlok/conformance fixture loading", () => {
         }),
       ]);
       expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-layout-manifest.json");
+    });
+  });
+
+  it("reports missing hot-byte-fixture.json explicitly", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-byte-fixture.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          fixtureFile: "hot-byte-fixture.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-byte-fixture.json");
     });
   });
 });
@@ -132,6 +177,21 @@ describe("@seqlok/conformance execution", () => {
     });
 
     expectFailure(result.failures, "hot-layout-manifest");
+  });
+
+  it("reports hot-byte-fixture failures for changed in-memory expected bytes", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotByteFixture = cloneRecord(fixture.artifacts.hotByteFixture);
+    const expected = cloneRecord(hotByteFixture.expected);
+    expected.fieldBytesHex = "00";
+    hotByteFixture.expected = expected;
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotByteFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-byte-fixture");
+    expect(failure.reason).toBe("hot-byte-fixture does not match golden artifact");
   });
 
   it("reports resolved-contract failures for changed in-memory expected contracts", async () => {

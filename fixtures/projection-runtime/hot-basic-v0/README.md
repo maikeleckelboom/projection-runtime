@@ -14,8 +14,17 @@ between the canonical manifest, `semanticVersion`, `laneManifests.hot`, and the 
 Those values must match. Version-like u64 values in this fixture are encoded as 16-character lowercase hexadecimal
 strings without a `0x` prefix.
 
-This fixture is intended to become input to `@seqlok/conformance` later. It does not prove runtime reads or writes, Rust
-compatibility, generated bindings, Electron/SAB lifecycle behavior, product contracts, or warm/cold/resource lanes.
+This fixture is validated by `@seqlok/conformance`. It does not prove runtime reads or writes, Rust compatibility,
+generated bindings, Electron/SAB lifecycle behavior, product contracts, or warm/cold/resource lanes.
+
+`hot-byte-fixture.json` adds the first deterministic TypeScript hot field byte golden for this layout. It uses the
+checked-in `hot-layout-manifest.json` offsets to encode a small logical sample, records field-data bytes from byte 96
+through the end of the region, records the full zero-initialized 136-byte region, and verifies that decoding those bytes
+returns the same sample values.
+
+For this byte fixture, Block A and the Block B header/prefix bytes are intentionally zero-filled. This proves pure
+field byte semantics only. It does not claim to initialize an authority-owned mapped region, prove Rust writer
+compatibility, prove runtime seqlock read/write behavior, or cover Electron/SAB lifecycle behavior.
 
 Regenerate derived artifacts from the repo root:
 
