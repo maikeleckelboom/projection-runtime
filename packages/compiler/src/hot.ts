@@ -1,3 +1,4 @@
+import { panic } from "@seqlok/base";
 import {
   type HotCodecIssue,
   type HotLayoutManifest,
@@ -5,7 +6,7 @@ import {
   planHotLayoutManifest,
 } from "@seqlok/hot-codec";
 
-import type { CompilerIssue } from "./error";
+import { type CompilerIssue, createCompilerIssue } from "./error";
 import type { CanonicalProjectionManifest } from "./manifest";
 
 export type CompileHotLayoutResult = CompileHotLayoutSuccess | CompileHotLayoutFailure;
@@ -28,12 +29,12 @@ export function compileHotLayoutManifest(
     return {
       ok: false,
       issues: [
-        {
-          source: "compiler",
-          code: "lane.hotMissing",
-          path: "manifest.lanes.hot",
-          message: "hot lane declaration is required to plan a hot layout",
-        },
+        createCompilerIssue(
+          "lane.hotMissing",
+          "manifest.lanes.hot",
+          "hot lane declaration is required to plan a hot layout",
+          "compiler",
+        ),
       ],
     };
   }
@@ -52,7 +53,7 @@ export function compileHotLayoutManifest(
 function toHotLayoutPlanningInput(manifest: CanonicalProjectionManifest): HotLayoutPlanningInput {
   const hot = manifest.lanes.hot;
   if (hot === undefined) {
-    throw new Error("hot lane declaration is required to plan a hot layout");
+    panic("hot lane declaration is required to plan a hot layout");
   }
 
   return {
@@ -63,11 +64,11 @@ function toHotLayoutPlanningInput(manifest: CanonicalProjectionManifest): HotLay
 }
 
 function toCompilerIssue(issue: HotCodecIssue): CompilerIssue {
-  return {
-    source: "hot-codec",
-    code: "hot-codec.planningFailed",
-    causeCode: issue.code,
-    path: issue.path,
-    message: issue.message,
-  };
+  return createCompilerIssue(
+    "hot-codec.planningFailed",
+    issue.path,
+    issue.message,
+    "hot-codec",
+    issue.code,
+  );
 }

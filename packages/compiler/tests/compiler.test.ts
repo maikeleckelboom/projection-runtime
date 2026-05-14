@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,29 @@ import {
   compileAuthoredProjectionContract,
   type ResolvedProjectionContract,
 } from "../src/index";
+
+const compilerSourceRoot = resolve(
+  fileURLToPath(new URL("../../..", import.meta.url)),
+  "packages/compiler/src",
+);
+
+function sourceText(root: string): string {
+  let text = "";
+
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = resolve(root, entry.name);
+    if (entry.isDirectory()) {
+      text += sourceText(path);
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith(".ts")) {
+      text += readFileSync(path, "utf8");
+    }
+  }
+
+  return text;
+}
 
 function unwrap(result: CompileProjectionResult): ResolvedProjectionContract {
   expect(result.ok).toBe(true);
@@ -850,11 +873,33 @@ describe("@seqlok/compiler warm and cold", () => {
   });
 });
 
+describe("@seqlok/compiler error model", () => {
+  it("CompilerError is a SeqlokError with code compiler.compilationRejected", () => {
+    const error = expectFailure(
+      compileAuthoredProjectionContract({} as AuthoredProjectionContract),
+    );
+    expect(error.code).toBe("compiler.compilationRejected");
+    expect(error.details.issueCount).toBe(error.issues.length);
+  });
+
+  it("has no production throw new Error", () => {
+    const text = sourceText(compilerSourceRoot);
+    expect(text).not.toContain("throw new Error");
+  });
+
+  it("has no production code: string in issue types", () => {
+    const text = sourceText(compilerSourceRoot);
+    expect(text).not.toMatch(/code\s*:\s*string/);
+  });
+});
+
 describe("@seqlok/compiler public surface", () => {
   it("exports only the intended runtime API", () => {
     expect(Object.keys(compiler).sort()).toEqual([
+      "COMPILER_ISSUE_DEFS",
       "CompilerError",
       "compileAuthoredProjectionContract",
+      "createCompilerIssue",
     ]);
 
     for (const runtimeExport of [

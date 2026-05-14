@@ -4,7 +4,14 @@ export {
   type CompileProjectionSuccess,
   compileAuthoredProjectionContract,
 } from "./compile";
-export { CompilerError, type CompilerIssue } from "./error";
+export {
+  COMPILER_ISSUE_DEFS,
+  CompilerError,
+  type CompilerIssue,
+  type CompilerIssueCode,
+  type CompilerIssueSource,
+  createCompilerIssue,
+} from "./error";
 export type {
   CanonicalColdLaneDeclaration,
   CanonicalField,

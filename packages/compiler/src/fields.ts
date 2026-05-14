@@ -6,7 +6,7 @@ import type {
   AuthoredFixedVectorField,
 } from "@seqlok/schema";
 
-import type { CompilerIssue } from "./error";
+import { type CompilerIssue, type CompilerIssueCode, createCompilerIssue } from "./error";
 import { deriveFieldId, type FieldIdDeriver } from "./field-id";
 import type {
   CanonicalBoundedMapShape,
@@ -46,11 +46,7 @@ export function flattenAuthoredFields(
   issues.push(...detectFieldIdCollisions(fields));
 
   if (fields.length > UINT32_MAX) {
-    issues.push({
-      code: "field.countOutOfRange",
-      path: "fields",
-      message: "field count exceeds canonical u32 encoding range",
-    });
+    issues.push(createCompilerIssue("field.countOutOfRange", "fields"));
   }
 
   return { fields, fieldLocalHotReservations: reservations, issues };
@@ -77,11 +73,7 @@ function traverseFieldTree(
     const issuePath = `fields.${path}`;
 
     if (!isRecord(value)) {
-      issues.push({
-        code: "field.malformedTree",
-        path: issuePath,
-        message: "field tree entry must be an object",
-      });
+      issues.push(createCompilerIssue("field.malformedTree", issuePath));
       continue;
     }
 
@@ -90,33 +82,27 @@ function traverseFieldTree(
       collectEncodingIssues(shape, issuePath, issues);
 
       if (dotPaths.has(path)) {
-        issues.push({
-          code: "field.duplicateDotPath",
-          path: issuePath,
-          message: "duplicate canonical field dotPath",
-        });
+        issues.push(createCompilerIssue("field.duplicateDotPath", issuePath));
         continue;
       }
 
       dotPaths.add(path);
       const fieldId = fieldIdDeriver(contractKey, path);
       if (!Number.isInteger(fieldId) || fieldId < 0 || fieldId > UINT32_MAX) {
-        issues.push({
-          code: "field.fieldIdInvalid",
-          path: issuePath,
-          message: "fieldId derivation must produce a u32 number",
-        });
+        issues.push(createCompilerIssue("field.fieldIdInvalid", issuePath));
       }
 
       if ("hotReservation" in shape && shape.hotReservation === true) {
         if (shape.kind === "bounded-array" || shape.kind === "bounded-map") {
           reservations.push({ dotPath: path, path: `${issuePath}.hotReservation` });
         } else {
-          issues.push({
-            code: "lane.hotReservationWrongShape",
-            path: `${issuePath}.hotReservation`,
-            message: "field-local hotReservation is only legal on bounded-array or bounded-map",
-          });
+          issues.push(
+            createCompilerIssue(
+              "lane.hotReservationWrongShape",
+              `${issuePath}.hotReservation`,
+              "field-local hotReservation is only legal on bounded-array or bounded-map",
+            ),
+          );
         }
       }
 
@@ -148,11 +134,13 @@ function detectFieldIdCollisions(fields: readonly CanonicalField[]): readonly Co
   for (const field of fields) {
     const existing = seen.get(field.fieldId);
     if (existing !== undefined) {
-      issues.push({
-        code: "field.fieldIdCollision",
-        path: `fields.${field.dotPath}`,
-        message: `fieldId collides with ${existing.dotPath}`,
-      });
+      issues.push(
+        createCompilerIssue(
+          "field.fieldIdCollision",
+          `fields.${field.dotPath}`,
+          `fieldId collides with ${existing.dotPath}`,
+        ),
+      );
       continue;
     }
 
@@ -262,11 +250,13 @@ function collectEncodingIssues(
       for (let index = 0; index < shape.variants.length; index += 1) {
         const variant = shape.variants[index];
         if (variant?.includes("\0")) {
-          issues.push({
-            code: "field.enumVariantContainsNul",
-            path: `${path}.variants[${index}]`,
-            message: "enum variant cannot contain a null byte",
-          });
+          issues.push(
+            createCompilerIssue(
+              "field.enumVariantContainsNul",
+              `${path}.variants[${index}]`,
+              "enum variant cannot contain a null byte",
+            ),
+          );
         }
       }
       return;
@@ -304,15 +294,25 @@ function collectEncodingIssues(
   }
 }
 
-function checkUint16(value: number, path: string, code: string, issues: CompilerIssue[]): void {
+function checkUint16(
+  value: number,
+  path: string,
+  code: CompilerIssueCode,
+  issues: CompilerIssue[],
+): void {
   if (value > UINT16_MAX) {
-    issues.push({ code, path, message: "value exceeds canonical u16 encoding range" });
+    issues.push(createCompilerIssue(code, path, "value exceeds canonical u16 encoding range"));
   }
 }
 
-function checkUint32(value: number, path: string, code: string, issues: CompilerIssue[]): void {
+function checkUint32(
+  value: number,
+  path: string,
+  code: CompilerIssueCode,
+  issues: CompilerIssue[],
+): void {
   if (value > UINT32_MAX) {
-    issues.push({ code, path, message: "value exceeds canonical u32 encoding range" });
+    issues.push(createCompilerIssue(code, path, "value exceeds canonical u32 encoding range"));
   }
 }
 

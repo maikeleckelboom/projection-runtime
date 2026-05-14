@@ -167,9 +167,11 @@ function assertDirectFixtureName(fixtureName: ProjectionRuntimeFixtureName): voi
     fixtureName.includes("/") ||
     fixtureName.includes("\\")
   ) {
-    throw new ConformanceError(`invalid projection-runtime fixture name: ${fixtureName}`, {
-      fixtureName,
-    });
+    throw new ConformanceError(
+      "conformance.fixtureFileRejected",
+      `invalid projection-runtime fixture name: ${fixtureName}`,
+      { fixtureName },
+    );
   }
 }
 
@@ -213,6 +215,7 @@ function fileError(
   const relativePath = `${relativeFixturePath}/${file.fileName}`;
 
   return new ConformanceError(
+    "conformance.fixtureFileRejected",
     `${reason}: ${file.artifactName} at ${relativePath}`,
     {
       fixtureName,
@@ -220,7 +223,7 @@ function fileError(
       fixtureFile: file.fileName,
       relativePath,
     },
-    { cause },
+    cause,
   );
 }
 

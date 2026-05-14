@@ -82,6 +82,13 @@ type ResolvedProjectionContract = {
 If hot layout planning rejects the input, compilation returns `ok: false` with compiler issues that preserve the
 `hot-codec` issue source and cause code.
 
+## Error model
+
+Compiler errors are domain-coded `SeqlokError` values with code `compiler.compilationRejected`.
+Each `CompilerError` carries a sorted list of `CompilerIssue` objects with typed issue codes such as
+`schema.invalid`, `lane.hotFieldNotAdmissible`, or `hot-codec.planningFailed`. Issue codes are drawn from a
+predeclared registry; callers can assert specific codes without parsing free-form strings.
+
 Warm declarations are retained as `{ codec: "framed-snapshot" }`, but compiler v0 does not emit warm codec manifests or
 derive `warmCodecVersion`.
 

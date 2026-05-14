@@ -4,7 +4,7 @@ import {
   validateAuthoredProjectionContract,
 } from "@seqlok/schema";
 
-import { CompilerError, type CompilerIssue } from "./error";
+import { CompilerError, type CompilerIssue, createCompilerIssue } from "./error";
 import type { FieldIdDeriver } from "./field-id";
 import { flattenAuthoredFields } from "./fields";
 import { compileHotLayoutManifest } from "./hot";
@@ -89,22 +89,12 @@ function validateSchemaBoundary(contract: AuthoredProjectionContract): readonly 
     return [];
   } catch (error) {
     if (error instanceof SchemaValidationError) {
-      return error.issues.map((issue) => ({
-        source: "schema",
-        code: "schema.invalid",
-        path: issue.path,
-        message: issue.message,
-      }));
+      return error.issues.map((issue) =>
+        createCompilerIssue("schema.invalid", issue.path, issue.message, "schema"),
+      );
     }
 
-    return [
-      {
-        source: "schema",
-        code: "schema.invalid",
-        path: "",
-        message: "schema validation failed",
-      },
-    ];
+    return [createCompilerIssue("schema.invalid", "", "schema validation failed", "schema")];
   }
 }
 

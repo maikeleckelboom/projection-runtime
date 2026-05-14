@@ -10,10 +10,94 @@ import {
   SeqlokError,
 } from "@seqlok/base";
 
+export const HOT_CODEC_ISSUE_DEFS = {
+  "input.invalid": "hot layout planning input must be an object",
+  "input.contractKeyInvalid": "contractKey must be a non-empty string",
+  "hot.invalid": "hot lane declaration must be an object",
+  "hot.codecUnsupported": "hot codec must be mapped-fixed",
+  "hot.reservationsInvalid": "hot reservations must be an array",
+  "field.listInvalid": "fields must be an array",
+  "field.countOutOfRange": "field count must fit in u32",
+  "field.invalid": "field entry must be an object",
+  "field.dotPathInvalid": "field dotPath must be a non-empty string",
+  "field.duplicateDotPath": "field dotPath must be unique",
+  "field.fieldIdInvalid": "fieldId must be a u32 number",
+  "field.duplicateFieldId": "fieldId must be unique within one hot layout",
+  "field.orderInvalid": "fields must be sorted lexicographically by UTF-8 dotPath",
+  "field.hotNotAdmissible": "shape is hot-admissible only when its dotPath is reserved",
+  "reservation.invalid": "hot reservation must be a non-empty dotPath string",
+  "reservation.duplicate": "hot reservation dotPath must be unique",
+  "reservation.unknownField": "hot reservation names a field that does not exist",
+  "reservation.wrongShape": "hot reservation must name a BoundedArray or BoundedMap field",
+  "shape.invalid": "field shape must be an object",
+  "shape.nanSentinelInvalid": "nanSentinel must be true when present",
+  "shape.numericOutOfRange": "numeric shape value is out of range",
+  "shape.mapKeyEncodingUnsupported": "BoundedMap keyEncoding must be fixed-ascii",
+  "shape.mapValueUnsupported":
+    "BoundedMap valueShape must be FixedScalar, FixedEnum, or FixedVector",
+  "shape.unknownKind": "field shape kind is not supported by hot-codec",
+  "shape.scalarUnsupported": "scalar type is not supported by hot-codec",
+  "shape.enumStorageUnsupported": "FixedEnum storage must be u8, u16, or u32",
+  "shape.stringEncodingUnsupported": "FixedStringEncoded encoding must be utf8 or ascii",
+  "shape.variantsInvalid": "FixedEnum variants must be non-empty strings",
+  "shape.variableStringUnsupported": "VariableString is not hot-admissible",
+  "shape.variableMapUnsupported": "VariableMap is not hot-admissible",
+  "layout.numericOutOfRange": "computed offset or byte length must be a safe u32 integer",
+  "byte.hexInvalid":
+    "hex bytes must be lowercase, even-length, and contain no prefix or separators",
+  "byte.layoutInvalid": "hot layout manifest has an invalid field data window",
+  "byte.valuesInvalid": "hot field values must be an object",
+  "byte.valueUnknown": "unknown hot field value",
+  "byte.bytesLengthInvalid": "hot bytes length does not match expected region or field data length",
+  "byte.valueMissing": "missing value for hot field",
+  "byte.shapeUnsupported": "shape byte encoding is not supported by this hot-codec helper",
+  "byte.boolInvalid": "bool field byte must be 0 or 1",
+  "byte.valueInvalid": "field value has an invalid type",
+  "byte.variantInvalid": "invalid FixedEnum variant",
+  "byte.variantOrdinalInvalid": "FixedEnum ordinal is outside variants",
+  "byte.valueLengthInvalid": "FixedVector value length does not match expected length",
+  "byte.stringDecodeInvalid": "FixedStringEncoded bytes are invalid",
+  "byte.valueTooLong": "encoded string length exceeds allocated byte length",
+  "byte.countInvalid": "BoundedArray count exceeds maximum",
+  "byte.stringEncodingInvalid": "string contains a non-ascii code unit",
+  "byte.valueOutOfRange": "value is outside valid range",
+  "byte.reservationMissing": "missing hot reservation metadata",
+  "header.byteLengthInvalid": "Block A header byte length is invalid",
+  "header.magicInvalid": "Block A header magic bytes are invalid",
+  "header.hotAbiVersionUnsupported": "Block A header hotAbiVersion is not supported",
+  "header.reservedNonZero": "Block A header reserved bytes must be zero",
+  "header.contractKeyEmpty": "contractKey must not be empty",
+  "header.instanceKeyEmpty": "instanceKey must not be empty",
+  "header.semanticVersionOutOfRange": "semanticVersion must be a u64",
+  "header.hotLayoutVersionOutOfRange": "hotLayoutVersion must be a u64",
+  "header.fieldCountOutOfRange": "fieldCount must be a u32",
+  "header.mutableRegionByteLengthOutOfRange": "mutableRegionByteLength must be a u32",
+  "header.contractKeyHashMismatch": "contractKey hash mismatch",
+  "header.instanceKeyHashMismatch": "instanceKey hash mismatch",
+  "header.semanticVersionMismatch": "semanticVersion mismatch",
+  "header.hotLayoutVersionMismatch": "hotLayoutVersion mismatch",
+  "header.fieldCountMismatch": "fieldCount mismatch",
+  "header.mutableRegionByteLengthMismatch": "mutableRegionByteLength mismatch",
+} as const;
+
+export type HotCodecIssueCode = keyof typeof HOT_CODEC_ISSUE_DEFS;
+
 export interface HotCodecIssue extends JsonObject {
-  readonly code: string;
+  readonly code: HotCodecIssueCode;
   readonly path: string;
   readonly message: string;
+}
+
+export function createHotCodecIssue(
+  code: HotCodecIssueCode,
+  path: string,
+  message?: string,
+): HotCodecIssue {
+  return {
+    code,
+    path,
+    message: message ?? HOT_CODEC_ISSUE_DEFS[code],
+  };
 }
 
 export interface HotCodecLayoutRejectedDetails extends ErrorDetails {

@@ -726,6 +726,66 @@ describe("@seqlok/hot-codec Block A header", () => {
   });
 });
 
+describe("@seqlok/hot-codec error model", () => {
+  const validInput: HotBlockAHeaderInput = {
+    contractKey: "fixture.hotBasic",
+    instanceKey: "hot-basic-v0.instance",
+    semanticVersion: 0x67b271f31c6b06a0n,
+    hotLayoutVersion: 0x8f3eb897fd88495cn,
+    fieldCount: 5,
+    mutableRegionByteLength: 64,
+  };
+
+  it("HotCodecError carries code hotCodec.layoutRejected", () => {
+    const error = expectFailure(
+      planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))], ["missing"])),
+    );
+    expect(error.code).toBe("hotCodec.layoutRejected");
+    expect(error).toBeInstanceOf(HotCodecError);
+  });
+
+  it("HotByteCodecError carries code hotCodec.byteRejected", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    bytes[0] = 0xde;
+    try {
+      decodeHotBlockAHeader(bytes);
+      throw new Error("expected decode to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HotByteCodecError);
+      expect((error as HotByteCodecError).code).toBe("hotCodec.byteRejected");
+    }
+  });
+
+  it("bad magic returns typed issue code header.magicInvalid", () => {
+    const bytes = encodeHotBlockAHeader(validInput);
+    bytes[0] = 0xde;
+    try {
+      decodeHotBlockAHeader(bytes);
+      throw new Error("expected decode to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HotByteCodecError);
+      const issues = (error as HotByteCodecError).issues;
+      expect(issues.map((i) => i.code)).toContain("header.magicInvalid");
+    }
+  });
+
+  it("has no production throw new Error", () => {
+    const text = sourceText(hotCodecSourceRoot);
+    expect(text).not.toContain("throw new Error");
+  });
+
+  it("has no production code: string in issue types", () => {
+    const text = sourceText(hotCodecSourceRoot);
+    expect(text).not.toMatch(/code\s*:\s*string/);
+  });
+
+  it("does not duplicate HOT_REGION_MAGIC_BYTES definition outside constants", () => {
+    const text = sourceText(hotCodecSourceRoot);
+    const definitions = [...text.matchAll(/(?:export\s+)?const\s+HOT_REGION_MAGIC_BYTES/g)];
+    expect(definitions.length).toBe(1);
+  });
+});
+
 describe("@seqlok/hot-codec rejections", () => {
   it("rejects unsupported hot codec names", () => {
     const error = expectFailure(
@@ -843,6 +903,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "HOT_BASELINE_EPOCH_U32_OFFSET",
       "HOT_BLOCK_A_BYTE_LENGTH",
       "HOT_BLOCK_B_BYTE_OFFSET",
+      "HOT_CODEC_ISSUE_DEFS",
       "HOT_CONTINUITY_GENERATION_U32_OFFSET",
       "HOT_FIELD_DATA_BYTE_OFFSET",
       "HOT_PUBLICATION_SEQUENCE_U64_OFFSET",
@@ -851,6 +912,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "HotByteCodecError",
       "HotCodecError",
       "bytesToHex",
+      "createHotCodecIssue",
       "decodeHotBlockAHeader",
       "decodeHotFieldValues",
       "deriveHotLayoutVersion",

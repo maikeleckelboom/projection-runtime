@@ -205,11 +205,7 @@ function appendHotByteFixtureComparison(
       createHotByteFixtureArtifact(hotLayoutManifest, expectedHotByteFixture),
     );
   } catch (error) {
-    failures.push({
-      artifact: "hot-byte-fixture",
-      reason: error instanceof Error ? error.message : "failed to verify hot-byte-fixture",
-      expected: encodeFixtureJson(expectedHotByteFixture),
-    });
+    failures.push(conformanceFailureFromError(error, "hot-byte-fixture", expectedHotByteFixture));
   }
 }
 
@@ -218,12 +214,20 @@ function createHotByteFixtureArtifact(
   expectedHotByteFixture: unknown,
 ): unknown {
   if (hotLayoutManifest === undefined) {
-    throw new Error("hot-byte-fixture requires a hot layout manifest");
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      "hot-byte-fixture requires a hot layout manifest",
+      { artifact: "hot-byte-fixture", reason: "missingHotLayoutManifest" },
+    );
   }
 
   const values = getObjectProperty(expectedHotByteFixture, "values");
   if (!isRecord(values)) {
-    throw new Error("hot-byte-fixture values must be an object");
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      "hot-byte-fixture values must be an object",
+      { artifact: "hot-byte-fixture", reason: "valuesNotObject" },
+    );
   }
 
   const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
@@ -236,7 +240,11 @@ function createHotByteFixtureArtifact(
   if (
     !isDeepStrictEqual(encodeFixtureJson(decodedFromField), encodeFixtureJson(decodedFromRegion))
   ) {
-    throw new Error("hot-byte-fixture field and region decoding diverged");
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
+      "hot-byte-fixture field and region decoding diverged",
+      { artifact: "hot-byte-fixture", reason: "fieldRegionDecodeDiverged" },
+    );
   }
 
   return {
@@ -268,11 +276,9 @@ function appendHotBlockAFixtureComparison(
       createHotBlockAFixtureArtifact(hotLayoutManifest, resolved, expectedHotBlockAFixture),
     );
   } catch (error) {
-    failures.push({
-      artifact: "hot-block-a-fixture",
-      reason: error instanceof Error ? error.message : "failed to verify hot-block-a-fixture",
-      expected: encodeFixtureJson(expectedHotBlockAFixture),
-    });
+    failures.push(
+      conformanceFailureFromError(error, "hot-block-a-fixture", expectedHotBlockAFixture),
+    );
   }
 }
 
@@ -282,48 +288,89 @@ function createHotBlockAFixtureArtifact(
   expectedHotBlockAFixture: unknown,
 ): unknown {
   if (hotLayoutManifest === undefined) {
-    throw new Error("hot-block-a-fixture requires a hot layout manifest");
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      "hot-block-a-fixture requires a hot layout manifest",
+      { artifact: "hot-block-a-fixture", reason: "missingHotLayoutManifest" },
+    );
   }
   if (!isRecord(resolved)) {
-    throw new Error("hot-block-a-fixture requires resolved contract");
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      "hot-block-a-fixture requires resolved contract",
+      { artifact: "hot-block-a-fixture", reason: "missingResolvedContract" },
+    );
   }
   if (!isRecord(expectedHotBlockAFixture)) {
-    throw new Error("hot-block-a-fixture must be an object");
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      "hot-block-a-fixture must be an object",
+      { artifact: "hot-block-a-fixture", reason: "fixtureNotObject" },
+    );
   }
 
-  const semanticVersion = getStringProperty(expectedHotBlockAFixture, "semanticVersion");
-  const hotLayoutVersion = getStringProperty(expectedHotBlockAFixture, "hotLayoutVersion");
-  const fieldCount = getNumberProperty(expectedHotBlockAFixture, "fieldCount");
+  const semanticVersion = getStringProperty(
+    expectedHotBlockAFixture,
+    "semanticVersion",
+    "expected.semanticVersion",
+  );
+  const hotLayoutVersion = getStringProperty(
+    expectedHotBlockAFixture,
+    "hotLayoutVersion",
+    "expected.hotLayoutVersion",
+  );
+  const fieldCount = getNumberProperty(
+    expectedHotBlockAFixture,
+    "fieldCount",
+    "expected.fieldCount",
+  );
   const mutableRegionByteLength = getNumberProperty(
     expectedHotBlockAFixture,
     "mutableRegionByteLength",
+    "expected.mutableRegionByteLength",
   );
-  const contractKey = getStringProperty(expectedHotBlockAFixture, "contractKey");
-  const instanceKey = getStringProperty(expectedHotBlockAFixture, "instanceKey");
+  const contractKey = getStringProperty(
+    expectedHotBlockAFixture,
+    "contractKey",
+    "expected.contractKey",
+  );
+  const instanceKey = getStringProperty(
+    expectedHotBlockAFixture,
+    "instanceKey",
+    "expected.instanceKey",
+  );
 
   const resolvedSemanticVersion = encodeFixtureJson(resolved.semanticVersion);
   if (semanticVersion !== resolvedSemanticVersion) {
-    throw new Error(
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
       `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
+      { artifact: "hot-block-a-fixture", reason: "semanticVersionMismatch" },
     );
   }
 
   const manifestHotLayoutVersion = encodeFixtureJson(hotLayoutManifest.hotLayoutVersion);
   if (hotLayoutVersion !== manifestHotLayoutVersion) {
-    throw new Error(
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
       `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
+      { artifact: "hot-block-a-fixture", reason: "hotLayoutVersionMismatch" },
     );
   }
 
   if (fieldCount !== hotLayoutManifest.fields.length) {
-    throw new Error(
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
       `hot-block-a-fixture fieldCount mismatch: expected ${fieldCount}, manifest ${hotLayoutManifest.fields.length}`,
+      { artifact: "hot-block-a-fixture", reason: "fieldCountMismatch" },
     );
   }
 
   if (mutableRegionByteLength !== hotLayoutManifest.mutableRegionByteLength) {
-    throw new Error(
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
       `hot-block-a-fixture mutableRegionByteLength mismatch: expected ${mutableRegionByteLength}, manifest ${hotLayoutManifest.mutableRegionByteLength}`,
+      { artifact: "hot-block-a-fixture", reason: "mutableRegionByteLengthMismatch" },
     );
   }
 
@@ -341,7 +388,11 @@ function createHotBlockAFixtureArtifact(
   const validation = validateHotBlockAHeader(blockABytes, input);
 
   if (!validation.ok) {
-    throw new Error(`hot-block-a-fixture validation failed: ${validation.error.message}`);
+    throw new ConformanceError(
+      "conformance.fixtureArtifactMismatch",
+      `hot-block-a-fixture validation failed: ${validation.error.message}`,
+      { artifact: "hot-block-a-fixture", reason: "headerValidationFailed" },
+    );
   }
 
   return {
@@ -359,18 +410,26 @@ function createHotBlockAFixtureArtifact(
   };
 }
 
-function getStringProperty(obj: Record<string, unknown>, key: string): string {
+function getStringProperty(obj: Record<string, unknown>, key: string, path: string): string {
   const value = obj[key];
   if (typeof value !== "string") {
-    throw new Error(`expected ${key} to be a string`);
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      `expected ${key} to be a string`,
+      { path, reason: "expectedString" },
+    );
   }
   return value;
 }
 
-function getNumberProperty(obj: Record<string, unknown>, key: string): number {
+function getNumberProperty(obj: Record<string, unknown>, key: string, path: string): number {
   const value = obj[key];
   if (typeof value !== "number") {
-    throw new Error(`expected ${key} to be a number`);
+    throw new ConformanceError(
+      "conformance.fixtureShapeRejected",
+      `expected ${key} to be a number`,
+      { path, reason: "expectedNumber" },
+    );
   }
   return value;
 }
@@ -451,5 +510,31 @@ function fixtureFileFailure(error: unknown): ProjectionRuntimeFixtureFailure {
   return {
     artifact: "fixture-file",
     reason: error instanceof Error ? error.message : "failed to load fixture files",
+  };
+}
+
+function conformanceFailureFromError(
+  error: unknown,
+  artifact: ProjectionRuntimeFixtureFailureArtifact,
+  expected?: unknown,
+): ProjectionRuntimeFixtureFailure {
+  if (error instanceof ConformanceError) {
+    return {
+      artifact,
+      reason: error.message,
+      expected: expected !== undefined ? encodeFixtureJson(expected) : undefined,
+      ...(error.details.fixtureFile === undefined
+        ? {}
+        : { fixtureFile: error.details.fixtureFile }),
+      ...(error.details.relativePath === undefined
+        ? {}
+        : { relativePath: error.details.relativePath }),
+    };
+  }
+
+  return {
+    artifact,
+    reason: error instanceof Error ? error.message : `failed to verify ${artifact}`,
+    expected: expected !== undefined ? encodeFixtureJson(expected) : undefined,
   };
 }

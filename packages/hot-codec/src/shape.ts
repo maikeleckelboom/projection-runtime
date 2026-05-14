@@ -1,4 +1,6 @@
-import type { HotCodecIssue } from "./error";
+import { panic } from "@seqlok/base";
+
+import { createHotCodecIssue, type HotCodecIssue } from "./error";
 
 const UINT16_MAX = 0xffff;
 const UINT32_MAX = 0xffffffff;
@@ -130,7 +132,7 @@ export function naturalAlignment(shape: HotLayoutPlanningShape): number {
 
     case "VariableString":
     case "VariableMap":
-      throw new Error(`${shape.kind} has no hot-lane natural alignment`);
+      panic(`${shape.kind} has no hot-lane natural alignment`);
   }
 }
 
@@ -156,7 +158,7 @@ export function fieldByteSpan(shape: HotLayoutPlanningShape): number {
 
     case "VariableString":
     case "VariableMap":
-      throw new Error(`${shape.kind} has no hot-lane byte span`);
+      panic(`${shape.kind} has no hot-lane byte span`);
   }
 }
 
@@ -232,11 +234,7 @@ export function cloneShape(shape: HotLayoutPlanningShape): HotLayoutPlanningShap
 
 export function collectShapeIssues(shape: unknown, path: string, issues: HotCodecIssue[]): void {
   if (!isRecord(shape)) {
-    issues.push({
-      code: "shape.invalid",
-      path,
-      message: "field shape must be an object",
-    });
+    issues.push(createHotCodecIssue("shape.invalid", path));
     return;
   }
 
@@ -244,22 +242,14 @@ export function collectShapeIssues(shape: unknown, path: string, issues: HotCode
     case "FixedScalar":
       validateScalarType(shape.type, `${path}.type`, issues);
       if ("nanSentinel" in shape && shape.nanSentinel !== true && shape.nanSentinel !== undefined) {
-        issues.push({
-          code: "shape.nanSentinelInvalid",
-          path: `${path}.nanSentinel`,
-          message: "nanSentinel must be true when present",
-        });
+        issues.push(createHotCodecIssue("shape.nanSentinelInvalid", `${path}.nanSentinel`));
       }
       return;
 
     case "FixedEnum":
       validateStringArray(shape.variants, `${path}.variants`, issues);
       if (Array.isArray(shape.variants) && shape.variants.length > UINT16_MAX) {
-        issues.push({
-          code: "shape.numericOutOfRange",
-          path: `${path}.variants`,
-          message: "FixedEnum variant count must fit in u16",
-        });
+        issues.push(createHotCodecIssue("shape.numericOutOfRange", `${path}.variants`));
       }
       validateEnumStorage(shape.storage, `${path}.storage`, issues);
       return;
@@ -281,11 +271,7 @@ export function collectShapeIssues(shape: unknown, path: string, issues: HotCode
 
     case "BoundedMap":
       if (shape.keyEncoding !== "fixed-ascii") {
-        issues.push({
-          code: "shape.mapKeyEncodingUnsupported",
-          path: `${path}.keyEncoding`,
-          message: "BoundedMap keyEncoding must be fixed-ascii",
-        });
+        issues.push(createHotCodecIssue("shape.mapKeyEncodingUnsupported", `${path}.keyEncoding`));
       }
       validatePositiveU16(shape.keyByteLength, `${path}.keyByteLength`, issues);
       validatePositiveU32(shape.maxEntries, `${path}.maxEntries`, issues);
@@ -300,11 +286,7 @@ export function collectShapeIssues(shape: unknown, path: string, issues: HotCode
       return;
 
     default:
-      issues.push({
-        code: "shape.unknownKind",
-        path: `${path}.kind`,
-        message: "field shape kind is not supported by hot-codec",
-      });
+      issues.push(createHotCodecIssue("shape.unknownKind", `${path}.kind`));
   }
 }
 
@@ -345,7 +327,7 @@ function boundedMapEntrySize(shape: HotLayoutPlanningBoundedMapShape): number {
   const entrySize = shape.keyByteLength + intraPad + valueByteWidth(shape.valueShape);
 
   if (entrySize % vAlign !== 0) {
-    throw new Error("BoundedMap entry size is not divisible by value alignment");
+    panic("BoundedMap entry size is not divisible by value alignment");
   }
 
   return entrySize;
@@ -444,11 +426,7 @@ function collectFixedValueShapeIssues(shape: unknown, path: string, issues: HotC
   }
 
   if (shape.kind !== "FixedScalar" && shape.kind !== "FixedEnum" && shape.kind !== "FixedVector") {
-    issues.push({
-      code: "shape.mapValueUnsupported",
-      path: `${path}.kind`,
-      message: "BoundedMap valueShape must be FixedScalar, FixedEnum, or FixedVector",
-    });
+    issues.push(createHotCodecIssue("shape.mapValueUnsupported", `${path}.kind`));
   }
 }
 
@@ -469,11 +447,7 @@ function validateScalarType(value: unknown, path: string, issues: HotCodecIssue[
     return;
   }
 
-  issues.push({
-    code: "shape.scalarUnsupported",
-    path,
-    message: "scalar type is not supported by hot-codec",
-  });
+  issues.push(createHotCodecIssue("shape.scalarUnsupported", path));
 }
 
 function validateEnumStorage(value: unknown, path: string, issues: HotCodecIssue[]): void {
@@ -481,11 +455,7 @@ function validateEnumStorage(value: unknown, path: string, issues: HotCodecIssue
     return;
   }
 
-  issues.push({
-    code: "shape.enumStorageUnsupported",
-    path,
-    message: "FixedEnum storage must be u8, u16, or u32",
-  });
+  issues.push(createHotCodecIssue("shape.enumStorageUnsupported", path));
 }
 
 function validateStringEncoding(value: unknown, path: string, issues: HotCodecIssue[]): void {
@@ -493,30 +463,18 @@ function validateStringEncoding(value: unknown, path: string, issues: HotCodecIs
     return;
   }
 
-  issues.push({
-    code: "shape.stringEncodingUnsupported",
-    path,
-    message: "FixedStringEncoded encoding must be utf8 or ascii",
-  });
+  issues.push(createHotCodecIssue("shape.stringEncodingUnsupported", path));
 }
 
 function validateStringArray(value: unknown, path: string, issues: HotCodecIssue[]): void {
   if (!Array.isArray(value) || value.length === 0) {
-    issues.push({
-      code: "shape.variantsInvalid",
-      path,
-      message: "FixedEnum variants must be a non-empty string array",
-    });
+    issues.push(createHotCodecIssue("shape.variantsInvalid", path));
     return;
   }
 
   for (let index = 0; index < value.length; index += 1) {
     if (typeof value[index] !== "string" || value[index].length === 0) {
-      issues.push({
-        code: "shape.variantsInvalid",
-        path: `${path}.${index}`,
-        message: "FixedEnum variants must be non-empty strings",
-      });
+      issues.push(createHotCodecIssue("shape.variantsInvalid", `${path}.${index}`));
     }
   }
 }
@@ -531,11 +489,7 @@ function validatePositiveU16(value: unknown, path: string, issues: HotCodecIssue
     return;
   }
 
-  issues.push({
-    code: "shape.numericOutOfRange",
-    path,
-    message: "numeric shape value must be a positive integer that fits in u16",
-  });
+  issues.push(createHotCodecIssue("shape.numericOutOfRange", path));
 }
 
 function validatePositiveU32(value: unknown, path: string, issues: HotCodecIssue[]): void {
@@ -548,9 +502,5 @@ function validatePositiveU32(value: unknown, path: string, issues: HotCodecIssue
     return;
   }
 
-  issues.push({
-    code: "shape.numericOutOfRange",
-    path,
-    message: "numeric shape value must be a positive integer that fits in u32",
-  });
+  issues.push(createHotCodecIssue("shape.numericOutOfRange", path));
 }

@@ -1,5 +1,4 @@
-import type { HotCodecIssue } from "./error";
-import { HotByteCodecError } from "./error";
+import { createHotCodecIssue, HotByteCodecError, type HotCodecIssueCode } from "./error";
 import type { HotFieldEntry, HotLayoutManifest, HotReservationEntry } from "./manifest";
 import type {
   HotLayoutPlanningBoundedArrayShape,
@@ -579,11 +578,11 @@ function readFixedString(
   } catch (error) {
     throw new HotByteCodecError(
       [
-        {
-          code: "byte.stringDecodeInvalid",
+        createHotCodecIssue(
+          "byte.stringDecodeInvalid",
           path,
-          message: "FixedStringEncoded utf8 bytes are invalid",
-        },
+          "FixedStringEncoded utf8 bytes are invalid",
+        ),
       ],
       error,
     );
@@ -773,6 +772,6 @@ function scalarByteWidth(type: ScalarType): number {
   }
 }
 
-function throwByteIssue(code: string, path: string, message: string): never {
-  throw new HotByteCodecError([{ code, path, message } satisfies HotCodecIssue]);
+function throwByteIssue(code: HotCodecIssueCode, path: string, message?: string): never {
+  throw new HotByteCodecError([createHotCodecIssue(code, path, message)]);
 }

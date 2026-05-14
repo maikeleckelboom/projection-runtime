@@ -1,5 +1,10 @@
 export { encodeFixtureJson } from "./encode";
-export { ConformanceError, type ConformanceErrorDetails } from "./error";
+export {
+  ConformanceError,
+  type ConformanceErrorCode,
+  type ConformanceErrorDetails,
+  type ConformanceErrorKey,
+} from "./error";
 export {
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,

@@ -1,11 +1,13 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import { SeqlokError } from "@seqlok/base";
 import { describe, expect, it } from "vitest";
 
 import {
+  ConformanceError,
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,
   type ProjectionRuntimeFixtureFailure,
@@ -16,6 +18,25 @@ import {
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const hotBasicFixtureRoot = resolve(fixtureRoot, "hot-basic-v0");
+const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
+
+function sourceText(root: string): string {
+  let text = "";
+
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = resolve(root, entry.name);
+    if (entry.isDirectory()) {
+      text += sourceText(path);
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith(".ts")) {
+      text += readFileSync(path, "utf8");
+    }
+  }
+
+  return text;
+}
 
 describe("@seqlok/conformance fixture discovery", () => {
   it("discovers hot-basic-v0", async () => {
@@ -290,6 +311,44 @@ describe("@seqlok/conformance execution", () => {
     expect(failure.reason).toBe("canonical-manifest does not match golden artifact");
     expect(failure.expected).toMatchObject({ family: "changed" });
     expect(failure.actual).toMatchObject({ family: "replaceable-snapshot" });
+  });
+});
+
+describe("@seqlok/conformance error model", () => {
+  it("ConformanceError is a SeqlokError with domain-coded code", () => {
+    const error = new ConformanceError("conformance.fixtureFileRejected", "test message", {
+      fixtureName: "test",
+    });
+    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error.code).toBe("conformance.fixtureFileRejected");
+    expect(error.details.fixtureName).toBe("test");
+  });
+
+  it("fixture-file failure carries stable code and details", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-layout-manifest.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result.passed).toBe(false);
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+        }),
+      ]);
+    });
+  });
+
+  it("has no production throw new Error", () => {
+    const text = sourceText(conformanceSourceRoot);
+    expect(text).not.toContain("throw new Error");
+  });
+
+  it("has no production code: string in issue types", () => {
+    const text = sourceText(conformanceSourceRoot);
+    expect(text).not.toMatch(/code\s*:\s*string/);
   });
 });
 

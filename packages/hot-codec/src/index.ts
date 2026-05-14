@@ -22,8 +22,14 @@ export {
   HOT_REGION_MAGIC_BYTES,
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
-export type { HotCodecIssue } from "./error";
-export { HotByteCodecError, HotCodecError } from "./error";
+export {
+  createHotCodecIssue,
+  HOT_CODEC_ISSUE_DEFS,
+  HotByteCodecError,
+  HotCodecError,
+  type HotCodecIssue,
+  type HotCodecIssueCode,
+} from "./error";
 export {
   decodeHotBlockAHeader,
   encodeHotBlockAHeader,

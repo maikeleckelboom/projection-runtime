@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
-
-import { HOT_ABI_VERSION, HOT_BLOCK_A_BYTE_LENGTH } from "./constants";
-import { HotByteCodecError, type HotCodecIssue } from "./error";
+import { bytesToHex } from "./byte";
+import { HOT_ABI_VERSION, HOT_BLOCK_A_BYTE_LENGTH, HOT_REGION_MAGIC_BYTES } from "./constants";
+import {
+  createHotCodecIssue,
+  HotByteCodecError,
+  type HotCodecIssue,
+  type HotCodecIssueCode,
+} from "./error";
 
 export type HotBlockAHeaderInput = {
   readonly contractKey: string;
@@ -27,8 +32,6 @@ export type HotBlockAHeader = {
 export type HotBlockAHeaderValidationResult =
   | { readonly ok: true; readonly value: HotBlockAHeader }
   | { readonly ok: false; readonly error: HotByteCodecError };
-
-export const HOT_REGION_MAGIC_BYTES: Uint8Array = new Uint8Array([0x53, 0x51, 0x4c, 0x4b]);
 
 export function encodeHotBlockAHeader(input: HotBlockAHeaderInput): Uint8Array {
   validateInput(input);
@@ -122,52 +125,64 @@ export function validateHotBlockAHeader(
 
   const expectedContractKeyHashHex = bytesToHex(hashKey(expected.contractKey));
   if (decoded.contractKeyHashHex !== expectedContractKeyHashHex) {
-    issues.push({
-      code: "header.contractKeyHashMismatch",
-      path: "expected.contractKey",
-      message: `contractKey hash mismatch: expected ${expectedContractKeyHashHex}, got ${decoded.contractKeyHashHex}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.contractKeyHashMismatch",
+        "expected.contractKey",
+        `contractKey hash mismatch: expected ${expectedContractKeyHashHex}, got ${decoded.contractKeyHashHex}`,
+      ),
+    );
   }
 
   const expectedInstanceKeyHashHex = bytesToHex(hashKey(expected.instanceKey));
   if (decoded.instanceKeyHashHex !== expectedInstanceKeyHashHex) {
-    issues.push({
-      code: "header.instanceKeyHashMismatch",
-      path: "expected.instanceKey",
-      message: `instanceKey hash mismatch: expected ${expectedInstanceKeyHashHex}, got ${decoded.instanceKeyHashHex}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.instanceKeyHashMismatch",
+        "expected.instanceKey",
+        `instanceKey hash mismatch: expected ${expectedInstanceKeyHashHex}, got ${decoded.instanceKeyHashHex}`,
+      ),
+    );
   }
 
   if (decoded.semanticVersion !== expected.semanticVersion) {
-    issues.push({
-      code: "header.semanticVersionMismatch",
-      path: "expected.semanticVersion",
-      message: `semanticVersion mismatch: expected ${expected.semanticVersion}, got ${decoded.semanticVersion}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.semanticVersionMismatch",
+        "expected.semanticVersion",
+        `semanticVersion mismatch: expected ${expected.semanticVersion}, got ${decoded.semanticVersion}`,
+      ),
+    );
   }
 
   if (decoded.hotLayoutVersion !== expected.hotLayoutVersion) {
-    issues.push({
-      code: "header.hotLayoutVersionMismatch",
-      path: "expected.hotLayoutVersion",
-      message: `hotLayoutVersion mismatch: expected ${expected.hotLayoutVersion}, got ${decoded.hotLayoutVersion}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.hotLayoutVersionMismatch",
+        "expected.hotLayoutVersion",
+        `hotLayoutVersion mismatch: expected ${expected.hotLayoutVersion}, got ${decoded.hotLayoutVersion}`,
+      ),
+    );
   }
 
   if (decoded.fieldCount !== expected.fieldCount) {
-    issues.push({
-      code: "header.fieldCountMismatch",
-      path: "expected.fieldCount",
-      message: `fieldCount mismatch: expected ${expected.fieldCount}, got ${decoded.fieldCount}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.fieldCountMismatch",
+        "expected.fieldCount",
+        `fieldCount mismatch: expected ${expected.fieldCount}, got ${decoded.fieldCount}`,
+      ),
+    );
   }
 
   if (decoded.mutableRegionByteLength !== expected.mutableRegionByteLength) {
-    issues.push({
-      code: "header.mutableRegionByteLengthMismatch",
-      path: "expected.mutableRegionByteLength",
-      message: `mutableRegionByteLength mismatch: expected ${expected.mutableRegionByteLength}, got ${decoded.mutableRegionByteLength}`,
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.mutableRegionByteLengthMismatch",
+        "expected.mutableRegionByteLength",
+        `mutableRegionByteLength mismatch: expected ${expected.mutableRegionByteLength}, got ${decoded.mutableRegionByteLength}`,
+      ),
+    );
   }
 
   if (issues.length > 0) {
@@ -181,35 +196,19 @@ function validateInput(input: HotBlockAHeaderInput): void {
   const issues: HotCodecIssue[] = [];
 
   if (input.contractKey.length === 0) {
-    issues.push({
-      code: "header.contractKeyEmpty",
-      path: "input.contractKey",
-      message: "contractKey must not be empty",
-    });
+    issues.push(createHotCodecIssue("header.contractKeyEmpty", "input.contractKey"));
   }
 
   if (input.instanceKey.length === 0) {
-    issues.push({
-      code: "header.instanceKeyEmpty",
-      path: "input.instanceKey",
-      message: "instanceKey must not be empty",
-    });
+    issues.push(createHotCodecIssue("header.instanceKeyEmpty", "input.instanceKey"));
   }
 
   if (input.semanticVersion < 0n || input.semanticVersion > 0xffff_ffff_ffff_ffffn) {
-    issues.push({
-      code: "header.semanticVersionOutOfRange",
-      path: "input.semanticVersion",
-      message: "semanticVersion must be a u64",
-    });
+    issues.push(createHotCodecIssue("header.semanticVersionOutOfRange", "input.semanticVersion"));
   }
 
   if (input.hotLayoutVersion < 0n || input.hotLayoutVersion > 0xffff_ffff_ffff_ffffn) {
-    issues.push({
-      code: "header.hotLayoutVersionOutOfRange",
-      path: "input.hotLayoutVersion",
-      message: "hotLayoutVersion must be a u64",
-    });
+    issues.push(createHotCodecIssue("header.hotLayoutVersionOutOfRange", "input.hotLayoutVersion"));
   }
 
   if (
@@ -217,11 +216,7 @@ function validateInput(input: HotBlockAHeaderInput): void {
     input.fieldCount < 0 ||
     input.fieldCount > 0xffff_ffff
   ) {
-    issues.push({
-      code: "header.fieldCountOutOfRange",
-      path: "input.fieldCount",
-      message: "fieldCount must be a u32",
-    });
+    issues.push(createHotCodecIssue("header.fieldCountOutOfRange", "input.fieldCount"));
   }
 
   if (
@@ -229,11 +224,12 @@ function validateInput(input: HotBlockAHeaderInput): void {
     input.mutableRegionByteLength < 0 ||
     input.mutableRegionByteLength > 0xffff_ffff
   ) {
-    issues.push({
-      code: "header.mutableRegionByteLengthOutOfRange",
-      path: "input.mutableRegionByteLength",
-      message: "mutableRegionByteLength must be a u32",
-    });
+    issues.push(
+      createHotCodecIssue(
+        "header.mutableRegionByteLengthOutOfRange",
+        "input.mutableRegionByteLength",
+      ),
+    );
   }
 
   if (issues.length > 0) {
@@ -245,14 +241,6 @@ function hashKey(key: string): Uint8Array {
   return createHash("sha256").update(key, "utf8").digest().subarray(0, 16);
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  let hex = "";
-  for (const byte of bytes) {
-    hex += byte.toString(16).padStart(2, "0");
-  }
-  return hex;
-}
-
-function headerError(code: string, path: string, message: string): HotByteCodecError {
-  return new HotByteCodecError([{ code, path, message }]);
+function headerError(code: HotCodecIssueCode, path: string, message: string): HotByteCodecError {
+  return new HotByteCodecError([createHotCodecIssue(code, path, message)]);
 }

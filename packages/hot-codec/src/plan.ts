@@ -1,3 +1,5 @@
+import { panic } from "@seqlok/base";
+
 import {
   HOT_ABI_VERSION,
   HOT_BASELINE_EPOCH_U32_OFFSET,
@@ -8,7 +10,7 @@ import {
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
-import { HotCodecError, type HotCodecIssue } from "./error";
+import { createHotCodecIssue, HotCodecError, type HotCodecIssue } from "./error";
 import type {
   HotFieldEntry,
   HotLayoutManifest,
@@ -80,61 +82,33 @@ function validatePlanningInput(input: HotLayoutPlanningInput): HotCodecIssue[] {
   const issues: HotCodecIssue[] = [];
 
   if (!isRecord(input)) {
-    issues.push({
-      code: "input.invalid",
-      path: "",
-      message: "hot layout planning input must be an object",
-    });
+    issues.push(createHotCodecIssue("input.invalid", ""));
     return issues;
   }
 
   if (typeof input.contractKey !== "string" || input.contractKey.length === 0) {
-    issues.push({
-      code: "input.contractKeyInvalid",
-      path: "contractKey",
-      message: "contractKey must be a non-empty string",
-    });
+    issues.push(createHotCodecIssue("input.contractKeyInvalid", "contractKey"));
   }
 
   if (!isRecord(input.hot)) {
-    issues.push({
-      code: "hot.invalid",
-      path: "hot",
-      message: "hot lane declaration must be an object",
-    });
+    issues.push(createHotCodecIssue("hot.invalid", "hot"));
   } else {
     if (input.hot.codec !== "mapped-fixed") {
-      issues.push({
-        code: "hot.codecUnsupported",
-        path: "hot.codec",
-        message: "hot codec must be mapped-fixed",
-      });
+      issues.push(createHotCodecIssue("hot.codecUnsupported", "hot.codec"));
     }
 
     if (!Array.isArray(input.hot.reservations)) {
-      issues.push({
-        code: "hot.reservationsInvalid",
-        path: "hot.reservations",
-        message: "hot reservations must be an array",
-      });
+      issues.push(createHotCodecIssue("hot.reservationsInvalid", "hot.reservations"));
     }
   }
 
   if (!Array.isArray(input.fields)) {
-    issues.push({
-      code: "field.listInvalid",
-      path: "fields",
-      message: "fields must be an array",
-    });
+    issues.push(createHotCodecIssue("field.listInvalid", "fields"));
     return issues;
   }
 
   if (input.fields.length > UINT32_MAX) {
-    issues.push({
-      code: "field.countOutOfRange",
-      path: "fields",
-      message: "field count must fit in u32",
-    });
+    issues.push(createHotCodecIssue("field.countOutOfRange", "fields"));
   }
 
   validateFields(input.fields, issues);
@@ -153,42 +127,22 @@ function validateFields(fields: readonly HotLayoutPlanningField[], issues: HotCo
     const path = `fields.${index}`;
 
     if (!isRecord(field)) {
-      issues.push({
-        code: "field.invalid",
-        path,
-        message: "field entry must be an object",
-      });
+      issues.push(createHotCodecIssue("field.invalid", path));
       continue;
     }
 
     if (typeof field.dotPath !== "string" || field.dotPath.length === 0) {
-      issues.push({
-        code: "field.dotPathInvalid",
-        path: `${path}.dotPath`,
-        message: "field dotPath must be a non-empty string",
-      });
+      issues.push(createHotCodecIssue("field.dotPathInvalid", `${path}.dotPath`));
     } else if (dotPaths.has(field.dotPath)) {
-      issues.push({
-        code: "field.duplicateDotPath",
-        path: `${path}.dotPath`,
-        message: "field dotPath must be unique",
-      });
+      issues.push(createHotCodecIssue("field.duplicateDotPath", `${path}.dotPath`));
     } else {
       dotPaths.add(field.dotPath);
     }
 
     if (!isU32(field.fieldId)) {
-      issues.push({
-        code: "field.fieldIdInvalid",
-        path: `${path}.fieldId`,
-        message: "fieldId must be a u32 number",
-      });
+      issues.push(createHotCodecIssue("field.fieldIdInvalid", `${path}.fieldId`));
     } else if (fieldIds.has(field.fieldId)) {
-      issues.push({
-        code: "field.duplicateFieldId",
-        path: `${path}.fieldId`,
-        message: "fieldId must be unique within one hot layout",
-      });
+      issues.push(createHotCodecIssue("field.duplicateFieldId", `${path}.fieldId`));
     } else {
       fieldIds.add(field.fieldId);
     }
@@ -203,11 +157,7 @@ function validateFields(fields: readonly HotLayoutPlanningField[], issues: HotCo
         typeof field.dotPath === "string" &&
         compareUtf8(previous.dotPath, field.dotPath) > 0
       ) {
-        issues.push({
-          code: "field.orderInvalid",
-          path: `${path}.dotPath`,
-          message: "fields must be sorted lexicographically by UTF-8 dotPath",
-        });
+        issues.push(createHotCodecIssue("field.orderInvalid", `${path}.dotPath`));
       }
     }
   }
@@ -231,41 +181,25 @@ function validateReservations(input: HotLayoutPlanningInput, issues: HotCodecIss
     const path = `hot.reservations.${index}`;
 
     if (typeof reservation !== "string" || reservation.length === 0) {
-      issues.push({
-        code: "reservation.invalid",
-        path,
-        message: "hot reservation must be a non-empty dotPath string",
-      });
+      issues.push(createHotCodecIssue("reservation.invalid", path));
       continue;
     }
 
     if (seenReservations.has(reservation)) {
-      issues.push({
-        code: "reservation.duplicate",
-        path,
-        message: "hot reservation dotPath must be unique",
-      });
+      issues.push(createHotCodecIssue("reservation.duplicate", path));
       continue;
     }
     seenReservations.add(reservation);
 
     const field = fieldByPath.get(reservation);
     if (field === undefined) {
-      issues.push({
-        code: "reservation.unknownField",
-        path,
-        message: "hot reservation names a field that does not exist",
-      });
+      issues.push(createHotCodecIssue("reservation.unknownField", path));
       continue;
     }
 
     if (isRecord(field.shape)) {
       if (field.shape.kind !== "BoundedArray" && field.shape.kind !== "BoundedMap") {
-        issues.push({
-          code: "reservation.wrongShape",
-          path,
-          message: "hot reservation must name a BoundedArray or BoundedMap field",
-        });
+        issues.push(createHotCodecIssue("reservation.wrongShape", path));
       }
     }
   }
@@ -286,29 +220,23 @@ function validateHotAdmissibility(input: HotLayoutPlanningInput, issues: HotCode
 
     const shape = field.shape as HotLayoutPlanningField["shape"];
     if (shape.kind === "VariableString") {
-      issues.push({
-        code: "shape.variableStringUnsupported",
-        path: `fields.${index}.shape`,
-        message: "VariableString is not hot-admissible",
-      });
+      issues.push(createHotCodecIssue("shape.variableStringUnsupported", `fields.${index}.shape`));
       continue;
     }
 
     if (shape.kind === "VariableMap") {
-      issues.push({
-        code: "shape.variableMapUnsupported",
-        path: `fields.${index}.shape`,
-        message: "VariableMap is not hot-admissible",
-      });
+      issues.push(createHotCodecIssue("shape.variableMapUnsupported", `fields.${index}.shape`));
       continue;
     }
 
     if (isBoundedShape(shape) && !reservations.has(field.dotPath)) {
-      issues.push({
-        code: "field.hotNotAdmissible",
-        path: `fields.${index}.shape`,
-        message: `${shape.kind} is hot-admissible only when its dotPath is reserved`,
-      });
+      issues.push(
+        createHotCodecIssue(
+          "field.hotNotAdmissible",
+          `fields.${index}.shape`,
+          `${shape.kind} is hot-admissible only when its dotPath is reserved`,
+        ),
+      );
     }
   }
 }
@@ -321,7 +249,7 @@ function planLayout(input: HotLayoutPlanningInput, issues: HotCodecIssue[]): Pla
 
   for (const field of input.fields) {
     if (isVariableShape(field.shape)) {
-      throw new Error("variable shapes must be rejected before planning");
+      panic("variable shapes must be rejected before planning");
     }
 
     const alignment = naturalAlignment(field.shape);
@@ -405,11 +333,7 @@ function checkedLayoutValue(value: number, path: string, issues: HotCodecIssue[]
     return value;
   }
 
-  issues.push({
-    code: "layout.numericOutOfRange",
-    path,
-    message: "computed offset or byte length must be a safe u32 integer",
-  });
+  issues.push(createHotCodecIssue("layout.numericOutOfRange", path));
   return value;
 }
 
