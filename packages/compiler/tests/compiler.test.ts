@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { type AuthoredProjectionContract, SchemaValidationError } from "@seqlok/schema";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { compileAuthoredProjectionContractWithOptions } from "../src/compile";
@@ -35,6 +39,43 @@ function unwrapHotManifest(
   }
 
   return hotManifest;
+}
+
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+const hotBasicFixtureRoot = resolve(repoRoot, "fixtures/projection-runtime/hot-basic-v0");
+
+function readFixtureJson(fileName: string): unknown {
+  return JSON.parse(readFileSync(resolve(hotBasicFixtureRoot, fileName), "utf8"));
+}
+
+function stableFixtureJson(value: unknown): string {
+  return `${JSON.stringify(toFixtureJson(value), null, 2)}\n`;
+}
+
+function toFixtureJson(value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return encodeU64Hex(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(toFixtureJson);
+  }
+
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, toFixtureJson(nested)]),
+    );
+  }
+
+  return value;
+}
+
+function encodeU64Hex(value: bigint): string {
+  expect(value).toBeGreaterThanOrEqual(0n);
+  expect(value).toBeLessThanOrEqual(0xffff_ffff_ffff_ffffn);
+  return value.toString(16).padStart(16, "0");
 }
 
 function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
@@ -710,6 +751,64 @@ describe("@seqlok/compiler hot lane manifests", () => {
         }),
       ]),
     );
+  });
+});
+
+describe("@seqlok/compiler shared projection-runtime fixtures", () => {
+  it("keeps hot-basic-v0 golden artifacts current", () => {
+    const authoredContract = readFixtureJson(
+      "authored-contract.json",
+    ) as AuthoredProjectionContract;
+    const resolved = unwrap(compileAuthoredProjectionContract(authoredContract));
+    const compiledAgain = unwrap(compileAuthoredProjectionContract(authoredContract));
+    const hotManifest = unwrapHotManifest(resolved);
+
+    expect(toFixtureJson(resolved.manifest)).toEqual(readFixtureJson("canonical-manifest.json"));
+    expect(toFixtureJson(hotManifest)).toEqual(readFixtureJson("hot-layout-manifest.json"));
+    expect(toFixtureJson(resolved)).toEqual(readFixtureJson("resolved-contract.json"));
+
+    expect(stableFixtureJson(compiledAgain.manifest)).toBe(stableFixtureJson(resolved.manifest));
+    expect(stableFixtureJson(unwrapHotManifest(compiledAgain))).toBe(
+      stableFixtureJson(hotManifest),
+    );
+    expect(stableFixtureJson(compiledAgain)).toBe(stableFixtureJson(resolved));
+
+    expect(resolved.hotLayoutVersion).toBe(hotManifest.hotLayoutVersion);
+    expect(toFixtureJson(resolved.hotLayoutVersion)).toBe(
+      toFixtureJson(hotManifest.hotLayoutVersion),
+    );
+    expect(toFixtureJson(resolved.semanticVersion)).toMatch(/^[0-9a-f]{16}$/);
+    expect(toFixtureJson(resolved.hotLayoutVersion)).toMatch(/^[0-9a-f]{16}$/);
+
+    expect(hotManifest).toMatchObject({
+      blockASize: 72,
+      blockBStartOffset: 72,
+      seqlockOffset: 72,
+      fieldDataOrigin: 96,
+    });
+    expect(
+      hotManifest.fields.map(({ dotPath, absoluteOffset, byteSpan, alignment }) => ({
+        dotPath,
+        absoluteOffset,
+        byteSpan,
+        alignment,
+      })),
+    ).toEqual([
+      { dotPath: "cursor", absoluteOffset: 96, byteSpan: 4, alignment: 4 },
+      { dotPath: "health", absoluteOffset: 100, byteSpan: 1, alignment: 1 },
+      { dotPath: "level", absoluteOffset: 104, byteSpan: 4, alignment: 4 },
+      { dotPath: "peaks", absoluteOffset: 108, byteSpan: 16, alignment: 4 },
+      { dotPath: "phase", absoluteOffset: 128, byteSpan: 8, alignment: 8 },
+    ]);
+    expect(hotManifest.reservations).toEqual([
+      {
+        dotPath: "peaks",
+        countFieldOffset: 108,
+        elementsOffset: 112,
+        maxCount: 3,
+        unitByteLength: 4,
+      },
+    ]);
   });
 });
 

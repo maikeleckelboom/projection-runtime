@@ -187,7 +187,8 @@ function validateFieldShape(
 
   switch (shape.kind) {
     case "fixed-scalar": {
-      valid = validateAllowedKeys(shape, new Set(["kind", "type", "nanSentinel"]), path, issues) && valid;
+      valid =
+        validateAllowedKeys(shape, new Set(["kind", "type", "nanSentinel"]), path, issues) && valid;
       valid = validateRequiredProperty(shape, "type", path, issues) && valid;
       if ("type" in shape) {
         valid = validateStringLiteral(shape.type, SCALAR_TYPES, `${path}.type`, issues) && valid;
@@ -199,24 +200,31 @@ function validateFieldShape(
     }
 
     case "fixed-enum": {
-      valid = validateAllowedKeys(shape, new Set(["kind", "variants", "storage"]), path, issues) && valid;
+      valid =
+        validateAllowedKeys(shape, new Set(["kind", "variants", "storage"]), path, issues) && valid;
       valid = validateRequiredProperty(shape, "variants", path, issues) && valid;
       valid = validateRequiredProperty(shape, "storage", path, issues) && valid;
       if ("variants" in shape) {
         valid = validateEnumVariants(shape.variants, `${path}.variants`, issues) && valid;
       }
       if ("storage" in shape) {
-        valid = validateStringLiteral(shape.storage, ENUM_STORAGE_TYPES, `${path}.storage`, issues) && valid;
+        valid =
+          validateStringLiteral(shape.storage, ENUM_STORAGE_TYPES, `${path}.storage`, issues) &&
+          valid;
       }
       return valid;
     }
 
     case "fixed-vector": {
-      valid = validateAllowedKeys(shape, new Set(["kind", "elementType", "length"]), path, issues) && valid;
+      valid =
+        validateAllowedKeys(shape, new Set(["kind", "elementType", "length"]), path, issues) &&
+        valid;
       valid = validateRequiredProperty(shape, "elementType", path, issues) && valid;
       valid = validateRequiredProperty(shape, "length", path, issues) && valid;
       if ("elementType" in shape) {
-        valid = validateStringLiteral(shape.elementType, SCALAR_TYPES, `${path}.elementType`, issues) && valid;
+        valid =
+          validateStringLiteral(shape.elementType, SCALAR_TYPES, `${path}.elementType`, issues) &&
+          valid;
       }
       if ("length" in shape && !isPositiveInteger(shape.length)) {
         valid = addIssue(issues, `${path}.length`, "must be a positive integer") && valid;
@@ -235,13 +243,16 @@ function validateFieldShape(
       valid = validateRequiredProperty(shape, "elementType", path, issues) && valid;
       valid = validateRequiredProperty(shape, "maxLength", path, issues) && valid;
       if ("elementType" in shape) {
-        valid = validateStringLiteral(shape.elementType, SCALAR_TYPES, `${path}.elementType`, issues) && valid;
+        valid =
+          validateStringLiteral(shape.elementType, SCALAR_TYPES, `${path}.elementType`, issues) &&
+          valid;
       }
       if ("maxLength" in shape && !isPositiveInteger(shape.maxLength)) {
         valid = addIssue(issues, `${path}.maxLength`, "must be a positive integer") && valid;
       }
       if ("hotReservation" in shape) {
-        valid = validateTrueLiteral(shape.hotReservation, `${path}.hotReservation`, issues) && valid;
+        valid =
+          validateTrueLiteral(shape.hotReservation, `${path}.hotReservation`, issues) && valid;
       }
       return valid;
     }
@@ -278,7 +289,8 @@ function validateFieldShape(
         valid = addIssue(issues, `${path}.maxEntries`, "must be a positive integer") && valid;
       }
       if ("hotReservation" in shape) {
-        valid = validateTrueLiteral(shape.hotReservation, `${path}.hotReservation`, issues) && valid;
+        valid =
+          validateTrueLiteral(shape.hotReservation, `${path}.hotReservation`, issues) && valid;
       }
       return valid;
     }
@@ -297,14 +309,18 @@ function validateFieldShape(
     }
 
     case "fixed-string-encoded": {
-      valid = validateAllowedKeys(shape, new Set(["kind", "byteLength", "encoding"]), path, issues) && valid;
+      valid =
+        validateAllowedKeys(shape, new Set(["kind", "byteLength", "encoding"]), path, issues) &&
+        valid;
       valid = validateRequiredProperty(shape, "byteLength", path, issues) && valid;
       valid = validateRequiredProperty(shape, "encoding", path, issues) && valid;
       if ("byteLength" in shape && !isPositiveInteger(shape.byteLength)) {
         valid = addIssue(issues, `${path}.byteLength`, "must be a positive integer") && valid;
       }
       if ("encoding" in shape) {
-        valid = validateStringLiteral(shape.encoding, STRING_ENCODINGS, `${path}.encoding`, issues) && valid;
+        valid =
+          validateStringLiteral(shape.encoding, STRING_ENCODINGS, `${path}.encoding`, issues) &&
+          valid;
       }
       return valid;
     }
@@ -316,11 +332,7 @@ function validateFieldShape(
   return addIssue(issues, `${path}.kind`, `unsupported field shape kind: ${shape.kind}`);
 }
 
-function validateFieldTree(
-  node: unknown,
-  path: string,
-  issues: SchemaValidationIssue[],
-): boolean {
+function validateFieldTree(node: unknown, path: string, issues: SchemaValidationIssue[]): boolean {
   if (!isRecord(node)) {
     return addIssue(issues, path, "must be an object");
   }
@@ -376,7 +388,8 @@ function validateLaneDeclarations(
     if (!isRecord(lanes.hot)) {
       valid = addIssue(issues, `${path}.hot`, "must be an object") && valid;
     } else {
-      valid = validateAllowedKeys(lanes.hot, new Set(["reservations"]), `${path}.hot`, issues) && valid;
+      valid =
+        validateAllowedKeys(lanes.hot, new Set(["reservations"]), `${path}.hot`, issues) && valid;
       if ("reservations" in lanes.hot) {
         if (!Array.isArray(lanes.hot.reservations)) {
           valid = addIssue(issues, `${path}.hot.reservations`, "must be an array") && valid;

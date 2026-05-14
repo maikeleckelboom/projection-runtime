@@ -1,0 +1,54 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": [
+    {
+      "dotPath": "cursor",
+      "fieldId": 2041288779,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "u32"
+      }
+    },
+    {
+      "dotPath": "health",
+      "fieldId": 194776614,
+      "shape": {
+        "kind": "FixedEnum",
+        "storage": "u8",
+        "variants": ["ok", "warn", "fail"]
+      }
+    },
+    {
+      "dotPath": "level",
+      "fieldId": 2702269473,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "f32"
+      }
+    },
+    {
+      "dotPath": "peaks",
+      "fieldId": 2500593086,
+      "shape": {
+        "elementType": "f32",
+        "kind": "BoundedArray",
+        "maxLength": 3
+      }
+    },
+    {
+      "dotPath": "phase",
+      "fieldId": 3513240106,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "f64"
+      }
+    }
+  ],
+  "key": "fixture.hotBasic",
+  "lanes": {
+    "hot": {
+      "codec": "mapped-fixed",
+      "reservations": ["peaks"]
+    }
+  }
+}

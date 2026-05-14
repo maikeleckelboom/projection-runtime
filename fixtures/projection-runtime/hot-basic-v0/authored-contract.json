@@ -1,0 +1,33 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": {
+    "cursor": {
+      "kind": "fixed-scalar",
+      "type": "u32"
+    },
+    "health": {
+      "kind": "fixed-enum",
+      "storage": "u8",
+      "variants": ["ok", "warn", "fail"]
+    },
+    "level": {
+      "kind": "fixed-scalar",
+      "type": "f32"
+    },
+    "peaks": {
+      "elementType": "f32",
+      "kind": "bounded-array",
+      "maxLength": 3
+    },
+    "phase": {
+      "kind": "fixed-scalar",
+      "type": "f64"
+    }
+  },
+  "key": "fixture.hotBasic",
+  "lanes": {
+    "hot": {
+      "reservations": ["peaks"]
+    }
+  }
+}

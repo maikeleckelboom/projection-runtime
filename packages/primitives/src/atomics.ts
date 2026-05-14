@@ -28,7 +28,14 @@ export function loadAtomicU32(view: Uint32Array, index: number): number {
   try {
     return Atomics.load(view, index);
   } catch (error) {
-    atomicsFailed("primitives.atomics.loadAtomicU32", "loadAtomicU32", view, index, undefined, error);
+    atomicsFailed(
+      "primitives.atomics.loadAtomicU32",
+      "loadAtomicU32",
+      view,
+      index,
+      undefined,
+      error,
+    );
   }
 }
 
@@ -44,6 +51,13 @@ export function loadAtomicU64(view: BigUint64Array, index: number): bigint {
   try {
     return Atomics.load(view, index);
   } catch (error) {
-    atomicsFailed("primitives.atomics.loadAtomicU64", "loadAtomicU64", view, index, undefined, error);
+    atomicsFailed(
+      "primitives.atomics.loadAtomicU64",
+      "loadAtomicU64",
+      view,
+      index,
+      undefined,
+      error,
+    );
   }
 }

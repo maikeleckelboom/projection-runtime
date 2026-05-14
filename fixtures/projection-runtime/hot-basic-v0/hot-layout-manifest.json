@@ -1,0 +1,82 @@
+{
+  "baselineEpochOffset": 80,
+  "blockASize": 72,
+  "blockBStartOffset": 72,
+  "continuityGenOffset": 84,
+  "contractKey": "fixture.hotBasic",
+  "fieldDataOrigin": 96,
+  "fields": [
+    {
+      "absoluteOffset": 96,
+      "alignment": 4,
+      "byteSpan": 4,
+      "dotPath": "cursor",
+      "fieldId": 2041288779,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "u32"
+      }
+    },
+    {
+      "absoluteOffset": 100,
+      "alignment": 1,
+      "byteSpan": 1,
+      "dotPath": "health",
+      "fieldId": 194776614,
+      "shape": {
+        "kind": "FixedEnum",
+        "storage": "u8",
+        "variants": ["ok", "warn", "fail"]
+      }
+    },
+    {
+      "absoluteOffset": 104,
+      "alignment": 4,
+      "byteSpan": 4,
+      "dotPath": "level",
+      "fieldId": 2702269473,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "f32"
+      }
+    },
+    {
+      "absoluteOffset": 108,
+      "alignment": 4,
+      "byteSpan": 16,
+      "dotPath": "peaks",
+      "fieldId": 2500593086,
+      "shape": {
+        "elementType": "f32",
+        "kind": "BoundedArray",
+        "maxLength": 3
+      }
+    },
+    {
+      "absoluteOffset": 128,
+      "alignment": 8,
+      "byteSpan": 8,
+      "dotPath": "phase",
+      "fieldId": 3513240106,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "f64"
+      }
+    }
+  ],
+  "hotAbiVersion": 1,
+  "hotLayoutVersion": "8f3eb897fd88495c",
+  "mutableRegionByteLength": 64,
+  "publicationSeqOffset": 88,
+  "reservations": [
+    {
+      "countFieldOffset": 108,
+      "dotPath": "peaks",
+      "elementsOffset": 112,
+      "maxCount": 3,
+      "unitByteLength": 4
+    }
+  ],
+  "seqlockOffset": 72,
+  "totalRegionByteLength": 136
+}

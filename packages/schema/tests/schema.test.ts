@@ -28,7 +28,14 @@ describe("@seqlok/schema", () => {
   });
 
   it("rejects invalid identifier grammar", () => {
-    for (const key of ["Deck.runtime", "deck_runtime", "deck-runtime", ".deck", "deck.", "deck..runtime"]) {
+    for (const key of [
+      "Deck.runtime",
+      "deck_runtime",
+      "deck-runtime",
+      ".deck",
+      "deck.",
+      "deck..runtime",
+    ]) {
       expect(() =>
         validateAuthoredProjectionContract({
           key,
