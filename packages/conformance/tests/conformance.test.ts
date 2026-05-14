@@ -22,13 +22,21 @@ describe("@seqlok/conformance fixture discovery", () => {
     await expect(listProjectionRuntimeFixtures()).resolves.toContain("hot-basic-v0");
   });
 
-  it("returns deterministic lexicographic discovery order", async () => {
+  it("returns deterministic ASCII code-unit discovery order", async () => {
     await withTempFixtureRoot(async (root) => {
       await mkdir(resolve(root, "z-fixture"));
       await mkdir(resolve(root, "a-fixture"));
+      await mkdir(resolve(root, "Z-fixture"));
+      await mkdir(resolve(root, "A-fixture"));
+      await mkdir(resolve(root, "_fixture"));
+      await mkdir(resolve(root, "0-fixture"));
       await writeFile(resolve(root, "not-a-fixture.txt"), "");
 
       await expect(listProjectionRuntimeFixtures({ fixtureRoot: root })).resolves.toEqual([
+        "0-fixture",
+        "A-fixture",
+        "Z-fixture",
+        "_fixture",
         "a-fixture",
         "z-fixture",
       ]);

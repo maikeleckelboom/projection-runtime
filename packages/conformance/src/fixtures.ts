@@ -66,7 +66,7 @@ export async function listProjectionRuntimeFixtures(
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right));
+    .sort(compareFixtureNames);
 }
 
 export async function loadProjectionRuntimeFixture(
@@ -128,6 +128,10 @@ function resolveFixtureRoot(fixtureRoot: string | URL | undefined): string {
   }
 
   return defaultProjectionRuntimeFixtureRoot;
+}
+
+function compareFixtureNames(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function assertDirectFixtureName(fixtureName: ProjectionRuntimeFixtureName): void {
