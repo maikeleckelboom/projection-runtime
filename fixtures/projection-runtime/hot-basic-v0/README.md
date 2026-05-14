@@ -19,8 +19,8 @@ generated bindings, Electron/SAB lifecycle behavior, product contracts, or warm/
 
 `hot-byte-fixture.json` adds the first deterministic TypeScript hot field byte golden for this layout. It uses the
 checked-in `hot-layout-manifest.json` offsets to encode a small logical sample, records field-data bytes from byte 96
-through the end of the region, records the full zero-initialized 136-byte region, and verifies that decoding those bytes
-returns the same sample values.
+through the end of the region, records the full zero-initialized 136-byte fixture region, and verifies that decoding
+those bytes returns the same sample values.
 
 For this byte fixture, Block A and the Block B header/prefix bytes are intentionally zero-filled. This proves pure
 field byte semantics only. It does not claim to initialize an authority-owned mapped region, prove Rust writer

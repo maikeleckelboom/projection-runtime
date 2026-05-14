@@ -90,9 +90,12 @@ function encodeU64Hex(value) {
 function createHotByteFixture(hotLayoutManifest, values) {
   const encoded = encodeHotFieldValues(hotLayoutManifest, values);
   const fieldBytesHex = bytesToHex(encoded.fieldBytes);
-  const regionBytesHex = bytesToHex(encoded.regionBytes);
+  const fixtureRegionBytesHex = bytesToHex(encoded.fixtureRegionBytes);
   const decodedFromField = decodeHotFieldValues(hotLayoutManifest, encoded.fieldBytes).values;
-  const decodedFromRegion = decodeHotFieldValues(hotLayoutManifest, encoded.regionBytes).values;
+  const decodedFromRegion = decodeHotFieldValues(
+    hotLayoutManifest,
+    encoded.fixtureRegionBytes,
+  ).values;
 
   if (stableStringify(decodedFromField) !== stableStringify(decodedFromRegion)) {
     throw new Error("hot byte fixture field and region decoding diverged");
@@ -107,7 +110,7 @@ function createHotByteFixture(hotLayoutManifest, values) {
     values,
     expected: {
       fieldBytesHex,
-      regionBytesHex,
+      fixtureRegionBytesHex,
       decodedValues: encoded.decodedValues,
     },
   };

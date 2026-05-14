@@ -11,7 +11,7 @@ import {
   deriveHotLayoutVersion,
   encodeHotFieldData,
   encodeHotFieldValues,
-  encodeHotRegion,
+  encodeHotFixtureRegion,
   HOT_BASELINE_EPOCH_U32_OFFSET,
   HOT_BLOCK_A_BYTE_LENGTH,
   HOT_BLOCK_B_BYTE_OFFSET,
@@ -49,7 +49,7 @@ const HOT_BASIC_SAMPLE_VALUES = {
 
 const HOT_BASIC_EXPECTED_FIELD_BYTES_HEX =
   "7b000000010000000000403f030000000000003e0000803e0000003f000000000000000000002940";
-const HOT_BASIC_EXPECTED_REGION_BYTES_HEX = `${"00".repeat(96)}${HOT_BASIC_EXPECTED_FIELD_BYTES_HEX}`;
+const HOT_BASIC_EXPECTED_FIXTURE_REGION_BYTES_HEX = `${"00".repeat(96)}${HOT_BASIC_EXPECTED_FIELD_BYTES_HEX}`;
 
 function unwrap(result: HotLayoutPlanResult): HotLayoutManifest {
   expect(result.ok).toBe(true);
@@ -376,20 +376,22 @@ describe("@seqlok/hot-codec byte helpers", () => {
     expect(bytesToHex(encoded.fieldBytes)).toBe(HOT_BASIC_EXPECTED_FIELD_BYTES_HEX);
   });
 
-  it("encodes hot-basic-v0 sample values to expected full region bytes", () => {
-    const regionBytes = encodeHotRegion(hotBasicLayout(), HOT_BASIC_SAMPLE_VALUES);
+  it("encodes hot-basic-v0 sample values to expected fixture region bytes", () => {
+    const fixtureRegionBytes = encodeHotFixtureRegion(hotBasicLayout(), HOT_BASIC_SAMPLE_VALUES);
 
-    expect(bytesToHex(regionBytes)).toBe(HOT_BASIC_EXPECTED_REGION_BYTES_HEX);
-    expect(bytesToHex(regionBytes.slice(0, 96))).toBe("00".repeat(96));
+    expect(bytesToHex(fixtureRegionBytes)).toBe(HOT_BASIC_EXPECTED_FIXTURE_REGION_BYTES_HEX);
+    expect(bytesToHex(fixtureRegionBytes.slice(0, 96))).toBe("00".repeat(96));
   });
 
-  it("decodes hot-basic-v0 field and region bytes to expected values", () => {
+  it("decodes hot-basic-v0 field and fixture region bytes to expected values", () => {
     const layout = hotBasicLayout();
     const fieldBytes = hexToBytes(HOT_BASIC_EXPECTED_FIELD_BYTES_HEX);
-    const regionBytes = hexToBytes(HOT_BASIC_EXPECTED_REGION_BYTES_HEX);
+    const fixtureRegionBytes = hexToBytes(HOT_BASIC_EXPECTED_FIXTURE_REGION_BYTES_HEX);
 
     expect(decodeHotFieldValues(layout, fieldBytes).values).toEqual(HOT_BASIC_SAMPLE_VALUES);
-    expect(decodeHotFieldValues(layout, regionBytes).values).toEqual(HOT_BASIC_SAMPLE_VALUES);
+    expect(decodeHotFieldValues(layout, fixtureRegionBytes).values).toEqual(
+      HOT_BASIC_SAMPLE_VALUES,
+    );
   });
 
   it("makes FixedScalar little-endian numeric encoding explicit", () => {
@@ -633,7 +635,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "deriveHotLayoutVersion",
       "encodeHotFieldData",
       "encodeHotFieldValues",
-      "encodeHotRegion",
+      "encodeHotFixtureRegion",
       "hexToBytes",
       "planHotLayoutManifest",
     ]);

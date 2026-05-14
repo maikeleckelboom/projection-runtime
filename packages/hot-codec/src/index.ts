@@ -3,7 +3,7 @@ export {
   decodeHotFieldValues,
   encodeHotFieldData,
   encodeHotFieldValues,
-  encodeHotRegion,
+  encodeHotFixtureRegion,
   type HotByteDecodeResult,
   type HotByteEncodeResult,
   type HotFieldScalarValue,

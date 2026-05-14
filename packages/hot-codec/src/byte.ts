@@ -18,7 +18,7 @@ export type HotFieldValues = Readonly<Record<string, HotFieldValue>>;
 
 export interface HotByteEncodeResult {
   readonly fieldBytes: Uint8Array;
-  readonly regionBytes: Uint8Array;
+  readonly fixtureRegionBytes: Uint8Array;
   readonly decodedValues: HotFieldValues;
 }
 
@@ -30,11 +30,14 @@ export function encodeHotFieldValues(
   manifest: HotLayoutManifest,
   values: HotFieldValues,
 ): HotByteEncodeResult {
-  const regionBytes = encodeHotRegion(manifest, values);
-  const fieldBytes = regionBytes.slice(manifest.fieldDataOrigin, manifest.totalRegionByteLength);
-  const decodedValues = decodeHotFieldValues(manifest, regionBytes).values;
+  const fixtureRegionBytes = encodeHotFixtureRegion(manifest, values);
+  const fieldBytes = fixtureRegionBytes.slice(
+    manifest.fieldDataOrigin,
+    manifest.totalRegionByteLength,
+  );
+  const decodedValues = decodeHotFieldValues(manifest, fixtureRegionBytes).values;
 
-  return { fieldBytes, regionBytes, decodedValues };
+  return { fieldBytes, fixtureRegionBytes, decodedValues };
 }
 
 export function encodeHotFieldData(
@@ -47,7 +50,10 @@ export function encodeHotFieldData(
   return bytes;
 }
 
-export function encodeHotRegion(manifest: HotLayoutManifest, values: HotFieldValues): Uint8Array {
+export function encodeHotFixtureRegion(
+  manifest: HotLayoutManifest,
+  values: HotFieldValues,
+): Uint8Array {
   assertManifestByteWindow(manifest);
   const bytes = new Uint8Array(manifest.totalRegionByteLength);
   writeHotFieldValues(manifest, values, bytes, 0);

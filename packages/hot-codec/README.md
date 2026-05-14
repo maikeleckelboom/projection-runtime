@@ -6,7 +6,8 @@ It is build-time planning code. It owns hot ABI constants, hot field layout plan
 sizing, `hotLayoutVersion` derivation, and pure deterministic hot field byte codec helpers.
 
 The byte helpers encode and decode values against an already-planned `HotLayoutManifest`. They can produce field-data
-bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures.
+bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures. These fixture bytes are not
+valid runtime hot regions: Block A and Block B are zero-filled because real header/seqlock values are a runtime concern.
 
 They are not runtime readers or writers. They do not perform seqlock retry, use Atomics, manage SharedArrayBuffer
 lifecycle, bind live mappings, create handles, subscribe to publications, or generate bindings.

@@ -216,7 +216,10 @@ function createHotByteFixtureArtifact(
 
   const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
   const decodedFromField = decodeHotFieldValues(hotLayoutManifest, encoded.fieldBytes).values;
-  const decodedFromRegion = decodeHotFieldValues(hotLayoutManifest, encoded.regionBytes).values;
+  const decodedFromRegion = decodeHotFieldValues(
+    hotLayoutManifest,
+    encoded.fixtureRegionBytes,
+  ).values;
 
   if (
     !isDeepStrictEqual(encodeFixtureJson(decodedFromField), encodeFixtureJson(decodedFromRegion))
@@ -233,7 +236,7 @@ function createHotByteFixtureArtifact(
     values,
     expected: {
       fieldBytesHex: bytesToHex(encoded.fieldBytes),
-      regionBytesHex: bytesToHex(encoded.regionBytes),
+      fixtureRegionBytesHex: bytesToHex(encoded.fixtureRegionBytes),
       decodedValues: decodedFromRegion,
     },
   };
