@@ -35,6 +35,12 @@ importers:
         specifier: workspace:*
         version: link:../schema
 
+  packages/conformance:
+    dependencies:
+      '@seqlok/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+
   packages/hot-codec:
     dependencies:
       '@seqlok/base':

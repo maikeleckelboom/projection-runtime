@@ -1,0 +1,203 @@
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+import {
+  listProjectionRuntimeFixtures,
+  loadProjectionRuntimeFixture,
+  type ProjectionRuntimeFixtureFailure,
+  runProjectionRuntimeConformance,
+  runProjectionRuntimeFixture,
+} from "../src/index";
+
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
+const hotBasicFixtureRoot = resolve(fixtureRoot, "hot-basic-v0");
+
+describe("@seqlok/conformance fixture discovery", () => {
+  it("discovers hot-basic-v0", async () => {
+    await expect(listProjectionRuntimeFixtures()).resolves.toContain("hot-basic-v0");
+  });
+
+  it("returns deterministic lexicographic discovery order", async () => {
+    await withTempFixtureRoot(async (root) => {
+      await mkdir(resolve(root, "z-fixture"));
+      await mkdir(resolve(root, "a-fixture"));
+      await writeFile(resolve(root, "not-a-fixture.txt"), "");
+
+      await expect(listProjectionRuntimeFixtures({ fixtureRoot: root })).resolves.toEqual([
+        "a-fixture",
+        "z-fixture",
+      ]);
+    });
+  });
+});
+
+describe("@seqlok/conformance fixture loading", () => {
+  it("loads every required hot-basic-v0 artifact", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+
+    expect(fixture.fixtureName).toBe("hot-basic-v0");
+    expect(fixture.fixturePath).toBe("fixtures/projection-runtime/hot-basic-v0");
+    expect(fixture.artifacts.readme).toContain("# hot-basic-v0");
+    expect(fixture.artifacts.authoredContract).toMatchObject({ key: "fixture.hotBasic" });
+    expect(fixture.artifacts.canonicalManifest).toMatchObject({ key: "fixture.hotBasic" });
+    expect(fixture.artifacts.hotLayoutManifest).toMatchObject({
+      contractKey: "fixture.hotBasic",
+    });
+    expect(fixture.artifacts.resolvedContract).toMatchObject({
+      manifest: { key: "fixture.hotBasic" },
+    });
+  });
+
+  it("reports missing required fixture files explicitly", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-layout-manifest.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          fixtureFile: "hot-layout-manifest.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-layout-manifest.json");
+    });
+  });
+});
+
+describe("@seqlok/conformance execution", () => {
+  it("passes hot-basic-v0 conformance", async () => {
+    const result = await runProjectionRuntimeFixture("hot-basic-v0");
+
+    expect(result).toEqual({
+      fixtureName: "hot-basic-v0",
+      fixturePath: "fixtures/projection-runtime/hot-basic-v0",
+      passed: true,
+      failures: [],
+    });
+  });
+
+  it("passes aggregate projection-runtime conformance", async () => {
+    const result = await runProjectionRuntimeConformance();
+
+    expect(result.totalCount).toBeGreaterThanOrEqual(1);
+    expect(result.passedCount).toBe(result.totalCount);
+    expect(result.failedCount).toBe(0);
+    expect(result.fixtures.map((fixture) => fixture.fixtureName)).toContain("hot-basic-v0");
+  });
+
+  it("reports canonical-manifest failures for changed in-memory expected manifests", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const canonicalManifest = cloneRecord(fixture.artifacts.canonicalManifest);
+    canonicalManifest.key = "fixture.changed";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { canonicalManifest },
+    });
+
+    expectFailure(result.failures, "canonical-manifest");
+    expect(result).toMatchObject({
+      fixtureName: "hot-basic-v0",
+      fixturePath: "fixtures/projection-runtime/hot-basic-v0",
+      passed: false,
+    });
+  });
+
+  it("reports hot-layout-manifest failures for changed in-memory expected layouts", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotLayoutManifest = cloneRecord(fixture.artifacts.hotLayoutManifest);
+    hotLayoutManifest.totalRegionByteLength = 999;
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotLayoutManifest },
+    });
+
+    expectFailure(result.failures, "hot-layout-manifest");
+  });
+
+  it("reports resolved-contract failures for changed in-memory expected contracts", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const resolvedContract = cloneRecord(fixture.artifacts.resolvedContract);
+    resolvedContract.semanticVersion = "0000000000000000";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { resolvedContract },
+    });
+
+    expectFailure(result.failures, "resolved-contract");
+  });
+
+  it("reports hot-layout-version failures when top-level and lane versions diverge", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const resolvedContract = cloneRecord(fixture.artifacts.resolvedContract);
+    resolvedContract.hotLayoutVersion = "0000000000000000";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { resolvedContract },
+    });
+
+    expectFailure(result.failures, "hot-layout-version");
+  });
+
+  it("includes fixture name and artifact-specific failure details", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const canonicalManifest = cloneRecord(fixture.artifacts.canonicalManifest);
+    canonicalManifest.family = "changed";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { canonicalManifest },
+    });
+    const failure = expectFailure(result.failures, "canonical-manifest");
+
+    expect(result.fixtureName).toBe("hot-basic-v0");
+    expect(result.fixturePath).toBe("fixtures/projection-runtime/hot-basic-v0");
+    expect(failure.reason).toBe("canonical-manifest does not match golden artifact");
+    expect(failure.expected).toMatchObject({ family: "changed" });
+    expect(failure.actual).toMatchObject({ family: "replaceable-snapshot" });
+  });
+});
+
+async function withTempFixtureRoot(callback: (root: string) => Promise<void>): Promise<void> {
+  const root = await mkdir(resolve(tmpdir(), `seqlok-conformance-${process.pid}-${Date.now()}`), {
+    recursive: true,
+  });
+
+  if (root === undefined) {
+    throw new Error("failed to create temporary fixture root");
+  }
+
+  try {
+    await callback(root);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+function cloneRecord(value: unknown): Record<string, unknown> {
+  return structuredClone(value) as Record<string, unknown>;
+}
+
+function expectFailure(
+  failures: readonly ProjectionRuntimeFixtureFailure[],
+  artifact: ProjectionRuntimeFixtureFailure["artifact"],
+): ProjectionRuntimeFixtureFailure {
+  const failure = failures.find((entry) => entry.artifact === artifact);
+  expect(failure).toBeDefined();
+
+  if (failure === undefined) {
+    throw new Error(`expected ${artifact} failure`);
+  }
+
+  return failure;
+}
