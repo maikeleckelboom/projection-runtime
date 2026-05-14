@@ -321,12 +321,12 @@ function createHotBlockAFixtureArtifact(
     });
   }
 
-  const semanticVersion = getStringProperty(
+  const semanticVersion = getU64HexProperty(
     expectedHotBlockAFixture,
     "semanticVersion",
     "expected.semanticVersion",
   );
-  const hotLayoutVersion = getStringProperty(
+  const hotLayoutVersion = getU64HexProperty(
     expectedHotBlockAFixture,
     "hotLayoutVersion",
     "expected.hotLayoutVersion",
@@ -353,19 +353,19 @@ function createHotBlockAFixtureArtifact(
   );
 
   const resolvedSemanticVersion = encodeFixtureJson(resolved.semanticVersion);
-  if (semanticVersion !== resolvedSemanticVersion) {
+  if (encodeFixtureJson(semanticVersion) !== resolvedSemanticVersion) {
     throw createConformanceError("fixtureArtifactMismatch", {
       artifact: "hot-block-a-fixture",
-      detail: `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
+      detail: `hot-block-a-fixture semanticVersion mismatch: expected ${encodeFixtureJson(semanticVersion)}, resolved ${resolvedSemanticVersion}`,
       failureCode: "semanticVersionMismatch",
     });
   }
 
   const manifestHotLayoutVersion = encodeFixtureJson(hotLayoutManifest.hotLayoutVersion);
-  if (hotLayoutVersion !== manifestHotLayoutVersion) {
+  if (encodeFixtureJson(hotLayoutVersion) !== manifestHotLayoutVersion) {
     throw createConformanceError("fixtureArtifactMismatch", {
       artifact: "hot-block-a-fixture",
-      detail: `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
+      detail: `hot-block-a-fixture hotLayoutVersion mismatch: expected ${encodeFixtureJson(hotLayoutVersion)}, manifest ${manifestHotLayoutVersion}`,
       failureCode: "hotLayoutVersionMismatch",
     });
   }
@@ -389,8 +389,8 @@ function createHotBlockAFixtureArtifact(
   const input: HotBlockAHeaderInput = {
     contractKey,
     instanceKey,
-    semanticVersion: BigInt(`0x${semanticVersion}`),
-    hotLayoutVersion: BigInt(`0x${hotLayoutVersion}`),
+    semanticVersion,
+    hotLayoutVersion,
     fieldCount,
     mutableRegionByteLength,
   };
@@ -449,7 +449,7 @@ function createHotBlockBFixtureArtifact(expectedHotBlockBFixture: unknown): unkn
     });
   }
 
-  const seqlockCounter = getStringProperty(
+  const seqlockCounter = getU64HexProperty(
     expectedHotBlockBFixture,
     "seqlockCounter",
     "expected.seqlockCounter",
@@ -464,7 +464,7 @@ function createHotBlockBFixtureArtifact(expectedHotBlockBFixture: unknown): unkn
     "continuityGeneration",
     "expected.continuityGeneration",
   );
-  const publicationSequence = getStringProperty(
+  const publicationSequence = getU64HexProperty(
     expectedHotBlockBFixture,
     "publicationSequence",
     "expected.publicationSequence",
@@ -485,10 +485,10 @@ function createHotBlockBFixtureArtifact(expectedHotBlockBFixture: unknown): unkn
   );
 
   const input: HotBlockBHeaderInput = {
-    seqlockCounter: BigInt(`0x${seqlockCounter}`),
+    seqlockCounter,
     baselineEpoch,
     continuityGeneration,
-    publicationSequence: BigInt(`0x${publicationSequence}`),
+    publicationSequence,
   };
 
   const blockBBytes = encodeHotBlockBHeader(input);
@@ -527,6 +527,27 @@ function getStringProperty(obj: Record<string, unknown>, key: string, path: stri
     });
   }
   return value;
+}
+
+const U64_HEX_RE = /^[0-9a-f]{16}$/;
+
+function getU64HexProperty(obj: Record<string, unknown>, key: string, path: string): bigint {
+  const value = obj[key];
+  if (typeof value !== "string") {
+    throw createConformanceError("fixtureShapeRejected", {
+      detail: `expected ${key} to be a string`,
+      failureCode: "expectedString",
+      path,
+    });
+  }
+  if (!U64_HEX_RE.test(value)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      detail: `expected ${key} to be 16 lowercase hex characters`,
+      failureCode: "expectedU64Hex",
+      path,
+    });
+  }
+  return BigInt(`0x${value}`);
 }
 
 function getNumberProperty(obj: Record<string, unknown>, key: string, path: string): number {

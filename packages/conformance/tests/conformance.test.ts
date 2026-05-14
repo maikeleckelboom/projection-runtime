@@ -365,6 +365,58 @@ describe("@seqlok/conformance execution", () => {
     expectFailure(result.failures, "hot-layout-version");
   });
 
+  it("reports expectedU64Hex for malformed hot-block-b-fixture seqlockCounter", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockBFixture = cloneRecord(fixture.artifacts.hotBlockBFixture);
+    hotBlockBFixture.seqlockCounter = "0x0000000000000002";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockBFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-b-fixture");
+    expect(failure.failureCode).toBe("expectedU64Hex");
+  });
+
+  it("reports expectedU64Hex for malformed hot-block-b-fixture publicationSequence", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockBFixture = cloneRecord(fixture.artifacts.hotBlockBFixture);
+    hotBlockBFixture.publicationSequence = "000000000000002A";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockBFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-b-fixture");
+    expect(failure.failureCode).toBe("expectedU64Hex");
+  });
+
+  it("reports expectedU64Hex for malformed hot-block-a-fixture semanticVersion", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
+    hotBlockAFixture.semanticVersion = "000000000000000g";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockAFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-a-fixture");
+    expect(failure.failureCode).toBe("expectedU64Hex");
+  });
+
+  it("reports expectedU64Hex for malformed hot-block-a-fixture hotLayoutVersion", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
+    hotBlockAFixture.hotLayoutVersion = "000000000000002";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotBlockAFixture },
+    });
+
+    const failure = expectFailure(result.failures, "hot-block-a-fixture");
+    expect(failure.failureCode).toBe("expectedU64Hex");
+  });
+
   it("includes fixture name and artifact-specific failure details", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
     const canonicalManifest = cloneRecord(fixture.artifacts.canonicalManifest);

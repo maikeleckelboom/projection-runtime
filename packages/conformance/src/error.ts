@@ -30,6 +30,7 @@ export type ConformanceFailureCode =
   | "compilerRejected"
   | "expectedNumber"
   | "expectedString"
+  | "expectedU64Hex"
   | "fieldCountMismatch"
   | "fieldRegionDecodeDiverged"
   | "fixtureFileLoadFailed"
@@ -70,6 +71,7 @@ export interface ConformanceFixtureShapeRejectedDetails extends ConformanceError
   readonly failureCode:
     | "expectedNumber"
     | "expectedString"
+    | "expectedU64Hex"
     | "fixtureNotObject"
     | "missingHotLayoutManifest"
     | "missingResolvedContract"
