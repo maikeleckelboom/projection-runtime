@@ -15,39 +15,6 @@ import {
 export type PrimitivesErrorCode = ErrorCodeOf<PrimitivesDomain>;
 export type PrimitivesErrorKey = ErrorKeyFromCode<PrimitivesErrorCode>;
 
-export interface PrimitivesSeqlockTimeoutDetails extends ErrorDetails {
-  readonly where: string;
-  readonly detail: string;
-  readonly spinBudget: number;
-  readonly actualSpins: number;
-  readonly retryBudget: number;
-  readonly retriesUsed: number;
-  readonly lockIndex: number;
-  readonly seqIndex: number;
-}
-
-export interface PrimitivesInvalidSpinBudgetDetails extends ErrorDetails {
-  readonly where: string;
-  readonly detail: string;
-  readonly spinBudget: number;
-  readonly retryBudget: number;
-}
-
-export interface PrimitivesSeqlockInvalidPairDetails extends ErrorDetails {
-  readonly where: string;
-  readonly detail: string;
-  readonly lockIndex: number;
-  readonly seqIndex: number;
-  readonly length: number;
-}
-
-export interface PrimitivesSwsrRingInvalidLayoutDetails extends ErrorDetails {
-  readonly where: string;
-  readonly detail: string;
-  readonly capacity: number;
-  readonly wordsPerSlot: number;
-}
-
 export interface PrimitivesPlaneInvalidDetails extends ErrorDetails {
   readonly where: string;
   readonly detail: string;
@@ -64,55 +31,19 @@ export interface PrimitivesAlignmentInvalidDetails extends ErrorDetails {
 export interface PrimitivesAtomicsFailedDetails extends ErrorDetails {
   readonly where: string;
   readonly detail: string;
-  readonly operation: "loadU32" | "addU32";
+  readonly operation: "loadAtomicU32" | "addAtomicU32" | "loadAtomicU64";
   readonly index: number;
   readonly length: number;
   readonly delta?: number;
 }
 
 interface PrimitivesDomainDefs {
-  readonly seqlockTimeout: DomainDef;
-  readonly invalidSpinBudget: DomainDef;
-  readonly seqlockInvalidPair: DomainDef;
-  readonly swsrRingInvalidLayout: DomainDef;
   readonly planeInvalid: DomainDef;
   readonly alignmentInvalid: DomainDef;
   readonly atomicsFailed: DomainDef;
 }
 
 const PRIMITIVES_DEFS: PrimitivesDomainDefs = {
-  seqlockTimeout: {
-    message: "Seqlock acquisition timeout",
-    meta: {
-      severity: "error",
-      recoverable: true,
-      boundarySafe: true,
-    },
-  },
-  invalidSpinBudget: {
-    message: "Spin and retry budgets must be non-negative integers",
-    meta: {
-      severity: "error",
-      recoverable: true,
-      boundarySafe: true,
-    },
-  },
-  seqlockInvalidPair: {
-    message: "Seqlock pair is invalid",
-    meta: {
-      severity: "error",
-      recoverable: true,
-      boundarySafe: true,
-    },
-  },
-  swsrRingInvalidLayout: {
-    message: "SWSR ring layout is invalid",
-    meta: {
-      severity: "error",
-      recoverable: false,
-      boundarySafe: true,
-    },
-  },
   planeInvalid: {
     message: "Plane key is invalid",
     meta: {
@@ -149,10 +80,6 @@ export const PRIMITIVES_ERRORS: PrimitivesErrorsMap =
   PRIMITIVES_DOMAIN.registry as PrimitivesErrorsMap;
 
 type ExpectedPrimitivesErrorCode =
-  | "primitives.seqlockTimeout"
-  | "primitives.invalidSpinBudget"
-  | "primitives.seqlockInvalidPair"
-  | "primitives.swsrRingInvalidLayout"
   | "primitives.planeInvalid"
   | "primitives.alignmentInvalid"
   | "primitives.atomicsFailed";
@@ -162,10 +89,6 @@ export type _PrimitivesCodesMatch = AssertTrue<
 >;
 
 export interface PrimitivesErrorDetailsByKey {
-  readonly seqlockTimeout: PrimitivesSeqlockTimeoutDetails;
-  readonly invalidSpinBudget: PrimitivesInvalidSpinBudgetDetails;
-  readonly seqlockInvalidPair: PrimitivesSeqlockInvalidPairDetails;
-  readonly swsrRingInvalidLayout: PrimitivesSwsrRingInvalidLayoutDetails;
   readonly planeInvalid: PrimitivesPlaneInvalidDetails;
   readonly alignmentInvalid: PrimitivesAlignmentInvalidDetails;
   readonly atomicsFailed: PrimitivesAtomicsFailedDetails;

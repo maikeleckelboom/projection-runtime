@@ -1,40 +1,19 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   ALL_PLANES,
-  addU32,
-  allocateSwsrRing,
+  addAtomicU32,
   assertPlaneKey,
   BYTES_PER_ELEM,
-  beginWrite,
-  bindSwsrRingConsumer,
-  bindSwsrRingProducer,
   createPrimitivesError,
-  createSeqPair,
-  endWrite,
   isPlaneKey,
-  loadU32,
+  loadAtomicU32,
+  loadAtomicU64,
   PLANE_PACK_ORDER,
   PRIMITIVES_DOMAIN,
   PRIMITIVES_ERRORS,
-  publish,
-  type ReadStatus,
   roundUpTo,
-  type SeqPair,
-  SWSR_HEADER_DROPPED,
-  SWSR_HEADER_READ_INDEX,
-  SWSR_HEADER_WORDS,
-  SWSR_HEADER_WRITE_INDEX,
-  SWSR_HEADER_WRITE_SEQ,
-  spinUntilEven,
-  type TryReadResult,
-  tryRead,
 } from "../src/index";
-
-function makeSeqPair(): { pair: SeqPair; u32: Uint32Array; dataIndex: number } {
-  const u32 = new Uint32Array(new SharedArrayBuffer(4 * Uint32Array.BYTES_PER_ELEMENT));
-  return { pair: createSeqPair(u32, 0, 1), u32, dataIndex: 2 };
-}
 
 function captureThrow(fn: () => void): unknown {
   try {
@@ -46,114 +25,46 @@ function captureThrow(fn: () => void): unknown {
   throw new Error("expected function to throw");
 }
 
-describe("@seqlok/primitives seqlock", () => {
-  it("publishes coherent multi-word reads with stable even lock state", () => {
-    const { pair, u32, dataIndex } = makeSeqPair();
-
-    publish(pair, () => {
-      u32[dataIndex] = 42;
-      u32[dataIndex + 1] = 84;
-    });
-
-    const result = tryRead(pair, () => ({
-      a: u32[dataIndex] ?? 0,
-      b: u32[dataIndex + 1] ?? 0,
-    }));
-
-    expect(result).toEqual({
-      ok: true,
-      value: { a: 42, b: 84 },
-      status: { spins: 0, retries: 0, kind: "ok" },
-    });
-    expect(u32[pair.lockIndex] ?? 0).toBe(2);
-    expect(u32[pair.seqIndex] ?? 0).toBe(1);
-  });
-
-  it("exposes begin/end write mechanics and recovers lock state when publish throws", () => {
-    const { pair, u32, dataIndex } = makeSeqPair();
-
-    beginWrite(pair);
-    expect((u32[pair.lockIndex] ?? 0) & 1).toBe(1);
-    endWrite(pair);
-    expect((u32[pair.lockIndex] ?? 0) & 1).toBe(0);
-    expect(u32[pair.seqIndex]).toBe(1);
-
-    expect(() =>
-      publish(pair, () => {
-        u32[dataIndex] = 9;
-        throw new Error("write failed");
-      }),
-    ).toThrow("write failed");
-
-    expect((u32[pair.lockIndex] ?? 0) & 1).toBe(0);
-    expect(u32[pair.seqIndex]).toBe(2);
-    expect(u32[dataIndex]).toBe(9);
-  });
-
-  it("returns a best-effort result when the writer stays active", () => {
-    const { pair, u32, dataIndex } = makeSeqPair();
-    u32[dataIndex] = 7;
-
-    beginWrite(pair);
-    try {
-      const result = tryRead(pair, () => u32[dataIndex] ?? 0, {
-        spinBudget: 1,
-        retryBudget: 0,
-      });
-
-      expect(result.ok).toBe(false);
-      expect(result.value).toBe(7);
-      expect(result.status.kind).toBe("writerActive");
-    } finally {
-      endWrite(pair);
-    }
-  });
-
-  it("throws a primitives timeout when stable verification never succeeds", () => {
-    const { pair, u32, dataIndex } = makeSeqPair();
-
-    expect(
-      captureThrow(() =>
-        tryRead(
-          pair,
-          () => {
-            u32[dataIndex] = (u32[dataIndex] ?? 0) + 1;
-            u32[pair.seqIndex] = (u32[pair.seqIndex] ?? 0) + 1;
-            return u32[dataIndex] ?? 0;
-          },
-          { spinBudget: 0, retryBudget: 1 },
-        ),
-      ),
-    ).toMatchObject({ code: "primitives.seqlockTimeout" });
-  });
-
-  it("rejects invalid seqlock pair indices", () => {
+describe("@seqlok/primitives atomics", () => {
+  it("loads and adds u32 words with explicit atomic helpers", () => {
     const u32 = new Uint32Array(new SharedArrayBuffer(2 * Uint32Array.BYTES_PER_ELEMENT));
 
-    expect(captureThrow(() => createSeqPair(u32, 0, 0))).toMatchObject({
-      code: "primitives.seqlockInvalidPair",
-    });
-    expect(captureThrow(() => createSeqPair(u32, 0, 3))).toMatchObject({
-      code: "primitives.seqlockInvalidPair",
-    });
+    expect(loadAtomicU32(u32, 0)).toBe(0);
+    expect(addAtomicU32(u32, 0, 2)).toBe(0);
+    expect(loadAtomicU32(u32, 0)).toBe(2);
   });
 
-  it("rejects invalid read budgets", () => {
-    const { pair } = makeSeqPair();
+  it("loads u64 words from a BigUint64Array with Atomics.load", () => {
+    const u64 = new BigUint64Array(new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT));
+    u64[0] = 42n;
 
-    expect(
-      captureThrow(() => tryRead(pair, () => 1, { spinBudget: -1, retryBudget: 0 })),
-    ).toMatchObject({ code: "primitives.invalidSpinBudget" });
+    const loadSpy = vi.spyOn(Atomics, "load");
+    const value = loadAtomicU64(u64, 0);
+
+    expect(value).toBe(42n);
+    expectTypeOf(value).toEqualTypeOf<bigint>();
+    expect(loadSpy).toHaveBeenCalledWith(u64, 0);
+
+    loadSpy.mockRestore();
   });
 
-  it("exports the seqlock type surface", () => {
-    expectTypeOf<ReadStatus["kind"]>().toEqualTypeOf<"ok" | "writerActive" | "budgetExhausted">();
-    expectTypeOf<TryReadResult<number>["value"]>().toEqualTypeOf<number>();
+  it("wraps invalid atomic access in the primitives error domain", () => {
+    const u64 = new BigUint64Array(new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT));
+
+    expect(captureThrow(() => loadAtomicU64(u64, 1))).toMatchObject({
+      code: "primitives.atomicsFailed",
+      details: {
+        where: "primitives.atomics.loadAtomicU64",
+        operation: "loadAtomicU64",
+        index: 1,
+        length: 1,
+      },
+    });
   });
 });
 
-describe("@seqlok/primitives planes", () => {
-  it("exposes stable plane vocabulary and byte sizes", () => {
+describe("@seqlok/primitives layout helpers", () => {
+  it("keeps the existing plane packing vocabulary small", () => {
     expect(PLANE_PACK_ORDER).toEqual(["MF64", "PF32", "PI32", "PU", "MF32", "MU32", "MU", "PB"]);
     expect(ALL_PLANES).toBe(PLANE_PACK_ORDER);
     expect(BYTES_PER_ELEM).toEqual({
@@ -184,157 +95,29 @@ describe("@seqlok/primitives planes", () => {
   });
 });
 
-describe("@seqlok/primitives atomics", () => {
-  it("loads, adds, and spins on u32 words", () => {
-    const u32 = new Uint32Array(new SharedArrayBuffer(2 * Uint32Array.BYTES_PER_ELEMENT));
-
-    expect(loadU32(u32, 0)).toBe(0);
-    expect(addU32(u32, 0, 2)).toBe(0);
-    expect(loadU32(u32, 0)).toBe(2);
-    expect(spinUntilEven(u32, 0, 0)).toEqual({ value: 2, spins: 0 });
-
-    u32[1] = 1;
-    expect(spinUntilEven(u32, 1, 1)).toBeUndefined();
-  });
-});
-
-describe("@seqlok/primitives swsr ring", () => {
-  const encodeNumber = {
-    encode(value: number, dst: Uint32Array, offset: number): void {
-      dst[offset] = value;
-    },
-  };
-  const decodeNumber = {
-    decode(src: Uint32Array, offset: number): number {
-      return src[offset] ?? 0;
-    },
-  };
-
-  it("allocates validated backing layout", () => {
-    const backing = allocateSwsrRing({ capacity: 4, wordsPerSlot: 2 });
-
-    expect(backing.sab).toBeInstanceOf(SharedArrayBuffer);
-    expect(backing.header.length).toBe(SWSR_HEADER_WORDS);
-    expect(backing.slots.length).toBe(8);
-    expect(backing.sab.byteLength).toBe((SWSR_HEADER_WORDS + 8) * Uint32Array.BYTES_PER_ELEMENT);
-    expect([...backing.header]).toEqual(new Array<number>(SWSR_HEADER_WORDS).fill(0));
-
-    expect(captureThrow(() => allocateSwsrRing({ capacity: 0, wordsPerSlot: 1 }))).toMatchObject({
-      code: "primitives.swsrRingInvalidLayout",
-      details: { detail: "capacity must be an integer greater than or equal to 2" },
-    });
-    expect(captureThrow(() => allocateSwsrRing({ capacity: 1, wordsPerSlot: 0 }))).toMatchObject({
-      code: "primitives.swsrRingInvalidLayout",
-    });
-  });
-
-  it("rejects one-slot rings and treats capacity two as the smallest usable ring", () => {
-    expect(captureThrow(() => allocateSwsrRing({ capacity: 1, wordsPerSlot: 1 }))).toMatchObject({
-      code: "primitives.swsrRingInvalidLayout",
-      details: { detail: "capacity must be an integer greater than or equal to 2" },
-    });
-
-    const backing = allocateSwsrRing({ capacity: 2, wordsPerSlot: 1 });
-    const producer = bindSwsrRingProducer(backing, encodeNumber);
-    const consumer = bindSwsrRingConsumer(backing, decodeNumber);
-
-    expect(producer.enqueue(21)).toBe(true);
-    expect(producer.enqueue(22)).toBe(false);
-    expect(producer.stats()).toEqual({ dropped: 1 });
-
-    const values: number[] = [];
-    consumer.drain((value) => {
-      values.push(value);
-    });
-
-    expect(values).toEqual([21]);
-    expect(producer.enqueue(23)).toBe(true);
-
-    const afterDrain: number[] = [];
-    consumer.drain((value) => {
-      afterDrain.push(value);
-    });
-
-    expect(afterDrain).toEqual([23]);
-  });
-
-  it("enqueues, drops when full, drains in FIFO order, and tracks header counters", () => {
-    const backing = allocateSwsrRing({ capacity: 3, wordsPerSlot: 1 });
-    const producer = bindSwsrRingProducer(backing, encodeNumber);
-    const consumer = bindSwsrRingConsumer(backing, decodeNumber);
-
-    expect(producer.enqueue(10)).toBe(true);
-    expect(producer.enqueue(11)).toBe(true);
-    expect(producer.enqueue(12)).toBe(false);
-    expect(backing.header[SWSR_HEADER_WRITE_SEQ]).toBe(2);
-    expect(backing.header[SWSR_HEADER_DROPPED]).toBe(1);
-    expect(producer.stats()).toEqual({ dropped: 1 });
-
-    const values: number[] = [];
-    consumer.drain((value) => {
-      values.push(value);
-    });
-
-    expect(values).toEqual([10, 11]);
-    expect(backing.header[SWSR_HEADER_READ_INDEX]).toBe(backing.header[SWSR_HEADER_WRITE_INDEX]);
-  });
-
-  it("wraps indices across the slot boundary", () => {
-    const backing = allocateSwsrRing({ capacity: 4, wordsPerSlot: 1 });
-    const producer = bindSwsrRingProducer(backing, encodeNumber);
-    const consumer = bindSwsrRingConsumer(backing, decodeNumber);
-
-    expect(producer.enqueue(1)).toBe(true);
-    expect(producer.enqueue(2)).toBe(true);
-    expect(producer.enqueue(3)).toBe(true);
-
-    const first: number[] = [];
-    consumer.drain((value) => {
-      first.push(value);
-    });
-    expect(first).toEqual([1, 2, 3]);
-
-    expect(producer.enqueue(4)).toBe(true);
-    expect(producer.enqueue(5)).toBe(true);
-
-    const second: number[] = [];
-    consumer.drain((value) => {
-      second.push(value);
-    });
-
-    expect(second).toEqual([4, 5]);
-    expect(backing.header[SWSR_HEADER_READ_INDEX]).toBe(backing.header[SWSR_HEADER_WRITE_INDEX]);
-  });
-});
-
 describe("@seqlok/primitives errors and public surface", () => {
-  it("publishes a primitives-owned error domain", () => {
+  it("publishes a primitives-owned error domain for retained helpers", () => {
     expect(PRIMITIVES_DOMAIN.prefix).toBe("primitives");
     expect(Object.keys(PRIMITIVES_ERRORS).sort()).toEqual([
       "alignmentInvalid",
       "atomicsFailed",
-      "invalidSpinBudget",
       "planeInvalid",
-      "seqlockInvalidPair",
-      "seqlockTimeout",
-      "swsrRingInvalidLayout",
     ]);
 
-    const error = createPrimitivesError("invalidSpinBudget", {
+    const error = createPrimitivesError("planeInvalid", {
       where: "test",
-      detail: "bad budgets",
-      spinBudget: -1,
-      retryBudget: 0,
+      detail: "bad plane",
+      plane: "NOPE",
     });
 
     expect(error.toJSON()).toMatchObject({
-      code: "primitives.invalidSpinBudget",
-      message: "Spin and retry budgets must be non-negative integers",
-      details: { spinBudget: -1, retryBudget: 0 },
+      code: "primitives.planeInvalid",
+      message: "Plane key is invalid",
+      details: { plane: "NOPE" },
     });
   });
 
-  it("keeps runtime exports limited to primitive mechanisms", async () => {
+  it("does not export old SeqPair seqlock or SWSR ring APIs from the package root", async () => {
     const primitives = await import("../src/index");
 
     expect(Object.keys(primitives).sort()).toEqual([
@@ -343,26 +126,16 @@ describe("@seqlok/primitives errors and public surface", () => {
       "PLANE_PACK_ORDER",
       "PRIMITIVES_DOMAIN",
       "PRIMITIVES_ERRORS",
-      "SWSR_HEADER_DROPPED",
-      "SWSR_HEADER_READ_INDEX",
-      "SWSR_HEADER_WORDS",
-      "SWSR_HEADER_WRITE_INDEX",
-      "SWSR_HEADER_WRITE_SEQ",
-      "addU32",
-      "allocateSwsrRing",
+      "addAtomicU32",
       "assertPlaneKey",
-      "beginWrite",
-      "bindSwsrRingConsumer",
-      "bindSwsrRingProducer",
       "createPrimitivesError",
-      "createSeqPair",
-      "endWrite",
       "isPlaneKey",
-      "loadU32",
-      "publish",
+      "loadAtomicU32",
+      "loadAtomicU64",
       "roundUpTo",
-      "spinUntilEven",
-      "tryRead",
     ]);
+    expect("createSeqPair" in primitives).toBe(false);
+    expect("tryRead" in primitives).toBe(false);
+    expect("allocateSwsrRing" in primitives).toBe(false);
   });
 });

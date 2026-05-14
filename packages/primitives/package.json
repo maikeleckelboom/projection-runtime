@@ -1,7 +1,7 @@
 {
   "name": "@seqlok/primitives",
   "version": "0.0.0",
-  "description": "Schema-free shared-memory mechanisms for Seqlok packages.",
+  "description": "Low-level atomic and layout helpers for Seqlok runtime and compiler packages.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

@@ -1,32 +1,26 @@
 # @seqlok/primitives
 
-`@seqlok/primitives` is the schema-free shared-memory mechanism layer for
-Seqlok packages.
+Low-level atomic and layout helpers for Seqlok runtime and compiler packages.
 
-It owns mechanisms, not semantics. Higher layers can use these pieces to store,
-coordinate, or move shared data, but this package does not describe what that
-data means.
+This package is deliberately small. It does not own projection semantics, hot
+consumer read policy, lane planning, or transport contracts. Those boundaries
+belong to the projection-runtime specs and the packages that implement them.
 
 ## What Belongs Here
 
-- Seqlock mechanics.
-- Single-writer single-reader ring mechanics.
-- Plane vocabulary and packing/alignment helpers.
-- Small atomics helpers.
-- The `primitives.*` error domain.
+- Small typed-array atomic helpers.
+- Pure layout/alignment helpers that do not invent runtime policy.
+- The `primitives.*` error domain for failures owned by these helpers.
 
 ## What Does Not Belong Here
 
-- Schema or authored spec structure.
-- Semantic compilation.
-- Layout planning policy.
-- Handoff envelopes.
-- Bindings.
-- Command semantics.
-- Telemetry schema sidecars.
-- Analysis, tooling, demos, or product concepts.
-- Any type that describes what data means rather than how it is stored,
-  coordinated, or moved.
+- Projection contract meaning.
+- Hot-lane consumer retry or last-good policy.
+- Hot layout planning.
+- Generated bindings.
+- Control, publication, resource, or session plane protocols.
+- Prototype transports that are not named by the current projection-runtime
+  specs.
 
 ## Public Surface
 
@@ -37,20 +31,17 @@ data means.
 - `createPrimitivesError(...)`
 - Types for primitives error codes, keys, details, and domain mapping.
 
-### Seqlock
+### Atomics Helpers
 
-- `createSeqPair(...)`
-- `tryRead(...)`
-- `publish(...)`
-- `beginWrite(...)`
-- `endWrite(...)`
-- `SeqPair`, `ReadStatus`, `TryReadOptions`, `TryReadResult`
+- `loadAtomicU32(...)`
+- `addAtomicU32(...)`
+- `loadAtomicU64(...)`
 
-The writer marks a write window, mutates payload memory, commits the sequence,
-and unlocks. Readers retry until they see a stable even sequence, or return a
-mechanism-level failed result or timeout according to their budgets.
+The hot-lane seqlock counter is a `u64` value. TypeScript code that reads it
+must use `Atomics.load()` through a `BigUint64Array` view; `loadAtomicU64(...)`
+is the minimal helper for that operation.
 
-### Planes
+### Layout Helpers
 
 - `ALL_PLANES`
 - `PLANE_PACK_ORDER`
@@ -60,71 +51,20 @@ mechanism-level failed result or timeout according to their budgets.
 - `roundUpTo(...)`
 - `PlaneKey`, `PlaneRecord`
 
-Planes are ABI-level storage buckets, not UI or product vocabulary.
+The plane constants remain low-level packing vocabulary. They are not a
+projection field taxonomy and should not be expanded into one here.
 
-### Atomics Helpers
-
-- `addU32(...)`
-- `loadU32(...)`
-- `spinUntilEven(...)`
-
-These helpers keep repeated low-level atomic operations small and consistently
-reported through the primitives error domain.
-
-### SWSR Ring
-
-- `allocateSwsrRing(...)`
-- `bindSwsrRingProducer(...)`
-- `bindSwsrRingConsumer(...)`
-- `SWSR_HEADER_WORDS`
-- `SWSR_HEADER_WRITE_INDEX`
-- `SWSR_HEADER_READ_INDEX`
-- `SWSR_HEADER_WRITE_SEQ`
-- `SWSR_HEADER_DROPPED`
-- `SwsrRingBacking`, `SwsrRingLayout`, `SwsrRingProducer`,
-  `SwsrRingConsumer`, `SwsrRingEncode`, `SwsrRingDecode`, `SwsrRingStats`
-
-The ring is a fixed-width slot transport over `SharedArrayBuffer`. Typed command
-contracts and bus composition belong above this layer. A ring layout must use
-`capacity >= 2`; one-slot rings are rejected because the full check would leave
-no slot available for transport.
-
-## Examples
+## Example
 
 ```ts
-import { createSeqPair, publish, tryRead } from "@seqlok/primitives";
+import { addAtomicU32, loadAtomicU32, loadAtomicU64, roundUpTo } from "@seqlok/primitives";
 
-const u32 = new Uint32Array(new SharedArrayBuffer(16));
-const pair = createSeqPair(u32, 0, 1);
+const u32 = new Uint32Array(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT));
+addAtomicU32(u32, 0, 1);
+const count = loadAtomicU32(u32, 0);
 
-publish(pair, () => {
-  u32[2] = 42;
-});
+const seqlock = new BigUint64Array(new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT));
+const counter = loadAtomicU64(seqlock, 0);
 
-const result = tryRead(pair, () => u32[2]);
-```
-
-```ts
-import {
-  allocateSwsrRing,
-  bindSwsrRingConsumer,
-  bindSwsrRingProducer,
-} from "@seqlok/primitives";
-
-const backing = allocateSwsrRing({ capacity: 8, wordsPerSlot: 1 });
-const producer = bindSwsrRingProducer(backing, {
-  encode(value: number, dst, offset) {
-    dst[offset] = value;
-  },
-});
-const consumer = bindSwsrRingConsumer(backing, {
-  decode(src, offset) {
-    return src[offset] ?? 0;
-  },
-});
-
-producer.enqueue(7);
-consumer.drain((value) => {
-  console.log(value);
-});
+const nextOffset = roundUpTo(97, 8);
 ```

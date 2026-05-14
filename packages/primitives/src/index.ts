@@ -1,4 +1,4 @@
-export { addU32, loadU32, spinUntilEven } from "./atomics";
+export { addAtomicU32, loadAtomicU32, loadAtomicU64 } from "./atomics";
 export type {
   PrimitivesAlignmentInvalidDetails,
   PrimitivesAtomicsFailedDetails,
@@ -8,11 +8,7 @@ export type {
   PrimitivesErrorFactory,
   PrimitivesErrorKey,
   PrimitivesErrorsMap,
-  PrimitivesInvalidSpinBudgetDetails,
   PrimitivesPlaneInvalidDetails,
-  PrimitivesSeqlockInvalidPairDetails,
-  PrimitivesSeqlockTimeoutDetails,
-  PrimitivesSwsrRingInvalidLayoutDetails,
 } from "./errors/primitives";
 export {
   createPrimitivesError,
@@ -28,30 +24,3 @@ export {
   PLANE_PACK_ORDER,
   roundUpTo,
 } from "./planes";
-export type { ReadStatus, SeqPair, TryReadOptions, TryReadResult } from "./seqlock";
-export {
-  beginWrite,
-  createSeqPair,
-  endWrite,
-  publish,
-  tryRead,
-} from "./seqlock";
-export type {
-  SwsrRingBacking,
-  SwsrRingConsumer,
-  SwsrRingDecode,
-  SwsrRingEncode,
-  SwsrRingLayout,
-  SwsrRingProducer,
-  SwsrRingStats,
-} from "./swsrRing";
-export {
-  allocateSwsrRing,
-  bindSwsrRingConsumer,
-  bindSwsrRingProducer,
-  SWSR_HEADER_DROPPED,
-  SWSR_HEADER_READ_INDEX,
-  SWSR_HEADER_WORDS,
-  SWSR_HEADER_WRITE_INDEX,
-  SWSR_HEADER_WRITE_SEQ,
-} from "./swsrRing";
