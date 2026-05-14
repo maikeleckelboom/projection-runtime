@@ -84,10 +84,11 @@ If hot layout planning rejects the input, compilation returns `ok: false` with c
 
 ## Error model
 
-Compiler errors are domain-coded `SeqlokError` values with code `compiler.compilationRejected`.
-Each `CompilerError` carries a sorted list of `CompilerIssue` objects with typed issue codes such as
-`schema.invalid`, `lane.hotFieldNotAdmissible`, or `hot-codec.planningFailed`. Issue codes are drawn from a
-predeclared registry; callers can assert specific codes without parsing free-form strings.
+Compiler failures are domain-coded `SeqlokError` values with code `compiler.compilationRejected`. The `CompilerError`
+name is a TypeScript alias plus helper factory, not a runtime subclass. Each compiler error carries a sorted
+`details.issues` list of `CompilerIssue` objects with typed issue codes such as `schema.invalid`,
+`lane.hotFieldNotAdmissible`, or `hot-codec.planningFailed`. Issue codes are drawn from a predeclared registry; callers
+can assert specific codes without parsing free-form strings.
 
 Warm declarations are retained as `{ codec: "framed-snapshot" }`, but compiler v0 does not emit warm codec manifests or
 derive `warmCodecVersion`.
@@ -115,6 +116,6 @@ if (result.ok) {
   console.log(result.value.manifest);
   console.log(result.value.semanticVersion);
 } else {
-  console.error(result.error.issues);
+  console.error(result.error.details.issues);
 }
 ```

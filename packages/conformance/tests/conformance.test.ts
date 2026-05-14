@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SeqlokError } from "@seqlok/base";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
+import * as conformance from "../src/index";
 import {
-  ConformanceError,
+  type ConformanceError,
+  createConformanceError,
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,
   type ProjectionRuntimeFixtureFailure,
@@ -124,6 +126,7 @@ describe("@seqlok/conformance fixture loading", () => {
       expect(result.failures).toEqual([
         expect.objectContaining({
           artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
           fixtureFile: "hot-layout-manifest.json",
         }),
       ]);
@@ -162,6 +165,7 @@ describe("@seqlok/conformance fixture loading", () => {
       expect(result.failures).toEqual([
         expect.objectContaining({
           artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
           fixtureFile: "hot-byte-fixture.json",
         }),
       ]);
@@ -184,6 +188,7 @@ describe("@seqlok/conformance fixture loading", () => {
       expect(result.failures).toEqual([
         expect.objectContaining({
           artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
           fixtureFile: "hot-block-a-fixture.json",
         }),
       ]);
@@ -315,13 +320,16 @@ describe("@seqlok/conformance execution", () => {
 });
 
 describe("@seqlok/conformance error model", () => {
-  it("ConformanceError is a SeqlokError with domain-coded code", () => {
-    const error = new ConformanceError("conformance.fixtureFileRejected", "test message", {
+  it("conformance fixture-file errors are SeqlokError values with domain-coded code", () => {
+    const error: ConformanceError = createConformanceError("fixtureFileRejected", {
+      failureCode: "invalidFixtureName",
       fixtureName: "test",
+      reason: "invalidFixtureName",
     });
     expect(error).toBeInstanceOf(SeqlokError);
     expect(error.code).toBe("conformance.fixtureFileRejected");
     expect(error.details.fixtureName).toBe("test");
+    expect(error.details.failureCode).toBe("invalidFixtureName");
   });
 
   it("fixture-file failure carries stable code and details", async () => {
@@ -336,6 +344,7 @@ describe("@seqlok/conformance error model", () => {
       expect(result.failures).toEqual([
         expect.objectContaining({
           artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
         }),
       ]);
     });
@@ -349,6 +358,30 @@ describe("@seqlok/conformance error model", () => {
   it("has no production code: string in issue types", () => {
     const text = sourceText(conformanceSourceRoot);
     expect(text).not.toMatch(/code\s*:\s*string/);
+  });
+
+  it("has no production runtime conformance error subclass or subclass checks", () => {
+    const text = sourceText(conformanceSourceRoot);
+    expect(text).not.toContain("class ConformanceError");
+    expect(text).not.toContain("instanceof ConformanceError");
+    expect(text).not.toContain("issueCode?: string");
+  });
+});
+
+describe("@seqlok/conformance public surface", () => {
+  it("does not export a runtime ConformanceError class", () => {
+    expect("ConformanceError" in conformance).toBe(false);
+    expect("createConformanceError" in conformance).toBe(true);
+    expect("isConformanceError" in conformance).toBe(true);
+  });
+
+  it("exports the intended conformance type surface", () => {
+    expectTypeOf<ConformanceError["code"]>().toEqualTypeOf<
+      | "conformance.fixtureFileRejected"
+      | "conformance.fixtureShapeRejected"
+      | "conformance.fixtureArtifactMismatch"
+      | "conformance.fixtureCompileRejected"
+    >();
   });
 });
 

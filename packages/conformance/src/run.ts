@@ -14,7 +14,13 @@ import {
 } from "@seqlok/hot-codec";
 
 import { encodeFixtureJson } from "./encode";
-import { ConformanceError } from "./error";
+import {
+  type ConformanceArtifactName,
+  type ConformanceFailureArtifactName,
+  type ConformanceFailureCode,
+  createConformanceError,
+  isConformanceError,
+} from "./error";
 import {
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,
@@ -24,21 +30,16 @@ import {
   type ProjectionRuntimeFixtureRootOptions,
 } from "./fixtures";
 
-export type ProjectionRuntimeArtifactName =
-  | "canonical-manifest"
-  | "hot-byte-fixture"
-  | "hot-block-a-fixture"
-  | "hot-layout-manifest"
-  | "resolved-contract";
+export type ProjectionRuntimeArtifactName = Exclude<
+  ConformanceArtifactName,
+  "authored-contract" | "readme"
+>;
 
-export type ProjectionRuntimeFixtureFailureArtifact =
-  | ProjectionRuntimeArtifactName
-  | "compile"
-  | "fixture-file"
-  | "hot-layout-version";
+export type ProjectionRuntimeFixtureFailureArtifact = ConformanceFailureArtifactName;
 
 export interface ProjectionRuntimeFixtureFailure {
   readonly artifact: ProjectionRuntimeFixtureFailureArtifact;
+  readonly failureCode: ConformanceFailureCode;
   readonly reason: string;
   readonly expected?: unknown;
   readonly actual?: unknown;
@@ -112,8 +113,9 @@ export async function runProjectionRuntimeFixture(
       failures: [
         {
           artifact: "compile",
+          failureCode: "compilerRejected",
           reason: "compiler rejected authored-contract.json",
-          actual: compileResult.error.issues,
+          actual: compileResult.error.details.issues,
         },
       ],
     };
@@ -186,6 +188,7 @@ function appendArtifactComparison(
 
   failures.push({
     artifact,
+    failureCode: "artifactMismatch",
     reason: `${artifact} does not match golden artifact`,
     expected,
     actual,
@@ -214,20 +217,22 @@ function createHotByteFixtureArtifact(
   expectedHotByteFixture: unknown,
 ): unknown {
   if (hotLayoutManifest === undefined) {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      "hot-byte-fixture requires a hot layout manifest",
-      { artifact: "hot-byte-fixture", reason: "missingHotLayoutManifest" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-byte-fixture",
+      detail: "hot-byte-fixture requires a hot layout manifest",
+      failureCode: "missingHotLayoutManifest",
+      reason: "missingHotLayoutManifest",
+    });
   }
 
   const values = getObjectProperty(expectedHotByteFixture, "values");
   if (!isRecord(values)) {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      "hot-byte-fixture values must be an object",
-      { artifact: "hot-byte-fixture", reason: "valuesNotObject" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-byte-fixture",
+      detail: "hot-byte-fixture values must be an object",
+      failureCode: "valuesNotObject",
+      reason: "valuesNotObject",
+    });
   }
 
   const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
@@ -240,11 +245,12 @@ function createHotByteFixtureArtifact(
   if (
     !isDeepStrictEqual(encodeFixtureJson(decodedFromField), encodeFixtureJson(decodedFromRegion))
   ) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      "hot-byte-fixture field and region decoding diverged",
-      { artifact: "hot-byte-fixture", reason: "fieldRegionDecodeDiverged" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-byte-fixture",
+      detail: "hot-byte-fixture field and region decoding diverged",
+      failureCode: "fieldRegionDecodeDiverged",
+      reason: "fieldRegionDecodeDiverged",
+    });
   }
 
   return {
@@ -288,25 +294,28 @@ function createHotBlockAFixtureArtifact(
   expectedHotBlockAFixture: unknown,
 ): unknown {
   if (hotLayoutManifest === undefined) {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      "hot-block-a-fixture requires a hot layout manifest",
-      { artifact: "hot-block-a-fixture", reason: "missingHotLayoutManifest" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-block-a-fixture",
+      detail: "hot-block-a-fixture requires a hot layout manifest",
+      failureCode: "missingHotLayoutManifest",
+      reason: "missingHotLayoutManifest",
+    });
   }
   if (!isRecord(resolved)) {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      "hot-block-a-fixture requires resolved contract",
-      { artifact: "hot-block-a-fixture", reason: "missingResolvedContract" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-block-a-fixture",
+      detail: "hot-block-a-fixture requires resolved contract",
+      failureCode: "missingResolvedContract",
+      reason: "missingResolvedContract",
+    });
   }
   if (!isRecord(expectedHotBlockAFixture)) {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      "hot-block-a-fixture must be an object",
-      { artifact: "hot-block-a-fixture", reason: "fixtureNotObject" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-block-a-fixture",
+      detail: "hot-block-a-fixture must be an object",
+      failureCode: "fixtureNotObject",
+      reason: "fixtureNotObject",
+    });
   }
 
   const semanticVersion = getStringProperty(
@@ -342,36 +351,40 @@ function createHotBlockAFixtureArtifact(
 
   const resolvedSemanticVersion = encodeFixtureJson(resolved.semanticVersion);
   if (semanticVersion !== resolvedSemanticVersion) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
-      { artifact: "hot-block-a-fixture", reason: "semanticVersionMismatch" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-a-fixture",
+      detail: `hot-block-a-fixture semanticVersion mismatch: expected ${semanticVersion}, resolved ${resolvedSemanticVersion}`,
+      failureCode: "semanticVersionMismatch",
+      reason: "semanticVersionMismatch",
+    });
   }
 
   const manifestHotLayoutVersion = encodeFixtureJson(hotLayoutManifest.hotLayoutVersion);
   if (hotLayoutVersion !== manifestHotLayoutVersion) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
-      { artifact: "hot-block-a-fixture", reason: "hotLayoutVersionMismatch" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-a-fixture",
+      detail: `hot-block-a-fixture hotLayoutVersion mismatch: expected ${hotLayoutVersion}, manifest ${manifestHotLayoutVersion}`,
+      failureCode: "hotLayoutVersionMismatch",
+      reason: "hotLayoutVersionMismatch",
+    });
   }
 
   if (fieldCount !== hotLayoutManifest.fields.length) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      `hot-block-a-fixture fieldCount mismatch: expected ${fieldCount}, manifest ${hotLayoutManifest.fields.length}`,
-      { artifact: "hot-block-a-fixture", reason: "fieldCountMismatch" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-a-fixture",
+      detail: `hot-block-a-fixture fieldCount mismatch: expected ${fieldCount}, manifest ${hotLayoutManifest.fields.length}`,
+      failureCode: "fieldCountMismatch",
+      reason: "fieldCountMismatch",
+    });
   }
 
   if (mutableRegionByteLength !== hotLayoutManifest.mutableRegionByteLength) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      `hot-block-a-fixture mutableRegionByteLength mismatch: expected ${mutableRegionByteLength}, manifest ${hotLayoutManifest.mutableRegionByteLength}`,
-      { artifact: "hot-block-a-fixture", reason: "mutableRegionByteLengthMismatch" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-a-fixture",
+      detail: `hot-block-a-fixture mutableRegionByteLength mismatch: expected ${mutableRegionByteLength}, manifest ${hotLayoutManifest.mutableRegionByteLength}`,
+      failureCode: "mutableRegionByteLengthMismatch",
+      reason: "mutableRegionByteLengthMismatch",
+    });
   }
 
   const input: HotBlockAHeaderInput = {
@@ -388,11 +401,12 @@ function createHotBlockAFixtureArtifact(
   const validation = validateHotBlockAHeader(blockABytes, input);
 
   if (!validation.ok) {
-    throw new ConformanceError(
-      "conformance.fixtureArtifactMismatch",
-      `hot-block-a-fixture validation failed: ${validation.error.message}`,
-      { artifact: "hot-block-a-fixture", reason: "headerValidationFailed" },
-    );
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-block-a-fixture",
+      detail: `hot-block-a-fixture validation failed: ${validation.error.message}`,
+      failureCode: "headerValidationFailed",
+      reason: "headerValidationFailed",
+    });
   }
 
   return {
@@ -413,11 +427,12 @@ function createHotBlockAFixtureArtifact(
 function getStringProperty(obj: Record<string, unknown>, key: string, path: string): string {
   const value = obj[key];
   if (typeof value !== "string") {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      `expected ${key} to be a string`,
-      { path, reason: "expectedString" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      detail: `expected ${key} to be a string`,
+      failureCode: "expectedString",
+      path,
+      reason: "expectedString",
+    });
   }
   return value;
 }
@@ -425,11 +440,12 @@ function getStringProperty(obj: Record<string, unknown>, key: string, path: stri
 function getNumberProperty(obj: Record<string, unknown>, key: string, path: string): number {
   const value = obj[key];
   if (typeof value !== "number") {
-    throw new ConformanceError(
-      "conformance.fixtureShapeRejected",
-      `expected ${key} to be a number`,
-      { path, reason: "expectedNumber" },
-    );
+    throw createConformanceError("fixtureShapeRejected", {
+      detail: `expected ${key} to be a number`,
+      failureCode: "expectedNumber",
+      path,
+      reason: "expectedNumber",
+    });
   }
   return value;
 }
@@ -456,6 +472,7 @@ function appendHotLayoutVersionCheck(
 
   failures.push({
     artifact: "hot-layout-version",
+    failureCode: "hotLayoutVersionMismatch",
     reason: `${source} hotLayoutVersion does not match laneManifests.hot.hotLayoutVersion`,
     expected: laneVersion,
     actual: topLevelVersion,
@@ -478,7 +495,7 @@ function fixtureFileFailureResult(
   fixture: ProjectionRuntimeFixtureName | ProjectionRuntimeFixture,
   error: unknown,
 ): ProjectionRuntimeFixtureResult {
-  const details = error instanceof ConformanceError ? error.details : {};
+  const details = isConformanceError(error) ? error.details : {};
   const fixtureName =
     details.fixtureName ?? (typeof fixture === "string" ? fixture : fixture.fixtureName);
   const fixturePath =
@@ -494,10 +511,11 @@ function fixtureFileFailureResult(
 }
 
 function fixtureFileFailure(error: unknown): ProjectionRuntimeFixtureFailure {
-  if (error instanceof ConformanceError) {
+  if (isConformanceError(error)) {
     return {
       artifact: "fixture-file",
-      reason: error.message,
+      failureCode: error.details.failureCode ?? "fixtureFileLoadFailed",
+      reason: error.details.detail ?? error.message,
       ...(error.details.fixtureFile === undefined
         ? {}
         : { fixtureFile: error.details.fixtureFile }),
@@ -509,6 +527,7 @@ function fixtureFileFailure(error: unknown): ProjectionRuntimeFixtureFailure {
 
   return {
     artifact: "fixture-file",
+    failureCode: "fixtureFileLoadFailed",
     reason: error instanceof Error ? error.message : "failed to load fixture files",
   };
 }
@@ -518,10 +537,11 @@ function conformanceFailureFromError(
   artifact: ProjectionRuntimeFixtureFailureArtifact,
   expected?: unknown,
 ): ProjectionRuntimeFixtureFailure {
-  if (error instanceof ConformanceError) {
+  if (isConformanceError(error)) {
     return {
       artifact,
-      reason: error.message,
+      failureCode: error.details.failureCode ?? "artifactMismatch",
+      reason: error.details.detail ?? error.message,
       expected: expected !== undefined ? encodeFixtureJson(expected) : undefined,
       ...(error.details.fixtureFile === undefined
         ? {}
@@ -534,6 +554,7 @@ function conformanceFailureFromError(
 
   return {
     artifact,
+    failureCode: "artifactMismatch",
     reason: error instanceof Error ? error.message : `failed to verify ${artifact}`,
     expected: expected !== undefined ? encodeFixtureJson(expected) : undefined,
   };

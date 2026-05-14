@@ -15,9 +15,9 @@ Fixture regeneration remains owned by:
 node scripts/write-projection-runtime-fixture.mjs
 ```
 
-Fixture failures are machine-readable and artifact-specific. Load failures throw `ConformanceError`, a
-`SeqlokError` subclass with domain codes such as `conformance.fixtureFileRejected`. Runtime fixture results expose
-stable `artifact`, `reason`, `expected`, and `actual` fields so that CI can report per-artifact mismatches without
-parsing free-form strings.
+Fixture failures are machine-readable and artifact-specific. Load failures throw `SeqlokError` values with
+conformance-domain codes such as `conformance.fixtureFileRejected`. `ConformanceError` is a TypeScript alias plus helper
+factory, not a runtime subclass. Runtime fixture results expose stable typed `artifact`, `failureCode`, `reason`,
+`expected`, and `actual` fields so that CI can report per-artifact mismatches without parsing free-form strings.
 
 No CLI is exposed yet. Use the package tests or the programmatic API for this slice.

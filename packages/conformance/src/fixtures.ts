@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ConformanceError } from "./error";
+import { type ConformanceError, createConformanceError } from "./error";
 
 export type ProjectionRuntimeFixtureName = string;
 
@@ -167,11 +167,12 @@ function assertDirectFixtureName(fixtureName: ProjectionRuntimeFixtureName): voi
     fixtureName.includes("/") ||
     fixtureName.includes("\\")
   ) {
-    throw new ConformanceError(
-      "conformance.fixtureFileRejected",
-      `invalid projection-runtime fixture name: ${fixtureName}`,
-      { fixtureName },
-    );
+    throw createConformanceError("fixtureFileRejected", {
+      detail: `invalid projection-runtime fixture name: ${fixtureName}`,
+      failureCode: "invalidFixtureName",
+      fixtureName,
+      reason: "invalidFixtureName",
+    });
   }
 }
 
@@ -186,7 +187,14 @@ async function readRequiredText(
   try {
     return await readFile(path, "utf8");
   } catch (error) {
-    throw fileError("missing required fixture file", relativeFixturePath, fixtureName, file, error);
+    throw fileError(
+      "missing required fixture file",
+      "missingRequiredFixtureFile",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
   }
 }
 
@@ -201,12 +209,20 @@ async function readRequiredJson(
   try {
     return JSON.parse(source);
   } catch (error) {
-    throw fileError("invalid fixture JSON", relativeFixturePath, fixtureName, file, error);
+    throw fileError(
+      "invalid fixture JSON",
+      "invalidFixtureJson",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
   }
 }
 
 function fileError(
   reason: string,
+  failureCode: "invalidFixtureJson" | "missingRequiredFixtureFile",
   relativeFixturePath: string,
   fixtureName: ProjectionRuntimeFixtureName,
   file: RequiredFixtureFile,
@@ -214,14 +230,16 @@ function fileError(
 ): ConformanceError {
   const relativePath = `${relativeFixturePath}/${file.fileName}`;
 
-  return new ConformanceError(
-    "conformance.fixtureFileRejected",
-    `${reason}: ${file.artifactName} at ${relativePath}`,
+  return createConformanceError(
+    "fixtureFileRejected",
     {
+      detail: `${reason}: ${file.artifactName} at ${relativePath}`,
+      failureCode,
       fixtureName,
       fixturePath: relativeFixturePath,
       fixtureFile: file.fileName,
       relativePath,
+      reason: failureCode,
     },
     cause,
   );

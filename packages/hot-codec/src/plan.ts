@@ -10,7 +10,7 @@ import {
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
-import { createHotCodecIssue, HotCodecError, type HotCodecIssue } from "./error";
+import { createHotCodecIssue, createHotLayoutRejectedError, type HotCodecIssue } from "./error";
 import type {
   HotFieldEntry,
   HotLayoutManifest,
@@ -346,5 +346,5 @@ function success(value: HotLayoutManifest): HotLayoutPlanSuccess {
 }
 
 function failure(issues: readonly HotCodecIssue[]): HotLayoutPlanFailure {
-  return { ok: false, error: new HotCodecError(issues) };
+  return { ok: false, error: createHotLayoutRejectedError(issues) };
 }

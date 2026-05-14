@@ -43,7 +43,7 @@ export function compileHotLayoutManifest(
   if (!planned.ok) {
     return {
       ok: false,
-      issues: planned.error.issues.map(toCompilerIssue),
+      issues: planned.error.details.issues.map(toCompilerIssue),
     };
   }
 

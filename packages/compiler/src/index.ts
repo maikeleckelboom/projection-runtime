@@ -5,11 +5,16 @@ export {
   compileAuthoredProjectionContract,
 } from "./compile";
 export {
+  COMPILER_ERRORS,
   COMPILER_ISSUE_DEFS,
-  CompilerError,
+  type CompilerCompilationRejectedDetails,
+  type CompilerError,
+  type CompilerErrorCode,
+  type CompilerErrorKey,
   type CompilerIssue,
   type CompilerIssueCode,
   type CompilerIssueSource,
+  createCompilerError,
   createCompilerIssue,
 } from "./error";
 export type {

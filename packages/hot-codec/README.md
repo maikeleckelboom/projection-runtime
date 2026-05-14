@@ -9,10 +9,13 @@ The byte helpers encode and decode values against an already-planned `HotLayoutM
 bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures. These fixture bytes are not
 valid runtime hot regions: Block A and Block B are zero-filled because real header/seqlock values are a runtime concern.
 
-Hot-codec errors are typed `SeqlokError` values. Planning failures expose code `hotCodec.layoutRejected` and a
-sorted list of `HotCodecIssue` objects with stable issue codes such as `field.orderInvalid` or
-`shape.variableStringUnsupported`. Byte codec failures expose code `hotCodec.byteRejected` with stable codes such as
-`header.magicInvalid` or `byte.valueOutOfRange`.
+Hot-codec throws and returns `SeqlokError` values with package-domain codes. Planning failures expose code
+`hotCodec.layoutRejected` and a sorted `details.issues` list of `HotCodecIssue` objects with stable typed issue codes
+such as `field.orderInvalid` or `shape.variableStringUnsupported`. Byte codec failures expose code
+`hotCodec.byteRejected` with stable codes such as `header.magicInvalid` or `byte.valueOutOfRange`.
+
+Package-specific names such as `HotCodecError` and `HotByteCodecError` are TypeScript aliases and helper factories, not
+runtime subclasses. Callers should inspect `error.code`, `error.details.issueCount`, and `error.details.issues`.
 
 They are not runtime readers or writers. They do not perform seqlock retry, use Atomics, manage SharedArrayBuffer
 lifecycle, bind live mappings, create handles, subscribe to publications, or generate bindings.

@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import { bytesToHex } from "./byte";
 import { HOT_ABI_VERSION, HOT_BLOCK_A_BYTE_LENGTH, HOT_REGION_MAGIC_BYTES } from "./constants";
 import {
+  createHotByteRejectedError,
   createHotCodecIssue,
-  HotByteCodecError,
+  type HotByteCodecError,
   type HotCodecIssue,
   type HotCodecIssueCode,
+  isHotCodecError,
 } from "./error";
 
 export type HotBlockAHeaderInput = {
@@ -115,7 +117,7 @@ export function validateHotBlockAHeader(
   try {
     decoded = decodeHotBlockAHeader(bytes);
   } catch (error) {
-    if (error instanceof HotByteCodecError) {
+    if (isHotCodecError(error) && error.code === "hotCodec.byteRejected") {
       return { ok: false, error };
     }
     throw error;
@@ -186,7 +188,7 @@ export function validateHotBlockAHeader(
   }
 
   if (issues.length > 0) {
-    return { ok: false, error: new HotByteCodecError(issues) };
+    return { ok: false, error: createHotByteRejectedError(issues) };
   }
 
   return { ok: true, value: decoded };
@@ -233,7 +235,7 @@ function validateInput(input: HotBlockAHeaderInput): void {
   }
 
   if (issues.length > 0) {
-    throw new HotByteCodecError(issues);
+    throw createHotByteRejectedError(issues);
   }
 }
 
@@ -242,5 +244,5 @@ function hashKey(key: string): Uint8Array {
 }
 
 function headerError(code: HotCodecIssueCode, path: string, message: string): HotByteCodecError {
-  return new HotByteCodecError([createHotCodecIssue(code, path, message)]);
+  return createHotByteRejectedError([createHotCodecIssue(code, path, message)]);
 }

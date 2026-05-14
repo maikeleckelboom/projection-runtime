@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SeqlokError } from "@seqlok/base";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import * as hotCodec from "../src/index";
@@ -22,8 +23,8 @@ import {
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
   type HotBlockAHeaderInput,
-  HotByteCodecError,
-  HotCodecError,
+  type HotByteCodecError,
+  type HotCodecError,
   type HotFieldValues,
   type HotLayoutManifest,
   type HotLayoutPlanningField,
@@ -66,10 +67,22 @@ function expectFailure(result: HotLayoutPlanResult): HotCodecError {
     throw new Error("expected hot-codec failure");
   }
 
-  expect(result.error).toBeInstanceOf(HotCodecError);
+  expect(result.error).toBeInstanceOf(SeqlokError);
   expect(result.error.code).toBe("hotCodec.layoutRejected");
-  expect(result.error.details.issueCount).toBe(result.error.issues.length);
+  expect(result.error.details.issueCount).toBe(result.error.details.issues.length);
   return result.error;
+}
+
+function expectHotByteCodecError(action: () => unknown): HotByteCodecError {
+  try {
+    action();
+  } catch (error) {
+    expect(error).toBeInstanceOf(SeqlokError);
+    expect((error as HotByteCodecError).code).toBe("hotCodec.byteRejected");
+    return error as HotByteCodecError;
+  }
+
+  throw new Error("expected hot byte codec failure");
 }
 
 function input(
@@ -174,7 +187,7 @@ describe("@seqlok/hot-codec deterministic layout", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.orderInvalid");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.orderInvalid");
   });
 
   it("re-running equivalent input produces identical manifests and layout versions", () => {
@@ -469,15 +482,15 @@ describe("@seqlok/hot-codec byte helpers", () => {
   });
 
   it("fails explicitly for unsupported or invalid field values", () => {
-    expect(() =>
+    expectHotByteCodecError(() =>
       encodeHotFieldData(hotBasicLayout(), { ...HOT_BASIC_SAMPLE_VALUES, health: "bad" }),
-    ).toThrow(HotByteCodecError);
-    expect(() =>
+    );
+    expectHotByteCodecError(() =>
       encodeHotFieldData(hotBasicLayout(), {
         ...HOT_BASIC_SAMPLE_VALUES,
         peaks: [0.125, 0.25, 0.5, 1],
       }),
-    ).toThrow(HotByteCodecError);
+    );
 
     const manifest = unwrap(
       planHotLayoutManifest(
@@ -496,7 +509,7 @@ describe("@seqlok/hot-codec byte helpers", () => {
       ),
     );
 
-    expect(() => encodeHotFieldData(manifest, { lookup: [] })).toThrow(HotByteCodecError);
+    expectHotByteCodecError(() => encodeHotFieldData(manifest, { lookup: [] }));
   });
 
   it("does not introduce runtime retry, Atomics, SAB lifecycle, or handle APIs", () => {
@@ -599,20 +612,20 @@ describe("@seqlok/hot-codec Block A header", () => {
   it("rejects bad magic", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     bytes[0] = 0xde;
-    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+    expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
   });
 
   it("rejects unsupported hotAbiVersion", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     view.setUint32(4, 2, true);
-    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+    expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
   });
 
   it("rejects non-zero reserved bytes", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     bytes[64] = 0xff;
-    expect(() => decodeHotBlockAHeader(bytes)).toThrow(HotByteCodecError);
+    expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
   });
 
   it("fails validation for mismatched contractKey", () => {
@@ -622,7 +635,9 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain("header.contractKeyHashMismatch");
+    expect(result.error.details.issues.map((i) => i.code)).toContain(
+      "header.contractKeyHashMismatch",
+    );
   });
 
   it("fails validation for mismatched instanceKey", () => {
@@ -632,7 +647,9 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain("header.instanceKeyHashMismatch");
+    expect(result.error.details.issues.map((i) => i.code)).toContain(
+      "header.instanceKeyHashMismatch",
+    );
   });
 
   it("fails validation for mismatched semanticVersion", () => {
@@ -642,7 +659,9 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain("header.semanticVersionMismatch");
+    expect(result.error.details.issues.map((i) => i.code)).toContain(
+      "header.semanticVersionMismatch",
+    );
   });
 
   it("fails validation for mismatched hotLayoutVersion", () => {
@@ -652,7 +671,9 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain("header.hotLayoutVersionMismatch");
+    expect(result.error.details.issues.map((i) => i.code)).toContain(
+      "header.hotLayoutVersionMismatch",
+    );
   });
 
   it("fails validation for mismatched fieldCount", () => {
@@ -662,7 +683,7 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain("header.fieldCountMismatch");
+    expect(result.error.details.issues.map((i) => i.code)).toContain("header.fieldCountMismatch");
   });
 
   it("fails validation for mismatched mutableRegionByteLength", () => {
@@ -672,57 +693,47 @@ describe("@seqlok/hot-codec Block A header", () => {
     if (result.ok) {
       throw new Error("expected validation to fail");
     }
-    expect(result.error.issues.map((i) => i.code)).toContain(
+    expect(result.error.details.issues.map((i) => i.code)).toContain(
       "header.mutableRegionByteLengthMismatch",
     );
   });
 
   it("rejects empty contractKey", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, contractKey: "" })).toThrow(
-      HotByteCodecError,
-    );
+    expectHotByteCodecError(() => encodeHotBlockAHeader({ ...validInput, contractKey: "" }));
   });
 
   it("rejects empty instanceKey", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, instanceKey: "" })).toThrow(
-      HotByteCodecError,
-    );
+    expectHotByteCodecError(() => encodeHotBlockAHeader({ ...validInput, instanceKey: "" }));
   });
 
   it("rejects semanticVersion outside u64 range", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, semanticVersion: -1n })).toThrow(
-      HotByteCodecError,
-    );
-    expect(() =>
+    expectHotByteCodecError(() => encodeHotBlockAHeader({ ...validInput, semanticVersion: -1n }));
+    expectHotByteCodecError(() =>
       encodeHotBlockAHeader({ ...validInput, semanticVersion: 0x1_0000_0000_0000_0000n }),
-    ).toThrow(HotByteCodecError);
+    );
   });
 
   it("rejects hotLayoutVersion outside u64 range", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, hotLayoutVersion: -1n })).toThrow(
-      HotByteCodecError,
-    );
-    expect(() =>
+    expectHotByteCodecError(() => encodeHotBlockAHeader({ ...validInput, hotLayoutVersion: -1n }));
+    expectHotByteCodecError(() =>
       encodeHotBlockAHeader({ ...validInput, hotLayoutVersion: 0x1_0000_0000_0000_0000n }),
-    ).toThrow(HotByteCodecError);
+    );
   });
 
   it("rejects fieldCount outside u32 range", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, fieldCount: -1 })).toThrow(
-      HotByteCodecError,
-    );
-    expect(() => encodeHotBlockAHeader({ ...validInput, fieldCount: 0x1_0000_0000 })).toThrow(
-      HotByteCodecError,
+    expectHotByteCodecError(() => encodeHotBlockAHeader({ ...validInput, fieldCount: -1 }));
+    expectHotByteCodecError(() =>
+      encodeHotBlockAHeader({ ...validInput, fieldCount: 0x1_0000_0000 }),
     );
   });
 
   it("rejects mutableRegionByteLength outside u32 range", () => {
-    expect(() => encodeHotBlockAHeader({ ...validInput, mutableRegionByteLength: -1 })).toThrow(
-      HotByteCodecError,
+    expectHotByteCodecError(() =>
+      encodeHotBlockAHeader({ ...validInput, mutableRegionByteLength: -1 }),
     );
-    expect(() =>
+    expectHotByteCodecError(() =>
       encodeHotBlockAHeader({ ...validInput, mutableRegionByteLength: 0x1_0000_0000 }),
-    ).toThrow(HotByteCodecError);
+    );
   });
 });
 
@@ -736,37 +747,27 @@ describe("@seqlok/hot-codec error model", () => {
     mutableRegionByteLength: 64,
   };
 
-  it("HotCodecError carries code hotCodec.layoutRejected", () => {
+  it("hot layout errors are SeqlokError values with code hotCodec.layoutRejected", () => {
     const error = expectFailure(
       planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))], ["missing"])),
     );
     expect(error.code).toBe("hotCodec.layoutRejected");
-    expect(error).toBeInstanceOf(HotCodecError);
+    expect(error).toBeInstanceOf(SeqlokError);
   });
 
-  it("HotByteCodecError carries code hotCodec.byteRejected", () => {
+  it("hot byte errors are SeqlokError values with code hotCodec.byteRejected", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     bytes[0] = 0xde;
-    try {
-      decodeHotBlockAHeader(bytes);
-      throw new Error("expected decode to throw");
-    } catch (error) {
-      expect(error).toBeInstanceOf(HotByteCodecError);
-      expect((error as HotByteCodecError).code).toBe("hotCodec.byteRejected");
-    }
+    const error = expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
+    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error.code).toBe("hotCodec.byteRejected");
   });
 
   it("bad magic returns typed issue code header.magicInvalid", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     bytes[0] = 0xde;
-    try {
-      decodeHotBlockAHeader(bytes);
-      throw new Error("expected decode to throw");
-    } catch (error) {
-      expect(error).toBeInstanceOf(HotByteCodecError);
-      const issues = (error as HotByteCodecError).issues;
-      expect(issues.map((i) => i.code)).toContain("header.magicInvalid");
-    }
+    const error = expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
+    expect(error.details.issues.map((i) => i.code)).toContain("header.magicInvalid");
   });
 
   it("has no production throw new Error", () => {
@@ -777,6 +778,12 @@ describe("@seqlok/hot-codec error model", () => {
   it("has no production code: string in issue types", () => {
     const text = sourceText(hotCodecSourceRoot);
     expect(text).not.toMatch(/code\s*:\s*string/);
+  });
+
+  it("has no production runtime hot-codec error subclasses or subclass checks", () => {
+    const text = sourceText(hotCodecSourceRoot);
+    expect(text).not.toMatch(/class HotCodecError|class HotByteCodecError/);
+    expect(text).not.toMatch(/instanceof HotCodecError|instanceof HotByteCodecError/);
   });
 
   it("does not duplicate HOT_REGION_MAGIC_BYTES definition outside constants", () => {
@@ -795,7 +802,7 @@ describe("@seqlok/hot-codec rejections", () => {
       } as unknown as HotLayoutPlanningInput),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("hot.codecUnsupported");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("hot.codecUnsupported");
   });
 
   it("rejects VariableString for hot layout", () => {
@@ -803,7 +810,9 @@ describe("@seqlok/hot-codec rejections", () => {
       planHotLayoutManifest(input([field("flags", 1, { kind: "VariableString" })])),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("shape.variableStringUnsupported");
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "shape.variableStringUnsupported",
+    );
   });
 
   it("rejects VariableMap for hot layout", () => {
@@ -818,7 +827,9 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("shape.variableMapUnsupported");
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "shape.variableMapUnsupported",
+    );
   });
 
   it("rejects unreserved BoundedArray fields", () => {
@@ -828,7 +839,7 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.hotNotAdmissible");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.hotNotAdmissible");
   });
 
   it("rejects unreserved BoundedMap fields", () => {
@@ -846,7 +857,7 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.hotNotAdmissible");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.hotNotAdmissible");
   });
 
   it("rejects reservations for missing fields", () => {
@@ -854,7 +865,7 @@ describe("@seqlok/hot-codec rejections", () => {
       planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))], ["missing"])),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("reservation.unknownField");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("reservation.unknownField");
   });
 
   it("rejects reservations for non-bounded fields", () => {
@@ -862,7 +873,7 @@ describe("@seqlok/hot-codec rejections", () => {
       planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))], ["tempo"])),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("reservation.wrongShape");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("reservation.wrongShape");
   });
 
   it("rejects duplicate dotPaths", () => {
@@ -872,7 +883,7 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.duplicateDotPath");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.duplicateDotPath");
   });
 
   it("rejects duplicate fieldIds", () => {
@@ -882,7 +893,7 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.duplicateFieldId");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.duplicateFieldId");
   });
 
   it("rejects unsupported shape kinds explicitly", () => {
@@ -892,7 +903,7 @@ describe("@seqlok/hot-codec rejections", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("shape.unknownKind");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("shape.unknownKind");
   });
 });
 
@@ -903,16 +914,18 @@ describe("@seqlok/hot-codec public surface", () => {
       "HOT_BASELINE_EPOCH_U32_OFFSET",
       "HOT_BLOCK_A_BYTE_LENGTH",
       "HOT_BLOCK_B_BYTE_OFFSET",
+      "HOT_CODEC_ERRORS",
       "HOT_CODEC_ISSUE_DEFS",
       "HOT_CONTINUITY_GENERATION_U32_OFFSET",
       "HOT_FIELD_DATA_BYTE_OFFSET",
       "HOT_PUBLICATION_SEQUENCE_U64_OFFSET",
       "HOT_REGION_MAGIC_BYTES",
       "HOT_SEQLOCK_U64_OFFSET",
-      "HotByteCodecError",
-      "HotCodecError",
       "bytesToHex",
+      "createHotByteRejectedError",
+      "createHotCodecError",
       "createHotCodecIssue",
+      "createHotLayoutRejectedError",
       "decodeHotBlockAHeader",
       "decodeHotFieldValues",
       "deriveHotLayoutVersion",
@@ -921,9 +934,13 @@ describe("@seqlok/hot-codec public surface", () => {
       "encodeHotFieldValues",
       "encodeHotFixtureRegion",
       "hexToBytes",
+      "isHotCodecError",
       "planHotLayoutManifest",
       "validateHotBlockAHeader",
     ]);
+
+    expect("HotByteCodecError" in hotCodec).toBe(false);
+    expect("HotCodecError" in hotCodec).toBe(false);
 
     for (const runtimeExport of [
       "createHotReader",
@@ -942,6 +959,8 @@ describe("@seqlok/hot-codec public surface", () => {
   });
 
   it("exports the intended type surface", () => {
+    expectTypeOf<HotCodecError["code"]>().toEqualTypeOf<"hotCodec.layoutRejected">();
+    expectTypeOf<HotByteCodecError["code"]>().toEqualTypeOf<"hotCodec.byteRejected">();
     expectTypeOf<HotLayoutPlanningShape["kind"]>().toEqualTypeOf<
       | "FixedScalar"
       | "FixedEnum"

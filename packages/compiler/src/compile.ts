@@ -4,7 +4,12 @@ import {
   validateAuthoredProjectionContract,
 } from "@seqlok/schema";
 
-import { CompilerError, type CompilerIssue, createCompilerIssue } from "./error";
+import {
+  type CompilerError,
+  type CompilerIssue,
+  createCompilerError,
+  createCompilerIssue,
+} from "./error";
 import type { FieldIdDeriver } from "./field-id";
 import { flattenAuthoredFields } from "./fields";
 import { compileHotLayoutManifest } from "./hot";
@@ -94,13 +99,13 @@ function validateSchemaBoundary(contract: AuthoredProjectionContract): readonly 
       );
     }
 
-    return [createCompilerIssue("schema.invalid", "", "schema validation failed", "schema")];
+    return [createCompilerIssue("schema.invalid", "", undefined, "schema")];
   }
 }
 
 function failure(issues: readonly CompilerIssue[]): CompileProjectionFailure {
   return {
     ok: false,
-    error: new CompilerError(issues),
+    error: createCompilerError(issues),
   };
 }

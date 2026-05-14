@@ -6,8 +6,10 @@ import {
   type ErrorDetails,
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
+  isSeqlokError,
   type JsonObject,
-  SeqlokError,
+  type KeyedErrorFactoryOf,
+  type SeqlokError,
 } from "@seqlok/base";
 
 export const HOT_CODEC_ISSUE_DEFS = {
@@ -85,18 +87,23 @@ export type HotCodecIssueCode = keyof typeof HOT_CODEC_ISSUE_DEFS;
 export interface HotCodecIssue extends JsonObject {
   readonly code: HotCodecIssueCode;
   readonly path: string;
+  readonly detail?: string;
   readonly message: string;
 }
 
 export function createHotCodecIssue(
   code: HotCodecIssueCode,
   path: string,
-  message?: string,
+  detail?: string,
 ): HotCodecIssue {
   return {
     code,
     path,
-    message: message ?? HOT_CODEC_ISSUE_DEFS[code],
+    ...(detail === undefined ? {} : { detail }),
+    message:
+      detail === undefined
+        ? HOT_CODEC_ISSUE_DEFS[code]
+        : `${HOT_CODEC_ISSUE_DEFS[code]}: ${detail}`,
   };
 }
 
@@ -143,53 +150,74 @@ const HOT_CODEC_DOMAIN: ErrorDomainWithFactory<"hotCodec", HotCodecDomainDefs> =
   HOT_CODEC_DEFS,
 );
 
-const HOT_CODEC_ERRORS: DomainRegistry<"hotCodec", HotCodecDomainDefs> =
+export const HOT_CODEC_ERRORS: DomainRegistry<"hotCodec", HotCodecDomainDefs> =
   HOT_CODEC_DOMAIN.registry as DomainRegistry<"hotCodec", HotCodecDomainDefs>;
 
 export type HotCodecDomain = typeof HOT_CODEC_DOMAIN;
 export type HotCodecErrorCode = ErrorCodeOf<HotCodecDomain>;
 export type HotCodecErrorKey = ErrorKeyFromCode<HotCodecErrorCode>;
 
-export class HotCodecError extends SeqlokError<"hotCodec.layoutRejected"> {
-  readonly issues: readonly HotCodecIssue[];
-
-  constructor(issues: readonly HotCodecIssue[], cause?: unknown) {
-    const sortedIssues = sortHotCodecIssues(issues);
-    super(
-      HOT_CODEC_ERRORS.layoutRejected.code,
-      HOT_CODEC_ERRORS.layoutRejected.message,
-      {
-        where: "planHotLayoutManifest",
-        detail: formatHotCodecDetail(sortedIssues),
-        issueCount: sortedIssues.length,
-        issues: sortedIssues,
-      } satisfies HotCodecLayoutRejectedDetails,
-      HOT_CODEC_ERRORS.layoutRejected.meta,
-      cause,
-    );
-    this.issues = sortedIssues;
-  }
+interface HotCodecDetailsByKey {
+  readonly layoutRejected: HotCodecLayoutRejectedDetails;
+  readonly byteRejected: HotByteCodecRejectedDetails;
 }
 
-export class HotByteCodecError extends SeqlokError<"hotCodec.byteRejected"> {
-  readonly issues: readonly HotCodecIssue[];
+export type HotCodecError = SeqlokError<"hotCodec.layoutRejected"> & {
+  readonly details: HotCodecLayoutRejectedDetails;
+};
 
-  constructor(issues: readonly HotCodecIssue[], cause?: unknown) {
-    const sortedIssues = sortHotCodecIssues(issues);
-    super(
-      HOT_CODEC_ERRORS.byteRejected.code,
-      HOT_CODEC_ERRORS.byteRejected.message,
-      {
-        where: "hotByteCodec",
-        detail: formatHotCodecDetail(sortedIssues),
-        issueCount: sortedIssues.length,
-        issues: sortedIssues,
-      } satisfies HotByteCodecRejectedDetails,
-      HOT_CODEC_ERRORS.byteRejected.meta,
-      cause,
-    );
-    this.issues = sortedIssues;
-  }
+export type HotByteCodecError = SeqlokError<"hotCodec.byteRejected"> & {
+  readonly details: HotByteCodecRejectedDetails;
+};
+
+export type HotCodecPackageError = HotCodecError | HotByteCodecError;
+
+export const createHotCodecError: KeyedErrorFactoryOf<HotCodecDomain, HotCodecDetailsByKey> = (
+  key,
+  details,
+  cause,
+) => HOT_CODEC_DOMAIN.createError(key, details, cause);
+
+export function createHotLayoutRejectedError(
+  issues: readonly HotCodecIssue[],
+  cause?: unknown,
+): HotCodecError {
+  const sortedIssues = sortHotCodecIssues(issues);
+  return createHotCodecError(
+    "layoutRejected",
+    {
+      where: "planHotLayoutManifest",
+      detail: formatHotCodecDetail(sortedIssues),
+      issueCount: sortedIssues.length,
+      issues: sortedIssues,
+    },
+    cause,
+  ) as HotCodecError;
+}
+
+export function createHotByteRejectedError(
+  issues: readonly HotCodecIssue[],
+  cause?: unknown,
+): HotByteCodecError {
+  const sortedIssues = sortHotCodecIssues(issues);
+  return createHotCodecError(
+    "byteRejected",
+    {
+      where: "hotByteCodec",
+      detail: formatHotCodecDetail(sortedIssues),
+      issueCount: sortedIssues.length,
+      issues: sortedIssues,
+    },
+    cause,
+  ) as HotByteCodecError;
+}
+
+export function isHotCodecError(value: unknown): value is HotCodecPackageError {
+  return (
+    isSeqlokError(value) &&
+    (value.code === HOT_CODEC_ERRORS.layoutRejected.code ||
+      value.code === HOT_CODEC_ERRORS.byteRejected.code)
+  );
 }
 
 export function sortHotCodecIssues(issues: readonly HotCodecIssue[]): readonly HotCodecIssue[] {

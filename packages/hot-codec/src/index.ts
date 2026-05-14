@@ -23,12 +23,19 @@ export {
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
 export {
+  createHotByteRejectedError,
+  createHotCodecError,
   createHotCodecIssue,
+  createHotLayoutRejectedError,
+  HOT_CODEC_ERRORS,
   HOT_CODEC_ISSUE_DEFS,
-  HotByteCodecError,
-  HotCodecError,
+  type HotByteCodecError,
+  type HotCodecError,
+  type HotCodecErrorCode,
+  type HotCodecErrorKey,
   type HotCodecIssue,
   type HotCodecIssueCode,
+  isHotCodecError,
 } from "./error";
 export {
   decodeHotBlockAHeader,

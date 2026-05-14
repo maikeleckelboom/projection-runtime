@@ -1,4 +1,4 @@
-import { createHotCodecIssue, HotByteCodecError, type HotCodecIssueCode } from "./error";
+import { createHotByteRejectedError, createHotCodecIssue, type HotCodecIssueCode } from "./error";
 import type { HotFieldEntry, HotLayoutManifest, HotReservationEntry } from "./manifest";
 import type {
   HotLayoutPlanningBoundedArrayShape,
@@ -576,7 +576,7 @@ function readFixedString(
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(liveBytes);
   } catch (error) {
-    throw new HotByteCodecError(
+    throw createHotByteRejectedError(
       [
         createHotCodecIssue(
           "byte.stringDecodeInvalid",
@@ -773,5 +773,5 @@ function scalarByteWidth(type: ScalarType): number {
 }
 
 function throwByteIssue(code: HotCodecIssueCode, path: string, message?: string): never {
-  throw new HotByteCodecError([createHotCodecIssue(code, path, message)]);
+  throw createHotByteRejectedError([createHotCodecIssue(code, path, message)]);
 }
