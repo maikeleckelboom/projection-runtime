@@ -20,7 +20,10 @@ import {
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const hotBasicFixtureRoot = resolve(fixtureRoot, "hot-basic-v0");
+const compilerSourceRoot = resolve(repoRoot, "packages/compiler/src");
 const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
+const hotCodecSourceRoot = resolve(repoRoot, "packages/hot-codec/src");
+const productionSourceRoots = [compilerSourceRoot, conformanceSourceRoot, hotCodecSourceRoot];
 
 function sourceText(root: string): string {
   let text = "";
@@ -38,6 +41,10 @@ function sourceText(root: string): string {
   }
 
   return text;
+}
+
+function productionSourceText(): string {
+  return productionSourceRoots.map(sourceText).join("\n");
 }
 
 describe("@seqlok/conformance fixture discovery", () => {
@@ -537,22 +544,43 @@ describe("@seqlok/conformance error model", () => {
   });
 
   it("has no production generic Error subclass construction", () => {
-    const text = sourceText(conformanceSourceRoot);
+    const text = productionSourceText();
     expect(text).not.toContain("throw new Error");
     expect(text).not.toContain("throw new RangeError");
     expect(text).not.toContain("throw new TypeError");
   });
 
   it("has no production code: string in issue types", () => {
-    const text = sourceText(conformanceSourceRoot);
+    const text = productionSourceText();
     expect(text).not.toMatch(/code\s*:\s*string/);
   });
 
-  it("has no production runtime conformance error subclass or subclass checks", () => {
-    const text = sourceText(conformanceSourceRoot);
+  it("has no production package-specific runtime error subclasses or subclass checks", () => {
+    const text = productionSourceText();
     expect(text).not.toContain("class ConformanceError");
+    expect(text).not.toContain("class CompilerError");
+    expect(text).not.toContain("class HotByteCodecError");
+    expect(text).not.toContain("class HotCodecError");
     expect(text).not.toContain("instanceof ConformanceError");
     expect(text).not.toContain("issueCode?: string");
+  });
+});
+
+describe("@seqlok/conformance internal topology", () => {
+  it("keeps run.ts free of hot-specific fixture artifact builders", () => {
+    const runSource = readFileSync(resolve(conformanceSourceRoot, "run.ts"), "utf8");
+
+    expect(runSource).not.toContain("createHotBlockAFixtureArtifact");
+    expect(runSource).not.toContain("createHotBlockBFixtureArtifact");
+    expect(runSource).not.toContain("createHotCompleteFixtureRegionArtifact");
+    expect(runSource).not.toContain("createHotByteFixtureArtifact");
+  });
+
+  it("keeps run.ts as the projection-runtime orchestration surface", () => {
+    const runSource = readFileSync(resolve(conformanceSourceRoot, "run.ts"), "utf8");
+
+    expect(runSource).toContain("export async function runProjectionRuntimeFixture");
+    expect(runSource).toContain("export async function runProjectionRuntimeConformance");
   });
 });
 
