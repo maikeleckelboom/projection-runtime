@@ -1,0 +1,16 @@
+{
+  "baselineEpoch": 7,
+  "continuityGeneration": 3,
+  "expected": {
+    "blockBBytesHex": "020000000000000007000000030000002a00000000000000",
+    "decoded": {
+      "baselineEpoch": 7,
+      "continuityGeneration": 3,
+      "publicationSequence": "000000000000002a",
+      "seqlockCounter": "0000000000000002"
+    }
+  },
+  "fixtureKind": "hot-block-b-fixture",
+  "publicationSequence": "000000000000002a",
+  "seqlockCounter": "0000000000000002"
+}

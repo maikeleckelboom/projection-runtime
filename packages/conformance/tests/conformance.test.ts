@@ -36,15 +36,14 @@ const GENERATED_FIXTURE_FILES = [
 describe("@exclave/conformance fixture discovery", () => {
   it("discovers all checked-in projection-runtime fixtures", async () => {
     await expect(listProjectionRuntimeFixtures()).resolves.toEqual(
-      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0"]),
+      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0", "hot-exchange-v0"]),
     );
   });
 
   it("returns deterministic ASCII code-unit discovery order", async () => {
     await withTempFixtureRoot(async (root) => {
-      await mkdir(resolve(root, "z-fixture"));
-      await mkdir(resolve(root, "a-fixture"));
-      await mkdir(resolve(root, "Z-fixture"));
+      await mkdir(resolve(root, "y-fixture"));
+      await mkdir(resolve(root, "b-fixture"));
       await mkdir(resolve(root, "A-fixture"));
       await mkdir(resolve(root, "_fixture"));
       await mkdir(resolve(root, "0-fixture"));
@@ -53,10 +52,9 @@ describe("@exclave/conformance fixture discovery", () => {
       await expect(listProjectionRuntimeFixtures({ fixtureRoot: root })).resolves.toEqual([
         "0-fixture",
         "A-fixture",
-        "Z-fixture",
         "_fixture",
-        "a-fixture",
-        "z-fixture",
+        "b-fixture",
+        "y-fixture",
       ]);
     });
   });
@@ -140,6 +138,30 @@ describe("@exclave/conformance fixture loading", () => {
       ...hotByteFixture.values,
       tempoRatio: 1.024999976158142,
     });
+  });
+
+  it("loads hot-exchange-v0 with fixture-backed hot exchange values", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const hotByteFixture = cloneRecord(fixture.artifacts.hotByteFixture);
+    const expected = cloneRecord(hotByteFixture.expected);
+
+    expect(fixture.fixtureName).toBe("hot-exchange-v0");
+    expect(fixture.fixturePath).toBe("fixtures/projection-runtime/hot-exchange-v0");
+    expect(fixture.artifacts.authoredContract).toMatchObject({
+      key: "fixture.hotExchange.v0",
+    });
+    expect(fixture.artifacts.hotLayoutManifest).toMatchObject({
+      contractKey: "fixture.hotExchange.v0",
+      totalRegionByteLength: 152,
+    });
+    expect(hotByteFixture.values).toEqual({
+      displayName: "deckA-hot",
+      gain: 0.625,
+      levelVector: [0.125, 0.25, 0.5, 1],
+      phase: 128.5,
+      revision: 57_005,
+    });
+    expect(expected.decodedValues).toEqual(hotByteFixture.values);
   });
 
   it("reports missing required fixture files explicitly", async () => {
@@ -346,14 +368,25 @@ describe("@exclave/conformance execution", () => {
     });
   });
 
+  it("passes hot-exchange-v0 conformance", async () => {
+    const result = await runProjectionRuntimeFixture("hot-exchange-v0");
+
+    expect(result).toEqual({
+      fixtureName: "hot-exchange-v0",
+      fixturePath: "fixtures/projection-runtime/hot-exchange-v0",
+      passed: true,
+      failures: [],
+    });
+  });
+
   it("passes aggregate projection-runtime conformance", async () => {
     const result = await runProjectionRuntimeConformance();
 
-    expect(result.totalCount).toBeGreaterThanOrEqual(2);
+    expect(result.totalCount).toBeGreaterThanOrEqual(3);
     expect(result.passedCount).toBe(result.totalCount);
     expect(result.failedCount).toBe(0);
     expect(result.fixtures.map((fixture) => fixture.fixtureName)).toEqual(
-      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0"]),
+      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0", "hot-exchange-v0"]),
     );
   });
 
@@ -379,15 +412,40 @@ describe("@exclave/conformance execution", () => {
     });
   });
 
+  it("decodes hot-exchange-v0 complete fixture region through the public hot codec", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const hotLayoutManifest = decodeHotLayoutManifestFixture(fixture.artifacts.hotLayoutManifest);
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const decoded = decodeHotCompleteFixtureRegion(hotLayoutManifest, bytes, {
+      expectedContractKey: "fixture.hotExchange.v0",
+      expectedInstanceKey: "hot-exchange-v0.instance",
+    });
+
+    expect(decoded.fieldValues).toEqual({
+      displayName: "deckA-hot",
+      gain: 0.625,
+      levelVector: [0.125, 0.25, 0.5, 1],
+      phase: 128.5,
+      revision: 57_005,
+    });
+  });
+
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
-    const before = readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0"]);
+    const before = readGeneratedFixtureFiles([
+      "hot-basic-v0",
+      "deck-runtime-v0",
+      "hot-exchange-v0",
+    ]);
 
     execFileSync("node", ["scripts/write-projection-runtime-fixture.mts"], {
       cwd: repoRoot,
       stdio: "pipe",
     });
 
-    expect(readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0"])).toEqual(before);
+    expect(
+      readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0"]),
+    ).toEqual(before);
   });
 
   it("reports canonical-manifest failures for changed in-memory expected manifests", async () => {
@@ -706,7 +764,7 @@ function decodeHotLayoutManifestFixture(value: unknown) {
 }
 
 function readGeneratedFixtureFiles(
-  fixtureNames: readonly ["hot-basic-v0", "deck-runtime-v0"][number][],
+  fixtureNames: readonly ["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0"][number][],
 ): Record<string, string> {
   return Object.fromEntries(
     fixtureNames.flatMap((fixtureName) =>

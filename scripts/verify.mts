@@ -17,13 +17,14 @@ type ForbiddenPattern = {
 };
 
 function run(label: string, command: string, args: readonly string[]): void {
+  const [actualCommand, actualArgs] = resolveCommand(command, args);
   const renderedCommand = [command, ...args].join(" ");
 
   console.log(`\n[verify] ${label}`);
   console.log(`[verify] ${renderedCommand}\n`);
 
   try {
-    execFileSync(command, args, { cwd: root, stdio: "inherit" });
+    execFileSync(actualCommand, actualArgs, { cwd: root, stdio: "inherit" });
   } catch (err) {
     console.error(`\n[verify failed] ${label}`);
     console.error(`[verify failed] ${renderedCommand}\n`);
@@ -31,6 +32,22 @@ function run(label: string, command: string, args: readonly string[]): void {
   }
 
   console.log();
+}
+
+function resolveCommand(
+  command: string,
+  args: readonly string[],
+): readonly [string, readonly string[]] {
+  if (command !== "pnpm") {
+    return [command, args];
+  }
+
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath !== undefined && npmExecPath.length > 0) {
+    return [process.execPath, [npmExecPath, ...args]];
+  }
+
+  return [command, args];
 }
 
 function readSourceFiles(dir: string): SourceFile[] {

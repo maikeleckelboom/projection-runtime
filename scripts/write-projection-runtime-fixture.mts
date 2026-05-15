@@ -40,6 +40,14 @@ type DeckRuntimeSampleValues = {
   readonly transportState: "playing";
 };
 
+type HotExchangeSampleValues = {
+  readonly displayName: string;
+  readonly gain: number;
+  readonly levelVector: readonly [number, number, number, number];
+  readonly phase: number;
+  readonly revision: number;
+};
+
 type HotFieldValues = Readonly<Record<string, FixtureValue>>;
 
 type HotFieldLayoutManifest = FixtureObject;
@@ -204,6 +212,14 @@ const deckRuntimeSampleValues = {
   transportState: "playing",
 } satisfies DeckRuntimeSampleValues;
 
+const hotExchangeSampleValues = {
+  displayName: "deckA-hot",
+  gain: 0.625,
+  levelVector: [0.125, 0.25, 0.5, 1],
+  phase: 128.5,
+  revision: 57_005,
+} satisfies HotExchangeSampleValues;
+
 const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
   {
     fixtureName: "hot-basic-v0",
@@ -214,6 +230,11 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
     fixtureName: "deck-runtime-v0",
     instanceKey: "deck-runtime-v0.instance",
     values: deckRuntimeSampleValues,
+  },
+  {
+    fixtureName: "hot-exchange-v0",
+    instanceKey: "hot-exchange-v0.instance",
+    values: hotExchangeSampleValues,
   },
 ] as const satisfies readonly FixtureProfile<HotFieldValues>[];
 
@@ -548,8 +569,17 @@ function formatGeneratedJson(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
   ]);
 
-  execFileSync("pnpm", ["exec", "biome", "format", "--write", ...generatedFixturePaths], {
-    cwd: repoRoot,
-    stdio: "inherit",
-  });
+  execFileSync(
+    process.execPath,
+    [
+      resolve(repoRoot, "node_modules/@biomejs/biome/bin/biome"),
+      "format",
+      "--write",
+      ...generatedFixturePaths,
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+    },
+  );
 }

@@ -1,0 +1,23 @@
+{
+  "contractKey": "fixture.hotExchange.v0",
+  "expected": {
+    "blockABytesHex": "53514c4b010000001c38b478fd9d540b9c6d40365d0391edb66e8895aa7577325c85c439d698e02ad937287f94c765da9ec77ffeb9a501a605000000500000000000000000000000",
+    "decoded": {
+      "contractKeyHashHex": "1c38b478fd9d540b9c6d40365d0391ed",
+      "fieldCount": 5,
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "a601a5b9fe7fc79e",
+      "instanceKeyHashHex": "b66e8895aa7577325c85c439d698e02a",
+      "mutableRegionByteLength": 80,
+      "regionMagicHex": "53514c4b",
+      "reservedHex": "0000000000000000",
+      "semanticVersion": "da65c7947f2837d9"
+    }
+  },
+  "fieldCount": 5,
+  "fixtureKind": "hot-block-a-fixture",
+  "hotLayoutVersion": "a601a5b9fe7fc79e",
+  "instanceKey": "hot-exchange-v0.instance",
+  "mutableRegionByteLength": 80,
+  "semanticVersion": "da65c7947f2837d9"
+}
