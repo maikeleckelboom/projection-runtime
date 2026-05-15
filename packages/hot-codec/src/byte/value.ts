@@ -1,6 +1,6 @@
 import type { HotLayoutManifest } from "../manifest";
+import { throwByteIssue } from "./issue";
 import type { HotFieldScalarValue, HotFieldValue, HotFieldValues } from "./types";
-import { throwByteIssue } from "./types";
 
 export function assertValueRecord(values: HotFieldValues): void {
   if (values === null || typeof values !== "object" || Array.isArray(values)) {

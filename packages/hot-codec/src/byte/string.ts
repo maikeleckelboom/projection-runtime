@@ -1,7 +1,7 @@
 import { createHotByteRejectedError, createHotCodecIssue } from "../error";
 import type { HotLayoutPlanningFixedStringEncodedShape } from "../shape";
+import { throwByteIssue } from "./issue";
 import type { HotFieldValue } from "./types";
-import { throwByteIssue } from "./types";
 
 export function writeFixedString(
   view: DataView,

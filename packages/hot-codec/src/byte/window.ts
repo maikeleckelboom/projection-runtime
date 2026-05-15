@@ -1,5 +1,5 @@
 import type { HotFieldEntry, HotLayoutManifest, HotReservationEntry } from "../manifest";
-import { throwByteIssue } from "./types";
+import { throwByteIssue } from "./issue";
 
 export function assertManifestByteWindow(manifest: HotLayoutManifest): void {
   if (

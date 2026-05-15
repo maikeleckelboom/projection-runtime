@@ -1,7 +1,7 @@
 import type { HotLayoutPlanningFixedVectorShape } from "../shape";
+import { throwByteIssue } from "./issue";
 import { readScalar, scalarByteWidth, writeScalar } from "./scalar";
 import type { HotFieldScalarValue, HotFieldValue } from "./types";
-import { throwByteIssue } from "./types";
 import { requireArray } from "./value";
 
 export function writeVector(

@@ -1228,6 +1228,15 @@ describe("@seqlok/hot-codec public surface", () => {
     expect(byteSource).not.toContain("function readBoundedArray");
   });
 
+  it("keeps byte type definitions separate from runtime issue helpers", () => {
+    const byteTypesSource = readFileSync(resolve(hotCodecSourceRoot, "byte/types.ts"), "utf8");
+    const byteIssueSource = readFileSync(resolve(hotCodecSourceRoot, "byte/issue.ts"), "utf8");
+
+    expect(byteTypesSource).not.toContain("../error");
+    expect(byteTypesSource).not.toContain("throwByteIssue");
+    expect(byteIssueSource).toContain("export function throwByteIssue");
+  });
+
   it("keeps byte public types equivalent through the root export", () => {
     expectTypeOf<PublicByteDecodeResult>().toEqualTypeOf<HotByteDecodeResult>();
     expectTypeOf<PublicByteEncodeResult>().toEqualTypeOf<HotByteEncodeResult>();

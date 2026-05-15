@@ -1,10 +1,10 @@
 import type { HotLayoutManifest } from "../manifest";
 import { readBoundedArray, writeBoundedArray } from "./bounded-array";
 import { readEnum, writeEnum } from "./enum";
+import { throwByteIssue } from "./issue";
 import { readScalar, writeScalar } from "./scalar";
 import { readFixedString, writeFixedString } from "./string";
 import type { HotFieldValue, HotFieldValues } from "./types";
-import { throwByteIssue } from "./types";
 import { assertNoUnknownValues, assertValueRecord } from "./value";
 import { readVector, writeVector } from "./vector";
 import { createReservationMap, relativeOffset } from "./window";

@@ -1,4 +1,3 @@
-import { createHotByteRejectedError, createHotCodecIssue, type HotCodecIssueCode } from "../error";
 import type { HotLayoutPlanningFixedEnumShape, HotLayoutPlanningFixedScalarShape } from "../shape";
 
 export type ScalarType = HotLayoutPlanningFixedScalarShape["type"];
@@ -16,8 +15,4 @@ export interface HotByteEncodeResult {
 
 export interface HotByteDecodeResult {
   readonly values: HotFieldValues;
-}
-
-export function throwByteIssue(code: HotCodecIssueCode, path: string, message?: string): never {
-  throw createHotByteRejectedError([createHotCodecIssue(code, path, message)]);
 }

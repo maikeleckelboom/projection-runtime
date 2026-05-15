@@ -1,5 +1,5 @@
+import { throwByteIssue } from "./issue";
 import type { HotFieldScalarValue, HotFieldValue, ScalarType } from "./types";
-import { throwByteIssue } from "./types";
 import { requireBigInt, requireBoolean, requireFiniteNumber, requireInteger } from "./value";
 
 export function writeScalar(

@@ -1,4 +1,4 @@
-import { throwByteIssue } from "./types";
+import { throwByteIssue } from "./issue";
 
 export function bytesToHex(bytes: Uint8Array): string {
   let hex = "";

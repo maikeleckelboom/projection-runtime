@@ -1,6 +1,6 @@
 import type { HotLayoutPlanningFixedEnumShape } from "../shape";
+import { throwByteIssue } from "./issue";
 import type { EnumStorageType, HotFieldValue } from "./types";
-import { throwByteIssue } from "./types";
 import { requireInteger } from "./value";
 
 export function writeEnum(

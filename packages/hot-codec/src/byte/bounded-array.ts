@@ -1,8 +1,8 @@
 import type { HotFieldEntry, HotReservationEntry } from "../manifest";
 import type { HotLayoutPlanningBoundedArrayShape } from "../shape";
+import { throwByteIssue } from "./issue";
 import { readScalar, writeScalar } from "./scalar";
 import type { HotFieldScalarValue, HotFieldValue } from "./types";
-import { throwByteIssue } from "./types";
 import { requireArray } from "./value";
 import { relativeOffset, reservationFor } from "./window";
 
