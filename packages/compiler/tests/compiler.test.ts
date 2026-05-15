@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,29 +15,6 @@ import {
   compileAuthoredProjectionContract,
   type ResolvedProjectionContract,
 } from "../src/index";
-
-const compilerSourceRoot = resolve(
-  fileURLToPath(new URL("../../..", import.meta.url)),
-  "packages/compiler/src",
-);
-
-function sourceText(root: string): string {
-  let text = "";
-
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const path = resolve(root, entry.name);
-    if (entry.isDirectory()) {
-      text += sourceText(path);
-      continue;
-    }
-
-    if (entry.isFile() && entry.name.endsWith(".ts")) {
-      text += readFileSync(path, "utf8");
-    }
-  }
-
-  return text;
-}
 
 function unwrap(result: CompileProjectionResult): ResolvedProjectionContract {
   expect(result.ok).toBe(true);
@@ -889,24 +866,6 @@ describe("@seqlok/compiler error model", () => {
     expect(error).toBeInstanceOf(SeqlokError);
     expect(error.code).toBe("compiler.compilationRejected");
     expect(error.details.issueCount).toBe(error.details.issues.length);
-  });
-
-  it("has no production generic Error subclass construction", () => {
-    const text = sourceText(compilerSourceRoot);
-    expect(text).not.toContain("throw new Error");
-    expect(text).not.toContain("throw new RangeError");
-    expect(text).not.toContain("throw new TypeError");
-  });
-
-  it("has no production code: string in issue types", () => {
-    const text = sourceText(compilerSourceRoot);
-    expect(text).not.toMatch(/code\s*:\s*string/);
-  });
-
-  it("has no production runtime compiler error subclass or subclass checks", () => {
-    const text = sourceText(compilerSourceRoot);
-    expect(text).not.toContain("class CompilerError");
-    expect(text).not.toContain("instanceof CompilerError");
   });
 });
 

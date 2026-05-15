@@ -18,9 +18,10 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "check": "biome check . && pnpm typecheck && pnpm test",
+    "check": "pnpm verify",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "verify": "node scripts/verify.mts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",

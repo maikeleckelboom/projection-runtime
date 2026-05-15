@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,14 +69,6 @@ const hotBasicCompleteFixtureRegionPath = resolve(
   "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
 );
 const hotCodecSourceRoot = resolve(repoRoot, "packages/hot-codec/src");
-const compilerSourceRoot = resolve(repoRoot, "packages/compiler/src");
-const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
-const guardedProductionSourceRoots = [
-  hotCodecSourceRoot,
-  compilerSourceRoot,
-  conformanceSourceRoot,
-];
-
 const HOT_BASIC_SAMPLE_VALUES = {
   cursor: 123,
   health: "warn",
@@ -204,28 +196,6 @@ function encodeFixtureJson(value: unknown): unknown {
   }
 
   return value;
-}
-
-function sourceText(root: string): string {
-  let text = "";
-
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const path = resolve(root, entry.name);
-    if (entry.isDirectory()) {
-      text += sourceText(path);
-      continue;
-    }
-
-    if (entry.isFile() && entry.name.endsWith(".ts")) {
-      text += readFileSync(path, "utf8");
-    }
-  }
-
-  return text;
-}
-
-function guardedProductionSourceText(): string {
-  return guardedProductionSourceRoots.map(sourceText).join("\n");
 }
 
 describe("@seqlok/hot-codec constants", () => {
@@ -591,18 +561,6 @@ describe("@seqlok/hot-codec byte helpers", () => {
 
     expectHotByteCodecError(() => encodeHotFieldData(manifest, { lookup: [] }));
   });
-
-  it("does not introduce runtime retry, Atomics, SAB lifecycle, or handle APIs", () => {
-    const text = sourceText(hotCodecSourceRoot);
-
-    expect(text).not.toContain("Atomics");
-    expect(text).not.toContain("SharedArrayBuffer");
-    expect(text).not.toContain("retry");
-    expect(text).not.toContain("handle");
-    expect("createHotReader" in hotCodec).toBe(false);
-    expect("createHotWriter" in hotCodec).toBe(false);
-    expect("openHotBinding" in hotCodec).toBe(false);
-  });
 });
 
 describe("@seqlok/hot-codec complete fixture region", () => {
@@ -797,34 +755,6 @@ describe("@seqlok/hot-codec complete fixture region", () => {
     expect(error.details.issues.map((issue) => issue.code)).toContain(
       "header.mutableRegionByteLengthMismatch",
     );
-  });
-
-  it("does not introduce runtime reader, writer, seqlock retry, Atomics, SAB, or handle surfaces", () => {
-    const text = sourceText(hotCodecSourceRoot);
-
-    expect(text).not.toContain("Atomics");
-    expect(text).not.toContain("SharedArrayBuffer");
-    expect(text).not.toContain("retry");
-    expect(text).not.toContain("runtime reader");
-    expect(text).not.toContain("runtime writer");
-    expect(text).not.toContain("handle");
-    expect("createHotReader" in hotCodec).toBe(false);
-    expect("createHotWriter" in hotCodec).toBe(false);
-    expect("openHotBinding" in hotCodec).toBe(false);
-  });
-
-  it("keeps the complete fixture-region decoder source free of runtime-reader mechanisms", () => {
-    const text = readFileSync(resolve(hotCodecSourceRoot, "decode.ts"), "utf8");
-
-    for (const forbidden of [
-      "Atomics",
-      "SharedArrayBuffer",
-      "retry",
-      "setInterval",
-      "setTimeout",
-    ]) {
-      expect(text).not.toContain(forbidden);
-    }
   });
 });
 
@@ -1195,34 +1125,6 @@ describe("@seqlok/hot-codec error model", () => {
     bytes[0] = 0xde;
     const error = expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
     expect(error.details.issues.map((i) => i.code)).toContain("header.magicInvalid");
-  });
-
-  it("has no production generic Error subclass construction", () => {
-    const text = guardedProductionSourceText();
-    expect(text).not.toContain("throw new Error");
-    expect(text).not.toContain("throw new RangeError");
-    expect(text).not.toContain("throw new TypeError");
-  });
-
-  it("has no production code: string in issue types", () => {
-    const text = guardedProductionSourceText();
-    expect(text).not.toMatch(/code\s*:\s*string/);
-  });
-
-  it("has no production runtime hot-codec error subclasses or subclass checks", () => {
-    const text = guardedProductionSourceText();
-    expect(text).not.toMatch(
-      /class HotCodecError|class HotByteCodecError|class CompilerError|class ConformanceError/,
-    );
-    expect(text).not.toMatch(
-      /instanceof HotCodecError|instanceof HotByteCodecError|instanceof CompilerError|instanceof ConformanceError/,
-    );
-  });
-
-  it("does not duplicate HOT_REGION_MAGIC_BYTES definition outside constants", () => {
-    const text = sourceText(hotCodecSourceRoot);
-    const definitions = [...text.matchAll(/(?:export\s+)?const\s+HOT_REGION_MAGIC_BYTES/g)];
-    expect(definitions.length).toBe(1);
   });
 });
 

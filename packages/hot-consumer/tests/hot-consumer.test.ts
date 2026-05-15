@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,7 +24,6 @@ import {
 } from "../src/index";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-const hotConsumerSourceRoot = resolve(repoRoot, "packages/hot-consumer/src");
 const hotBasicLayoutPath = resolve(
   repoRoot,
   "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
@@ -38,28 +37,6 @@ function sequenceView(initial: bigint): BigUint64Array {
   const sequence = new BigUint64Array(new SharedArrayBuffer(8));
   Atomics.store(sequence, 0, initial);
   return sequence;
-}
-
-function sourceText(root: string): string {
-  let text = "";
-
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const path = resolve(root, entry.name);
-    if (entry.isDirectory()) {
-      text += sourceText(path);
-      continue;
-    }
-
-    if (entry.isFile() && entry.name.endsWith(".ts")) {
-      text += readFileSync(path, "utf8");
-    }
-  }
-
-  return text;
-}
-
-function productionSourceText(): string {
-  return sourceText(hotConsumerSourceRoot);
 }
 
 function expectHotConsumerError(action: () => unknown): HotConsumerError {
@@ -354,10 +331,6 @@ describe("@seqlok/hot-consumer bounded read attempts", () => {
     expect(loadSpy).toHaveBeenCalledTimes(2);
     expect(loadSpy).toHaveBeenNthCalledWith(1, sequence, 0);
     expect(loadSpy).toHaveBeenNthCalledWith(2, sequence, 0);
-
-    const source = productionSourceText();
-    expect(source).toContain("Atomics.load(sequence, 0)");
-    expect(source).not.toContain("DataView");
   });
 
   it("uses hot-codec complete fixture-region decode as a caller-provided readCandidate", () => {
@@ -496,16 +469,6 @@ describe("@seqlok/hot-consumer input errors and public error surface", () => {
     expect(typeof hotConsumer.createHotConsumerInputRejectedError).toBe("function");
     expect(typeof hotConsumer.isHotConsumerError).toBe("function");
     expectTypeOf<HotConsumerError>().toMatchTypeOf<SeqlokError<"hotConsumer.inputRejected">>();
-  });
-
-  it("does not introduce lifecycle, Electron, generated binding, or package error class APIs", () => {
-    const source = productionSourceText();
-
-    expect(source).not.toMatch(/class HotConsumerError/);
-    expect(source).not.toMatch(/throw new (?:Error|RangeError|TypeError)/);
-    expect(source).not.toContain("code: string");
-    expect(source).not.toMatch(/BrowserWindow|Electron|ipcMain|ipcRenderer/);
-    expect(source).not.toMatch(/\b(?:bind|open|close|stale|invalidate)\b/);
   });
 
   it("rejects a BigUint64Array backed by a normal ArrayBuffer", () => {
