@@ -213,11 +213,12 @@ function createHotCompleteFixtureRegionArtifact(
 
   const blockABytes = encodeHotBlockAHeader(blockA);
   const blockBBytes = encodeHotBlockBHeader(blockB);
-  const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
+  const normalizedValues = normalizeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
+  const encoded = encodeHotFieldValues(hotLayoutManifest, normalizedValues);
   const completeFixtureRegionBytes = encodeHotCompleteFixtureRegion(hotLayoutManifest, {
     blockA,
     blockB,
-    values: values as HotFieldValues,
+    values: normalizedValues,
   });
   const expectedBlockABytes = hexToBytes(blockABytesHex);
   const expectedBlockBBytes = hexToBytes(blockBBytesHex);
@@ -277,4 +278,63 @@ function createHotCompleteFixtureRegionArtifact(
       fieldValues: decodeResult.fieldValues,
     },
   };
+}
+
+function normalizeHotFieldValues(
+  hotLayoutManifest: HotLayoutManifest,
+  values: HotFieldValues,
+): HotFieldValues {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => {
+      const field = hotLayoutManifest.fields.find((entry) => entry.dotPath === key);
+
+      if (field?.shape.kind === "FixedScalar" && isBigIntScalar(field.shape.type)) {
+        return [key, parseFixtureBigInt(value, `values.${key}`)];
+      }
+
+      if (field?.shape.kind === "FixedVector" && isBigIntScalar(field.shape.elementType)) {
+        return [key, parseFixtureBigIntArray(value, `values.${key}`)];
+      }
+
+      if (field?.shape.kind === "BoundedArray" && isBigIntScalar(field.shape.elementType)) {
+        return [key, parseFixtureBigIntArray(value, `values.${key}`)];
+      }
+
+      return [key, value];
+    }),
+  );
+}
+
+function isBigIntScalar(type: string): boolean {
+  return type === "u64" || type === "i64";
+}
+
+function parseFixtureBigInt(value: unknown, path: string): bigint {
+  if (typeof value === "bigint") {
+    return value;
+  }
+
+  if (typeof value === "string" && /^[0-9a-f]{16}$/.test(value)) {
+    return BigInt(`0x${value}`);
+  }
+
+  throw createConformanceError("fixtureShapeRejected", {
+    artifact: "hot-complete-fixture-region",
+    detail: `${path} must be a 16-character lowercase hex string for a 64-bit hot field`,
+    failureCode: "expectedU64Hex",
+    path,
+  });
+}
+
+function parseFixtureBigIntArray(value: unknown, path: string): readonly bigint[] {
+  if (!Array.isArray(value)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: `${path} must be an array`,
+      failureCode: "valuesNotObject",
+      path,
+    });
+  }
+
+  return value.map((entry, index) => parseFixtureBigInt(entry, `${path}.${index}`));
 }

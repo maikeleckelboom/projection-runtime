@@ -1,4 +1,7 @@
 {
+  "compilerOptions": {
+    "tsBuildInfoFile": "./.cache/tsbuildinfo/packages.tsbuildinfo"
+  },
   "references": [
     { "path": "./packages/base" },
     { "path": "./packages/schema" },

@@ -1,0 +1,45 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": {
+    "beatPhase01": {
+      "kind": "fixed-scalar",
+      "type": "f32"
+    },
+    "level": {
+      "kind": "fixed-scalar",
+      "type": "f32"
+    },
+    "loopActive": {
+      "kind": "fixed-scalar",
+      "type": "bool"
+    },
+    "mediaTimeSeconds": {
+      "kind": "fixed-scalar",
+      "type": "f64"
+    },
+    "samplePosition": {
+      "kind": "fixed-scalar",
+      "type": "u64"
+    },
+    "stemGains": {
+      "elementType": "f32",
+      "kind": "bounded-array",
+      "maxLength": 4
+    },
+    "tempoRatio": {
+      "kind": "fixed-scalar",
+      "type": "f32"
+    },
+    "transportState": {
+      "kind": "fixed-enum",
+      "storage": "u8",
+      "variants": ["stopped", "cueing", "playing", "paused"]
+    }
+  },
+  "key": "fixture.deckRuntime",
+  "lanes": {
+    "hot": {
+      "reservations": ["stemGains"]
+    }
+  }
+}

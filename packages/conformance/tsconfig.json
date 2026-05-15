@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "../../.cache/tsbuildinfo/packages/conformance.tsbuildinfo"
   },
   "references": [{ "path": "../compiler" }, { "path": "../hot-codec" }],
   "include": ["src/**/*.ts"],

@@ -1,0 +1,23 @@
+{
+  "contractKey": "fixture.deckRuntime",
+  "expected": {
+    "blockABytesHex": "53514c4b010000004bc837d5303e3e63ebf7e8aeeec1aba45b2326e65a216440aa412e714d7a0028b273fadf7c6f63e3ad6ef68e4fefdead08000000580000000000000000000000",
+    "decoded": {
+      "contractKeyHashHex": "4bc837d5303e3e63ebf7e8aeeec1aba4",
+      "fieldCount": 8,
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "addeef4f8ef66ead",
+      "instanceKeyHashHex": "5b2326e65a216440aa412e714d7a0028",
+      "mutableRegionByteLength": 88,
+      "regionMagicHex": "53514c4b",
+      "reservedHex": "0000000000000000",
+      "semanticVersion": "e3636f7cdffa73b2"
+    }
+  },
+  "fieldCount": 8,
+  "fixtureKind": "hot-block-a-fixture",
+  "hotLayoutVersion": "addeef4f8ef66ead",
+  "instanceKey": "deck-runtime-v0.instance",
+  "mutableRegionByteLength": 88,
+  "semanticVersion": "e3636f7cdffa73b2"
+}

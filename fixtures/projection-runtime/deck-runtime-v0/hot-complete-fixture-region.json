@@ -1,0 +1,40 @@
+{
+  "blockABytesHex": "53514c4b010000004bc837d5303e3e63ebf7e8aeeec1aba45b2326e65a216440aa412e714d7a0028b273fadf7c6f63e3ad6ef68e4fefdead08000000580000000000000000000000",
+  "blockBBytesHex": "020000000000000007000000030000002a00000000000000",
+  "completeFixtureRegionBytesHex": "53514c4b010000004bc837d5303e3e63ebf7e8aeeec1aba45b2326e65a216440aa412e714d7a0028b273fadf7c6f63e3ad6ef68e4fefdead08000000580000000000000000000000020000000000000007000000030000002a000000000000000000c03e0000503f01000000000000000000000000885840000b420000000000040000000000803f0000603f0000003f0000803e3333833f0200000000000000",
+  "contractKey": "fixture.deckRuntime",
+  "decoded": {
+    "blockA": {
+      "contractKeyHashHex": "4bc837d5303e3e63ebf7e8aeeec1aba4",
+      "fieldCount": 8,
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "addeef4f8ef66ead",
+      "instanceKeyHashHex": "5b2326e65a216440aa412e714d7a0028",
+      "mutableRegionByteLength": 88,
+      "regionMagicHex": "53514c4b",
+      "reservedHex": "0000000000000000",
+      "semanticVersion": "e3636f7cdffa73b2"
+    },
+    "blockB": {
+      "baselineEpoch": 7,
+      "continuityGeneration": 3,
+      "publicationSequence": "000000000000002a",
+      "seqlockCounter": "0000000000000002"
+    },
+    "fieldValues": {
+      "beatPhase01": 0.375,
+      "level": 0.8125,
+      "loopActive": true,
+      "mediaTimeSeconds": 98.125,
+      "samplePosition": "0000000000420b00",
+      "stemGains": [1, 0.875, 0.5, 0.25],
+      "tempoRatio": 1.024999976158142,
+      "transportState": "playing"
+    }
+  },
+  "fieldBytesHex": "0000c03e0000503f01000000000000000000000000885840000b420000000000040000000000803f0000603f0000003f0000803e3333833f0200000000000000",
+  "fixtureKind": "hot-complete-fixture-region",
+  "hotLayoutVersion": "addeef4f8ef66ead",
+  "instanceKey": "deck-runtime-v0.instance",
+  "totalRegionByteLength": 160
+}

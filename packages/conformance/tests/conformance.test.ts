@@ -1,9 +1,11 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SeqlokError } from "@seqlok/base";
+import { decodeHotCompleteFixtureRegion, hexToBytes } from "@seqlok/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import * as conformance from "../src/index";
@@ -21,10 +23,21 @@ const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const hotBasicFixtureRoot = resolve(fixtureRoot, "hot-basic-v0");
 const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
+const GENERATED_FIXTURE_FILES = [
+  "canonical-manifest.json",
+  "hot-layout-manifest.json",
+  "hot-byte-fixture.json",
+  "hot-block-a-fixture.json",
+  "hot-block-b-fixture.json",
+  "hot-complete-fixture-region.json",
+  "resolved-contract.json",
+] as const;
 
 describe("@seqlok/conformance fixture discovery", () => {
-  it("discovers hot-basic-v0", async () => {
-    await expect(listProjectionRuntimeFixtures()).resolves.toContain("hot-basic-v0");
+  it("discovers all checked-in projection-runtime fixtures", async () => {
+    await expect(listProjectionRuntimeFixtures()).resolves.toEqual(
+      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0"]),
+    );
   });
 
   it("returns deterministic ASCII code-unit discovery order", async () => {
@@ -100,6 +113,33 @@ describe("@seqlok/conformance fixture loading", () => {
       phase: 12.5,
     });
     expect(expected.decodedValues).toEqual(hotByteFixture.values);
+  });
+
+  it("loads deck-runtime-v0 with product-shaped hot values", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const hotByteFixture = cloneRecord(fixture.artifacts.hotByteFixture);
+    const expected = cloneRecord(hotByteFixture.expected);
+
+    expect(fixture.fixtureName).toBe("deck-runtime-v0");
+    expect(fixture.fixturePath).toBe("fixtures/projection-runtime/deck-runtime-v0");
+    expect(fixture.artifacts.authoredContract).toMatchObject({ key: "fixture.deckRuntime" });
+    expect(fixture.artifacts.hotLayoutManifest).toMatchObject({
+      contractKey: "fixture.deckRuntime",
+    });
+    expect(hotByteFixture.values).toEqual({
+      beatPhase01: 0.375,
+      level: 0.8125,
+      loopActive: true,
+      mediaTimeSeconds: 98.125,
+      samplePosition: "0000000000420b00",
+      stemGains: [1, 0.875, 0.5, 0.25],
+      tempoRatio: 1.025,
+      transportState: "playing",
+    });
+    expect(expected.decodedValues).toEqual({
+      ...hotByteFixture.values,
+      tempoRatio: 1.024999976158142,
+    });
   });
 
   it("reports missing required fixture files explicitly", async () => {
@@ -295,13 +335,59 @@ describe("@seqlok/conformance execution", () => {
     });
   });
 
+  it("passes deck-runtime-v0 conformance", async () => {
+    const result = await runProjectionRuntimeFixture("deck-runtime-v0");
+
+    expect(result).toEqual({
+      fixtureName: "deck-runtime-v0",
+      fixturePath: "fixtures/projection-runtime/deck-runtime-v0",
+      passed: true,
+      failures: [],
+    });
+  });
+
   it("passes aggregate projection-runtime conformance", async () => {
     const result = await runProjectionRuntimeConformance();
 
-    expect(result.totalCount).toBeGreaterThanOrEqual(1);
+    expect(result.totalCount).toBeGreaterThanOrEqual(2);
     expect(result.passedCount).toBe(result.totalCount);
     expect(result.failedCount).toBe(0);
-    expect(result.fixtures.map((fixture) => fixture.fixtureName)).toContain("hot-basic-v0");
+    expect(result.fixtures.map((fixture) => fixture.fixtureName)).toEqual(
+      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0"]),
+    );
+  });
+
+  it("decodes deck-runtime-v0 complete fixture region through the public hot codec", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const hotLayoutManifest = decodeHotLayoutManifestFixture(fixture.artifacts.hotLayoutManifest);
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const decoded = decodeHotCompleteFixtureRegion(hotLayoutManifest, bytes, {
+      expectedContractKey: "fixture.deckRuntime",
+      expectedInstanceKey: "deck-runtime-v0.instance",
+    });
+
+    expect(decoded.fieldValues).toEqual({
+      beatPhase01: 0.375,
+      level: 0.8125,
+      loopActive: true,
+      mediaTimeSeconds: 98.125,
+      samplePosition: 4_328_192n,
+      stemGains: [1, 0.875, 0.5, 0.25],
+      tempoRatio: 1.024999976158142,
+      transportState: "playing",
+    });
+  });
+
+  it("regenerates projection-runtime fixture artifacts deterministically", () => {
+    const before = readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0"]);
+
+    execFileSync("node", ["scripts/write-projection-runtime-fixture.mts"], {
+      cwd: repoRoot,
+      stdio: "pipe",
+    });
+
+    expect(readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0"])).toEqual(before);
   });
 
   it("reports canonical-manifest failures for changed in-memory expected manifests", async () => {
@@ -603,6 +689,33 @@ async function withTempFixtureRoot(callback: (root: string) => Promise<void>): P
 
 function cloneRecord(value: unknown): Record<string, unknown> {
   return structuredClone(value) as Record<string, unknown>;
+}
+
+function decodeHotLayoutManifestFixture(value: unknown) {
+  const hotLayoutManifest = cloneRecord(value);
+  const hotLayoutVersion = hotLayoutManifest.hotLayoutVersion;
+
+  if (typeof hotLayoutVersion !== "string") {
+    throw new Error("hot layout fixture version must be a hex string");
+  }
+
+  return {
+    ...hotLayoutManifest,
+    hotLayoutVersion: BigInt(`0x${hotLayoutVersion}`),
+  };
+}
+
+function readGeneratedFixtureFiles(
+  fixtureNames: readonly ["hot-basic-v0", "deck-runtime-v0"][number][],
+): Record<string, string> {
+  return Object.fromEntries(
+    fixtureNames.flatMap((fixtureName) =>
+      GENERATED_FIXTURE_FILES.map((fileName) => [
+        `${fixtureName}/${fileName}`,
+        readFileSync(resolve(fixtureRoot, fixtureName, fileName), "utf8"),
+      ]),
+    ),
+  );
 }
 
 function expectFailure(

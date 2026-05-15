@@ -27,6 +27,7 @@ for (const entry of packageEntries) {
 }
 
 const pathsToRemove: readonly string[] = [
+  ".cache",
   "coverage",
   "tsconfig.packages.tsbuildinfo",
   ...packageNames.flatMap((packageName): string[] => [

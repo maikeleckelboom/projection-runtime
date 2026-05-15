@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import Module, { createRequire } from "node:module";
+import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -27,6 +27,17 @@ type HotBasicSampleValues = {
   readonly level: number;
   readonly peaks: readonly [number, number, number];
   readonly phase: number;
+};
+
+type DeckRuntimeSampleValues = {
+  readonly beatPhase01: number;
+  readonly level: number;
+  readonly loopActive: boolean;
+  readonly mediaTimeSeconds: number;
+  readonly samplePosition: bigint;
+  readonly stemGains: readonly [number, number, number, number];
+  readonly tempoRatio: number;
+  readonly transportState: "playing";
 };
 
 type HotFieldValues = Readonly<Record<string, FixtureValue>>;
@@ -70,6 +81,12 @@ type CompilerModule = {
   readonly compileAuthoredProjectionContract: (
     contract: AuthoredProjectionContract,
   ) => CompileResult;
+};
+
+type FixtureProfile<TValues extends HotFieldValues> = {
+  readonly fixtureName: string;
+  readonly instanceKey: string;
+  readonly values: TValues;
 };
 
 type EncodedHotFieldValues<TValues extends HotFieldValues> = {
@@ -141,29 +158,20 @@ type HotCodecModule = {
   ) => Uint8Array;
 };
 
-type TypeScriptModule = typeof import("typescript");
-
-type ModuleWithResolveFilename = typeof Module & {
-  _resolveFilename: (
-    request: string,
-    parent?: NodeJS.Module,
-    isMain?: boolean,
-    options?: NodeJS.RequireResolveOptions,
-  ) => string;
-};
-
-type CompilableModule = NodeJS.Module & {
-  _compile: (content: string, filename: string) => void;
-};
-
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime/hot-basic-v0");
-const require = createRequire(import.meta.url);
+const projectionRuntimeFixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
+const workspaceAliases = new Map<string, string>([
+  ["@seqlok/base", resolve(repoRoot, "packages/base/src/index.ts")],
+  ["@seqlok/primitives", resolve(repoRoot, "packages/primitives/src/index.ts")],
+  ["@seqlok/schema", resolve(repoRoot, "packages/schema/src/index.ts")],
+  ["@seqlok/hot-codec", resolve(repoRoot, "packages/hot-codec/src/index.ts")],
+  ["@seqlok/compiler", resolve(repoRoot, "packages/compiler/src/index.ts")],
+]);
 
-registerWorkspaceTsRequireHook();
+registerWorkspaceTsHooks();
 
 const { compileAuthoredProjectionContract } =
-  requireWorkspaceModule<CompilerModule>("@seqlok/compiler");
+  await importWorkspaceModule<CompilerModule>("@seqlok/compiler");
 const {
   bytesToHex,
   decodeHotFieldValues,
@@ -175,16 +183,7 @@ const {
   decodeHotBlockBHeader,
   validateHotBlockBHeader,
   encodeHotCompleteFixtureRegion,
-} = requireWorkspaceModule<HotCodecModule>("@seqlok/hot-codec");
-
-const authoredContractPath = resolve(fixtureRoot, "authored-contract.json");
-const canonicalManifestPath = resolve(fixtureRoot, "canonical-manifest.json");
-const hotLayoutManifestPath = resolve(fixtureRoot, "hot-layout-manifest.json");
-const hotByteFixturePath = resolve(fixtureRoot, "hot-byte-fixture.json");
-const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
-const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
-const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
-const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
+} = await importWorkspaceModule<HotCodecModule>("@seqlok/hot-codec");
 
 const hotBasicSampleValues = {
   cursor: 123,
@@ -194,36 +193,81 @@ const hotBasicSampleValues = {
   phase: 12.5,
 } satisfies HotBasicSampleValues;
 
-const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
-const result = compileAuthoredProjectionContract(authoredContract);
+const deckRuntimeSampleValues = {
+  beatPhase01: 0.375,
+  level: 0.8125,
+  loopActive: true,
+  mediaTimeSeconds: 98.125,
+  samplePosition: 4_328_192n,
+  stemGains: [1, 0.875, 0.5, 0.25],
+  tempoRatio: 1.025,
+  transportState: "playing",
+} satisfies DeckRuntimeSampleValues;
 
-if (!result.ok) {
-  throw new Error(
-    `failed to compile ${authoredContractPath}:\n${JSON.stringify(result.error.issues, null, 2)}`,
-  );
+const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
+  {
+    fixtureName: "hot-basic-v0",
+    instanceKey: "hot-basic-v0.instance",
+    values: hotBasicSampleValues,
+  },
+  {
+    fixtureName: "deck-runtime-v0",
+    instanceKey: "deck-runtime-v0.instance",
+    values: deckRuntimeSampleValues,
+  },
+] as const satisfies readonly FixtureProfile<HotFieldValues>[];
+
+for (const profile of fixtureProfiles) {
+  await writeProjectionRuntimeFixture(profile);
 }
 
-const resolved = result.value;
-const hotLayoutManifest = resolved.laneManifests?.hot;
-
-if (hotLayoutManifest === undefined) {
-  throw new Error(`${authoredContractPath} did not emit a hot lane manifest`);
-}
-
-await writeJson(canonicalManifestPath, resolved.manifest);
-await writeJson(hotLayoutManifestPath, hotLayoutManifest);
-await writeJson(hotByteFixturePath, createHotByteFixture(hotLayoutManifest, hotBasicSampleValues));
-await writeJson(hotBlockAFixturePath, createHotBlockAFixture(hotLayoutManifest, resolved));
-await writeJson(hotBlockBFixturePath, createHotBlockBFixture());
-await writeJson(
-  hotCompleteFixtureRegionPath,
-  createHotCompleteFixtureRegionFixture(hotLayoutManifest, resolved, hotBasicSampleValues),
-);
-await writeJson(resolvedContractPath, resolved);
 formatGeneratedJson();
 
-function requireWorkspaceModule<TModule>(specifier: string): TModule {
-  return require(specifier) as TModule;
+async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
+  profile: FixtureProfile<TValues>,
+): Promise<void> {
+  const fixtureRoot = resolve(projectionRuntimeFixtureRoot, profile.fixtureName);
+  const authoredContractPath = resolve(fixtureRoot, "authored-contract.json");
+  const canonicalManifestPath = resolve(fixtureRoot, "canonical-manifest.json");
+  const hotLayoutManifestPath = resolve(fixtureRoot, "hot-layout-manifest.json");
+  const hotByteFixturePath = resolve(fixtureRoot, "hot-byte-fixture.json");
+  const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
+  const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
+  const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
+  const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
+  const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
+  const result = compileAuthoredProjectionContract(authoredContract);
+
+  if (!result.ok) {
+    throw new Error(
+      `failed to compile ${authoredContractPath}:\n${JSON.stringify(result.error.issues, null, 2)}`,
+    );
+  }
+
+  const resolved = result.value;
+  const hotLayoutManifest = resolved.laneManifests?.hot;
+
+  if (hotLayoutManifest === undefined) {
+    throw new Error(`${authoredContractPath} did not emit a hot lane manifest`);
+  }
+
+  await writeJson(canonicalManifestPath, resolved.manifest);
+  await writeJson(hotLayoutManifestPath, hotLayoutManifest);
+  await writeJson(hotByteFixturePath, createHotByteFixture(hotLayoutManifest, profile.values));
+  await writeJson(
+    hotBlockAFixturePath,
+    createHotBlockAFixture(hotLayoutManifest, resolved, profile),
+  );
+  await writeJson(hotBlockBFixturePath, createHotBlockBFixture());
+  await writeJson(
+    hotCompleteFixtureRegionPath,
+    createHotCompleteFixtureRegionFixture(hotLayoutManifest, resolved, profile),
+  );
+  await writeJson(resolvedContractPath, resolved);
+}
+
+async function importWorkspaceModule<TModule>(specifier: string): Promise<TModule> {
+  return (await import(specifier)) as TModule;
 }
 
 function parseJsonFile(path: string): JsonValue {
@@ -310,7 +354,7 @@ function decodeU64Hex(value: bigint | HexU64, fieldName: string): bigint {
 
 function createHotByteFixture(
   hotLayoutManifest: HotLayoutManifest,
-  values: HotBasicSampleValues,
+  values: HotFieldValues,
 ): FixtureObject {
   const encoded = encodeHotFieldValues(hotLayoutManifest, values);
   const fieldBytesHex = bytesToHex(encoded.fieldBytes);
@@ -343,8 +387,9 @@ function createHotByteFixture(
 function createHotBlockAFixture(
   hotLayoutManifest: HotLayoutManifest,
   resolved: ResolvedProjectionContract,
+  profile: FixtureProfile<HotFieldValues>,
 ): FixtureObject {
-  const input = createHotBlockAInput(hotLayoutManifest, resolved);
+  const input = createHotBlockAInput(hotLayoutManifest, resolved, profile);
   const blockABytes = encodeHotBlockAHeader(input);
   const decoded = decodeHotBlockAHeader(blockABytes);
   const validation = validateHotBlockAHeader(blockABytes, input);
@@ -371,13 +416,14 @@ function createHotBlockAFixture(
 function createHotBlockAInput(
   hotLayoutManifest: HotLayoutManifest,
   resolved: ResolvedProjectionContract,
+  profile: FixtureProfile<HotFieldValues>,
 ): HotBlockAHeaderInput {
   const semanticVersion = decodeU64Hex(resolved.semanticVersion, "semanticVersion");
   const hotLayoutVersion = decodeU64Hex(hotLayoutManifest.hotLayoutVersion, "hotLayoutVersion");
 
   return {
     contractKey: hotLayoutManifest.contractKey,
-    instanceKey: "hot-basic-v0.instance",
+    instanceKey: profile.instanceKey,
     semanticVersion,
     hotLayoutVersion,
     fieldCount: hotLayoutManifest.fields.length,
@@ -420,17 +466,17 @@ function createHotBlockBFixture(): FixtureObject {
 function createHotCompleteFixtureRegionFixture(
   hotLayoutManifest: HotLayoutManifest,
   resolved: ResolvedProjectionContract,
-  values: HotBasicSampleValues,
+  profile: FixtureProfile<HotFieldValues>,
 ): FixtureObject {
-  const blockA = createHotBlockAInput(hotLayoutManifest, resolved);
+  const blockA = createHotBlockAInput(hotLayoutManifest, resolved, profile);
   const blockB = createHotBlockBInput();
   const blockABytes = encodeHotBlockAHeader(blockA);
   const blockBBytes = encodeHotBlockBHeader(blockB);
-  const fieldBytes = encodeHotFieldValues(hotLayoutManifest, values).fieldBytes;
+  const fieldBytes = encodeHotFieldValues(hotLayoutManifest, profile.values).fieldBytes;
   const completeFixtureRegionBytes = encodeHotCompleteFixtureRegion(hotLayoutManifest, {
     blockA,
     blockB,
-    values,
+    values: profile.values,
   });
 
   return {
@@ -451,62 +497,59 @@ function createHotCompleteFixtureRegionFixture(
   };
 }
 
-function registerWorkspaceTsRequireHook(): void {
-  const typescript = requireWorkspaceModule<TypeScriptModule>("typescript");
-  const aliases = new Map<string, string>([
-    ["@seqlok/base", resolve(repoRoot, "packages/base/src/index.ts")],
-    ["@seqlok/primitives", resolve(repoRoot, "packages/primitives/src/index.ts")],
-    ["@seqlok/schema", resolve(repoRoot, "packages/schema/src/index.ts")],
-    ["@seqlok/hot-codec", resolve(repoRoot, "packages/hot-codec/src/index.ts")],
-    ["@seqlok/compiler", resolve(repoRoot, "packages/compiler/src/index.ts")],
-  ]);
-  const moduleWithResolveFilename = Module as ModuleWithResolveFilename;
-  const resolveFilename = moduleWithResolveFilename._resolveFilename;
+function registerWorkspaceTsHooks(): void {
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      const aliasPath = workspaceAliases.get(specifier);
 
-  moduleWithResolveFilename._resolveFilename = function resolveWorkspaceAlias(
-    this: typeof Module,
-    request: string,
-    parent?: NodeJS.Module,
-    isMain?: boolean,
-    options?: NodeJS.RequireResolveOptions,
-  ): string {
-    return aliases.get(request) ?? resolveFilename.call(this, request, parent, isMain, options);
-  };
+      if (aliasPath !== undefined) {
+        return {
+          shortCircuit: true,
+          url: pathToFileURL(aliasPath).href,
+        };
+      }
 
-  require.extensions[".ts"] = function compileWorkspaceTs(
-    module: NodeJS.Module,
-    filename: string,
-  ): void {
-    const source = readFileSync(filename, "utf8");
-    const { outputText } = typescript.transpileModule(source, {
-      compilerOptions: {
-        esModuleInterop: true,
-        module: typescript.ModuleKind.CommonJS,
-        target: typescript.ScriptTarget.ES2022,
-      },
-      fileName: filename,
-    });
+      if (context.parentURL?.startsWith("file:") === true && isExtensionlessRelative(specifier)) {
+        const tsUrl = new URL(`${specifier}.ts`, context.parentURL);
+        if (existsSync(fileURLToPath(tsUrl))) {
+          return {
+            shortCircuit: true,
+            url: tsUrl.href,
+          };
+        }
+      }
 
-    (module as CompilableModule)._compile(outputText, filename);
-  };
+      return nextResolve(specifier, context);
+    },
+  });
+}
+
+function isExtensionlessRelative(specifier: string): boolean {
+  return (
+    (specifier.startsWith("./") || specifier.startsWith("../")) &&
+    !specifier.endsWith(".js") &&
+    !specifier.endsWith(".mjs") &&
+    !specifier.endsWith(".cjs") &&
+    !specifier.endsWith(".json") &&
+    !specifier.endsWith(".ts") &&
+    !specifier.endsWith(".mts") &&
+    !specifier.endsWith(".cts")
+  );
 }
 
 function formatGeneratedJson(): void {
-  execFileSync(
-    "pnpm",
-    [
-      "exec",
-      "biome",
-      "format",
-      "--write",
-      "fixtures/projection-runtime/hot-basic-v0/canonical-manifest.json",
-      "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
-      "fixtures/projection-runtime/hot-basic-v0/hot-byte-fixture.json",
-      "fixtures/projection-runtime/hot-basic-v0/hot-block-a-fixture.json",
-      "fixtures/projection-runtime/hot-basic-v0/hot-block-b-fixture.json",
-      "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
-      "fixtures/projection-runtime/hot-basic-v0/resolved-contract.json",
-    ],
-    { cwd: repoRoot, stdio: "inherit" },
-  );
+  const generatedFixturePaths = fixtureProfiles.flatMap((profile) => [
+    `fixtures/projection-runtime/${profile.fixtureName}/canonical-manifest.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/hot-layout-manifest.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/hot-byte-fixture.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/hot-block-a-fixture.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/hot-block-b-fixture.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/hot-complete-fixture-region.json`,
+    `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
+  ]);
+
+  execFileSync("pnpm", ["exec", "biome", "format", "--write", ...generatedFixturePaths], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
 }

@@ -10,6 +10,7 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    "tsBuildInfoFile": "./.cache/tsbuildinfo/tooling.tsbuildinfo",
     "isolatedDeclarations": false,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,

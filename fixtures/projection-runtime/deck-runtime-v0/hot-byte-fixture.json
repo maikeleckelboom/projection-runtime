@@ -1,0 +1,31 @@
+{
+  "contractKey": "fixture.deckRuntime",
+  "expected": {
+    "decodedValues": {
+      "beatPhase01": 0.375,
+      "level": 0.8125,
+      "loopActive": true,
+      "mediaTimeSeconds": 98.125,
+      "samplePosition": "0000000000420b00",
+      "stemGains": [1, 0.875, 0.5, 0.25],
+      "tempoRatio": 1.024999976158142,
+      "transportState": "playing"
+    },
+    "fieldBytesHex": "0000c03e0000503f01000000000000000000000000885840000b420000000000040000000000803f0000603f0000003f0000803e3333833f0200000000000000",
+    "fixtureRegionBytesHex": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c03e0000503f01000000000000000000000000885840000b420000000000040000000000803f0000603f0000003f0000803e3333833f0200000000000000"
+  },
+  "fieldDataOrigin": 96,
+  "fixtureKind": "hot-byte-fixture",
+  "hotLayoutVersion": "addeef4f8ef66ead",
+  "totalRegionByteLength": 160,
+  "values": {
+    "beatPhase01": 0.375,
+    "level": 0.8125,
+    "loopActive": true,
+    "mediaTimeSeconds": 98.125,
+    "samplePosition": "0000000000420b00",
+    "stemGains": [1, 0.875, 0.5, 0.25],
+    "tempoRatio": 1.025,
+    "transportState": "playing"
+  }
+}
