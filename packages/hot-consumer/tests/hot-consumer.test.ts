@@ -507,4 +507,65 @@ describe("@seqlok/hot-consumer input errors and public error surface", () => {
     expect(source).not.toMatch(/BrowserWindow|Electron|ipcMain|ipcRenderer/);
     expect(source).not.toMatch(/\b(?:bind|open|close|stale|invalidate)\b/);
   });
+
+  it("rejects a BigUint64Array backed by a normal ArrayBuffer", () => {
+    const nonShared = new BigUint64Array(new ArrayBuffer(16));
+    nonShared[0] = 2n;
+
+    const readCandidate = vi.fn(() => "must-not-run");
+    const state = createHotReadState<string>();
+
+    const error = expectHotConsumerError(() =>
+      tryReadHotSnapshot({
+        sequence: nonShared,
+        readCandidate,
+        state,
+      }),
+    );
+
+    expect(readCandidate).not.toHaveBeenCalled();
+    expect(error.details.issues.map((issue) => issue.code)).toEqual([
+      "input.sequenceBufferNotShared",
+    ]);
+  });
+
+  it("reports sequenceBufferNotShared alongside other sequence issues when applicable", () => {
+    const nonShared = new BigUint64Array(new ArrayBuffer(0));
+    const readCandidate = vi.fn(() => "must-not-run");
+    const state = createHotReadState<string>();
+
+    const error = expectHotConsumerError(() =>
+      tryReadHotSnapshot({
+        sequence: nonShared,
+        readCandidate,
+        state,
+      }),
+    );
+
+    expect(readCandidate).not.toHaveBeenCalled();
+    expect(error.details.issues.map((issue) => issue.code)).toEqual([
+      "input.sequenceBufferNotShared",
+    ]);
+  });
+
+  it("does not allow Atomics.load to be reached for a non-shared sequence view", () => {
+    const nonShared = new BigUint64Array(new ArrayBuffer(16));
+    nonShared[0] = 2n;
+
+    const loadSpy = vi.spyOn(Atomics, "load");
+
+    const readCandidate = vi.fn(() => "must-not-run");
+    const state = createHotReadState<string>();
+
+    expect(() =>
+      tryReadHotSnapshot({
+        sequence: nonShared,
+        readCandidate,
+        state,
+      }),
+    ).toThrow();
+
+    expect(loadSpy).not.toHaveBeenCalled();
+    expect(readCandidate).not.toHaveBeenCalled();
+  });
 });

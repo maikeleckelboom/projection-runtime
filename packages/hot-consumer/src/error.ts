@@ -15,6 +15,7 @@ import {
 export const HOT_CONSUMER_ISSUE_DEFS = {
   "input.requestInvalid": "hot read attempt input must be an object",
   "input.sequenceViewInvalid": "sequence view must be a BigUint64Array",
+  "input.sequenceBufferNotShared": "sequence view must be backed by SharedArrayBuffer",
   "input.sequenceViewTooShort": "sequence view must contain at least one u64 counter",
   "input.readCandidateInvalid": "readCandidate must be a function",
   "input.stateInvalid": "hot read state must expose a mutable lastGood slot",
