@@ -419,6 +419,46 @@ describe("@seqlok/conformance execution", () => {
     expect(failure.reason).toBe("hot-complete-fixture-region does not match golden artifact");
   });
 
+  it("reports malformed Block A contract key hash as hot-complete-fixture-region failure", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotCompleteFixtureRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    hotCompleteFixtureRegion.completeFixtureRegionBytesHex =
+      "53514c4b01000000000000000000000000000000000000006bfdf9c4ab5400e4eb43e196fac78389a0066b1cf371b2675c4988fd97b83e8f05000000400000000000000000000000020000000000000007000000030000002a000000000000007b000000010000000000403f030000000000003e0000803e0000003f000000000000000000002940";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotCompleteFixtureRegion },
+    });
+
+    const failure = expectFailure(result.failures, "hot-complete-fixture-region");
+    expect(failure.failureCode).toBe("artifactMismatch");
+  });
+
+  it("reports malformed Block A instance key hash as hot-complete-fixture-region failure", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotCompleteFixtureRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    hotCompleteFixtureRegion.instanceKey = "wrong.instance";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotCompleteFixtureRegion },
+    });
+
+    const failure = expectFailure(result.failures, "hot-complete-fixture-region");
+    expect(failure.failureCode).toBe("artifactMismatch");
+  });
+
+  it("reports malformed complete-region field-data slice as hot-complete-fixture-region failure", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotCompleteFixtureRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    hotCompleteFixtureRegion.fieldBytesHex = "00";
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotCompleteFixtureRegion },
+    });
+
+    const failure = expectFailure(result.failures, "hot-complete-fixture-region");
+    expect(failure.failureCode).toBe("artifactMismatch");
+  });
+
   it("reports resolved-contract failures for changed in-memory expected contracts", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
     const resolvedContract = cloneRecord(fixture.artifacts.resolvedContract);

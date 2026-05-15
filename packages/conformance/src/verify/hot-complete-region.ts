@@ -1,10 +1,6 @@
-import { isDeepStrictEqual } from "node:util";
-
 import {
   bytesToHex,
-  decodeHotBlockAHeader,
-  decodeHotBlockBHeader,
-  decodeHotFieldValues,
+  decodeHotCompleteFixtureRegion,
   encodeHotBlockAHeader,
   encodeHotBlockBHeader,
   encodeHotCompleteFixtureRegion,
@@ -18,8 +14,6 @@ import {
   type HotFieldValues,
   type HotLayoutManifest,
   hexToBytes,
-  validateHotBlockAHeader,
-  validateHotBlockBHeader,
 } from "@seqlok/hot-codec";
 
 import { encodeFixtureJson } from "../encode";
@@ -261,51 +255,11 @@ function createHotCompleteFixtureRegionArtifact(
     });
   }
 
-  const blockAValidation = validateHotBlockAHeader(
-    expectedCompleteFixtureRegionBytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH),
-    blockA,
-  );
-  if (!blockAValidation.ok) {
-    throw createConformanceError("fixtureArtifactMismatch", {
-      artifact: "hot-complete-fixture-region",
-      detail: `hot-complete-fixture-region Block A validation failed: ${blockAValidation.error.message}`,
-      failureCode: "headerValidationFailed",
-    });
-  }
-
-  const blockBValidation = validateHotBlockBHeader(
-    expectedCompleteFixtureRegionBytes.subarray(HOT_BLOCK_B_BYTE_OFFSET, HOT_BLOCK_B_END_OFFSET),
-    blockB,
-  );
-  if (!blockBValidation.ok) {
-    throw createConformanceError("fixtureArtifactMismatch", {
-      artifact: "hot-complete-fixture-region",
-      detail: `hot-complete-fixture-region Block B validation failed: ${blockBValidation.error.message}`,
-      failureCode: "headerValidationFailed",
-    });
-  }
-
-  const decodedFieldValues = decodeHotFieldValues(hotLayoutManifest, expectedFieldBytes).values;
-  const decodedFieldValuesFromComplete = decodeHotFieldValues(
+  const decodeResult = decodeHotCompleteFixtureRegion(
     hotLayoutManifest,
-    expectedCompleteFixtureRegionBytes.subarray(
-      HOT_FIELD_DATA_BYTE_OFFSET,
-      hotLayoutManifest.totalRegionByteLength,
-    ),
-  ).values;
-
-  if (
-    !isDeepStrictEqual(
-      encodeFixtureJson(decodedFieldValues),
-      encodeFixtureJson(decodedFieldValuesFromComplete),
-    )
-  ) {
-    throw createConformanceError("fixtureArtifactMismatch", {
-      artifact: "hot-complete-fixture-region",
-      detail: "hot-complete-fixture-region field and complete-region field slice decoding diverged",
-      failureCode: "fieldRegionDecodeDiverged",
-    });
-  }
+    expectedCompleteFixtureRegionBytes,
+    { expectedContractKey: contractKey, expectedInstanceKey: instanceKey },
+  );
 
   return {
     fixtureKind: "hot-complete-fixture-region",
@@ -318,16 +272,9 @@ function createHotCompleteFixtureRegionArtifact(
     fieldBytesHex: bytesToHex(encoded.fieldBytes),
     completeFixtureRegionBytesHex: bytesToHex(completeFixtureRegionBytes),
     decoded: {
-      blockA: decodeHotBlockAHeader(
-        expectedCompleteFixtureRegionBytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH),
-      ),
-      blockB: decodeHotBlockBHeader(
-        expectedCompleteFixtureRegionBytes.subarray(
-          HOT_BLOCK_B_BYTE_OFFSET,
-          HOT_BLOCK_B_END_OFFSET,
-        ),
-      ),
-      fieldValues: decodedFieldValues,
+      blockA: decodeResult.blockA,
+      blockB: decodeResult.blockB,
+      fieldValues: decodeResult.fieldValues,
     },
   };
 }
