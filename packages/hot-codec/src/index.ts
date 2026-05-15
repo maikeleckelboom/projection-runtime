@@ -25,6 +25,11 @@ export {
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
 export {
+  decodeHotCompleteFixtureRegion,
+  type HotCompleteFixtureRegionDecodeOptions,
+  type HotCompleteFixtureRegionDecodeResult,
+} from "./decode";
+export {
   createHotByteRejectedError,
   createHotCodecError,
   createHotCodecIssue,

@@ -18,6 +18,7 @@ import {
   bytesToHex,
   decodeHotBlockAHeader,
   decodeHotBlockBHeader,
+  decodeHotCompleteFixtureRegion,
   decodeHotFieldValues,
   deriveHotLayoutVersion,
   encodeHotBlockAHeader,
@@ -41,6 +42,8 @@ import {
   type HotByteDecodeResult,
   type HotByteEncodeResult,
   type HotCodecError,
+  type HotCompleteFixtureRegionDecodeOptions,
+  type HotCompleteFixtureRegionDecodeResult,
   type HotFieldScalarValue,
   type HotFieldValue,
   type HotFieldValues,
@@ -60,6 +63,10 @@ const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const hotBasicLayoutPath = resolve(
   repoRoot,
   "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
+);
+const hotBasicCompleteFixtureRegionPath = resolve(
+  repoRoot,
+  "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
 );
 const hotCodecSourceRoot = resolve(repoRoot, "packages/hot-codec/src");
 const compilerSourceRoot = resolve(repoRoot, "packages/compiler/src");
@@ -170,6 +177,33 @@ function hotBasicLayout(): HotLayoutManifest {
     ...raw,
     hotLayoutVersion: BigInt(`0x${hotLayoutVersion}`),
   } as unknown as HotLayoutManifest;
+}
+
+function hotBasicCompleteFixtureRegionArtifact(): Record<string, unknown> {
+  return JSON.parse(readFileSync(hotBasicCompleteFixtureRegionPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+}
+
+function encodeFixtureJson(value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return value.toString(16).padStart(16, "0");
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(encodeFixtureJson);
+  }
+
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+        .map(([key, nested]) => [key, encodeFixtureJson(nested)]),
+    );
+  }
+
+  return value;
 }
 
 function sourceText(root: string): string {
@@ -621,6 +655,96 @@ describe("@seqlok/hot-codec complete fixture region", () => {
     ).toEqual(HOT_BASIC_SAMPLE_VALUES);
   });
 
+  it("decodes the hot-basic-v0 complete fixture region through the public facade", () => {
+    const manifest = hotBasicLayout();
+    const artifact = hotBasicCompleteFixtureRegionArtifact();
+    const bytes = hexToBytes(artifact.completeFixtureRegionBytesHex as string);
+    const decoded = decodeHotCompleteFixtureRegion(manifest, bytes, {
+      expectedContractKey: HOT_BASIC_BLOCK_A_INPUT.contractKey,
+      expectedInstanceKey: HOT_BASIC_BLOCK_A_INPUT.instanceKey,
+    });
+    const expectedDecoded = (artifact.decoded as Record<string, unknown>) ?? {};
+
+    expect(encodeFixtureJson(decoded.blockA)).toEqual(expectedDecoded.blockA);
+    expect(encodeFixtureJson(decoded.blockB)).toEqual(expectedDecoded.blockB);
+    expect(encodeFixtureJson(decoded.fieldValues)).toEqual(expectedDecoded.fieldValues);
+  });
+
+  it("rejects complete-region byte length mismatch with a typed byte error", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(
+        hotBasicLayout(),
+        encodeHotBasicCompleteFixtureRegion().slice(1),
+      ),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "byte.fixtureRegionLengthInvalid",
+    );
+  });
+
+  it("rejects Block A hotLayoutVersion mismatch with a typed issue code", () => {
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setBigUint64(
+      48,
+      HOT_BASIC_BLOCK_A_INPUT.hotLayoutVersion + 1n,
+      true,
+    );
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), bytes),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.hotLayoutVersionMismatch",
+    );
+  });
+
+  it("rejects Block A fieldCount mismatch with a typed issue code", () => {
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(56, 6, true);
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), bytes),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain("header.fieldCountMismatch");
+  });
+
+  it("rejects Block A mutableRegionByteLength mismatch with a typed issue code", () => {
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(60, 65, true);
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), bytes),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.mutableRegionByteLengthMismatch",
+    );
+  });
+
+  it("rejects expectedContractKey mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), encodeHotBasicCompleteFixtureRegion(), {
+        expectedContractKey: "fixture.other",
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.contractKeyHashMismatch",
+    );
+  });
+
+  it("rejects expectedInstanceKey mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), encodeHotBasicCompleteFixtureRegion(), {
+        expectedInstanceKey: "other.instance",
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.instanceKeyHashMismatch",
+    );
+  });
+
   it("rejects blockA contractKey mismatch with a typed issue code", () => {
     const error = expectHotByteCodecError(() =>
       encodeHotCompleteFixtureRegion(hotBasicLayout(), {
@@ -687,6 +811,20 @@ describe("@seqlok/hot-codec complete fixture region", () => {
     expect("createHotReader" in hotCodec).toBe(false);
     expect("createHotWriter" in hotCodec).toBe(false);
     expect("openHotBinding" in hotCodec).toBe(false);
+  });
+
+  it("keeps the complete fixture-region decoder source free of runtime-reader mechanisms", () => {
+    const text = readFileSync(resolve(hotCodecSourceRoot, "decode.ts"), "utf8");
+
+    for (const forbidden of [
+      "Atomics",
+      "SharedArrayBuffer",
+      "retry",
+      "setInterval",
+      "setTimeout",
+    ]) {
+      expect(text).not.toContain(forbidden);
+    }
   });
 });
 
@@ -1267,6 +1405,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "createHotLayoutRejectedError",
       "decodeHotBlockAHeader",
       "decodeHotBlockBHeader",
+      "decodeHotCompleteFixtureRegion",
       "decodeHotFieldValues",
       "deriveHotLayoutVersion",
       "encodeHotBlockAHeader",
@@ -1304,6 +1443,12 @@ describe("@seqlok/hot-codec public surface", () => {
   it("exports the intended type surface", () => {
     expectTypeOf<HotCodecError["code"]>().toEqualTypeOf<"hotCodec.layoutRejected">();
     expectTypeOf<HotByteCodecError["code"]>().toEqualTypeOf<"hotCodec.byteRejected">();
+    expectTypeOf<HotCompleteFixtureRegionDecodeOptions["expectedContractKey"]>().toEqualTypeOf<
+      string | undefined
+    >();
+    expectTypeOf<
+      HotCompleteFixtureRegionDecodeResult["fieldValues"]
+    >().toEqualTypeOf<HotFieldValues>();
     expectTypeOf<HotLayoutPlanningShape["kind"]>().toEqualTypeOf<
       | "FixedScalar"
       | "FixedEnum"

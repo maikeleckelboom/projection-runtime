@@ -10,6 +10,7 @@ field-data bytes, full zero-filled fixture region bytes, complete fixture region
 golden fixtures. `encodeHotFixtureRegion` remains the zero-filled prefix fixture helper: Block A and Block B are
 zero-filled because runtime publication backing is owned elsewhere. `encodeHotCompleteFixtureRegion` deterministically
 combines Block A header bytes, Block B header bytes, and hot field data bytes for test and conformance fixtures.
+`decodeHotCompleteFixtureRegion` is the matching read-only decoder for deterministic complete fixture/test bytes.
 
 Hot-codec throws and returns `SeqlokError` values with package-domain codes. Planning failures expose code
 `hotCodec.layoutRejected` and a sorted `details.issues` list of `HotCodecIssue` objects with stable typed issue codes
@@ -60,3 +61,10 @@ origin, and region length.
 This complete fixture region is still test/conformance data. It is not a live runtime region, does not prove runtime
 coherence, does not perform seqlock retry, does not use Atomics, does not manage SharedArrayBuffer lifecycle, and does
 not create runtime readers, writers, mappings, or handles.
+
+`decodeHotCompleteFixtureRegion` decodes deterministic complete fixture/test bytes into Block A, Block B, and field
+values. It validates the complete byte length, field-data origin, and static Block A compatibility with the manifest.
+Callers may also provide expected contract and instance keys to validate the Block A identity hashes.
+
+The decoder is read-only. It is not the hot runtime consumer, does not perform seqlock retry, does not use Atomics, does
+not manage SAB lifecycle, and does not prove runtime coherence.
