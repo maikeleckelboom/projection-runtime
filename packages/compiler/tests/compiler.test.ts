@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SeqlokError } from "@seqlok/base";
 import { type AuthoredProjectionContract, SchemaValidationError } from "@seqlok/schema";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { compileAuthoredProjectionContractWithOptions } from "../src/compile";
@@ -10,7 +11,7 @@ import {
   type CanonicalFieldShape,
   type CompileProjectionResult,
   type CompileProjectionSuccess,
-  CompilerError,
+  type CompilerError,
   compileAuthoredProjectionContract,
   type ResolvedProjectionContract,
 } from "../src/index";
@@ -250,8 +251,9 @@ describe("@seqlok/compiler schema boundary", () => {
       compileAuthoredProjectionContract({} as AuthoredProjectionContract),
     );
 
-    expect(error).toBeInstanceOf(CompilerError);
-    expect(error.issues.map((issue) => issue.code)).toContain("schema.invalid");
+    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error.code).toBe("compiler.compilationRejected");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("schema.invalid");
   });
 
   it("keeps CompilerError distinct from SchemaValidationError", () => {
@@ -259,7 +261,7 @@ describe("@seqlok/compiler schema boundary", () => {
       compileAuthoredProjectionContract({} as AuthoredProjectionContract),
     );
 
-    expect(error).toBeInstanceOf(CompilerError);
+    expect(error).toBeInstanceOf(SeqlokError);
     expect(error).not.toBeInstanceOf(SchemaValidationError);
   });
 });
@@ -303,7 +305,7 @@ describe("@seqlok/compiler field ids", () => {
       ),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("field.fieldIdCollision");
+    expect(error.details.issues.map((issue) => issue.code)).toContain("field.fieldIdCollision");
   });
 });
 
@@ -342,7 +344,7 @@ describe("@seqlok/compiler lane admissibility", () => {
       }),
     );
 
-    expect(error.issues).toEqual(
+    expect(error.details.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: "lane.hotFieldNotAdmissible",
@@ -374,7 +376,7 @@ describe("@seqlok/compiler lane admissibility", () => {
     );
 
     expect(
-      error.issues.filter((issue) => issue.code === "lane.hotFieldNotAdmissible"),
+      error.details.issues.filter((issue) => issue.code === "lane.hotFieldNotAdmissible"),
     ).toHaveLength(2);
   });
 
@@ -420,7 +422,9 @@ describe("@seqlok/compiler lane admissibility", () => {
       }),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("lane.hotReservationUnknownField");
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "lane.hotReservationUnknownField",
+    );
   });
 
   it("rejects reservations for non-bounded fields", () => {
@@ -439,7 +443,9 @@ describe("@seqlok/compiler lane admissibility", () => {
       }),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("lane.hotReservationWrongShape");
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "lane.hotReservationWrongShape",
+    );
   });
 
   it("deduplicates reservation mechanisms in canonical output", () => {
@@ -482,7 +488,9 @@ describe("@seqlok/compiler lane admissibility", () => {
       }),
     );
 
-    expect(error.issues.map((issue) => issue.code)).toContain("lane.hotReservationWithoutHotLane");
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "lane.hotReservationWithoutHotLane",
+    );
   });
 });
 
@@ -742,7 +750,7 @@ describe("@seqlok/compiler hot lane manifests", () => {
       }),
     );
 
-    expect(error.issues).toEqual(
+    expect(error.details.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           source: "hot-codec",
@@ -850,12 +858,27 @@ describe("@seqlok/compiler warm and cold", () => {
   });
 });
 
+describe("@seqlok/compiler error model", () => {
+  it("compiler failure errors are SeqlokError values with code compiler.compilationRejected", () => {
+    const error = expectFailure(
+      compileAuthoredProjectionContract({} as AuthoredProjectionContract),
+    );
+    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error.code).toBe("compiler.compilationRejected");
+    expect(error.details.issueCount).toBe(error.details.issues.length);
+  });
+});
+
 describe("@seqlok/compiler public surface", () => {
   it("exports only the intended runtime API", () => {
     expect(Object.keys(compiler).sort()).toEqual([
-      "CompilerError",
+      "COMPILER_ERRORS",
+      "COMPILER_ISSUE_DEFS",
       "compileAuthoredProjectionContract",
+      "createCompilerError",
+      "createCompilerIssue",
     ]);
+    expect("CompilerError" in compiler).toBe(false);
 
     for (const runtimeExport of [
       "compileAuthoredProjectionContractWithOptions",
@@ -870,6 +893,7 @@ describe("@seqlok/compiler public surface", () => {
   });
 
   it("exports the intended compiler type surface", () => {
+    expectTypeOf<CompilerError["code"]>().toEqualTypeOf<"compiler.compilationRejected">();
     expectTypeOf<CanonicalFieldShape["kind"]>().toEqualTypeOf<
       | "FixedScalar"
       | "FixedEnum"

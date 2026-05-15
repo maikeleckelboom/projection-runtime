@@ -1,16 +1,10 @@
-import { isDeepStrictEqual } from "node:util";
-
 import { compileAuthoredProjectionContract } from "@seqlok/compiler";
-import {
-  bytesToHex,
-  decodeHotFieldValues,
-  encodeHotFieldValues,
-  type HotFieldValues,
-  type HotLayoutManifest,
-} from "@seqlok/hot-codec";
 
-import { encodeFixtureJson } from "./encode";
-import { ConformanceError } from "./error";
+import type {
+  ConformanceArtifactName,
+  ConformanceFailureArtifactName,
+  ConformanceFailureCode,
+} from "./error";
 import {
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,
@@ -19,21 +13,25 @@ import {
   type ProjectionRuntimeFixtureName,
   type ProjectionRuntimeFixtureRootOptions,
 } from "./fixtures";
+import { appendArtifactComparison } from "./verify/artifact";
+import { fixtureFileFailureResult } from "./verify/failure";
+import { appendHotBlockAFixtureComparison } from "./verify/hot-block-a";
+import { appendHotBlockBFixtureComparison } from "./verify/hot-block-b";
+import { appendHotByteFixtureComparison } from "./verify/hot-byte";
+import { appendHotCompleteFixtureRegionComparison } from "./verify/hot-complete-region";
+import { appendHotLayoutVersionCheck } from "./verify/hot-layout-version";
+import { appendResolvedContractComparison } from "./verify/resolved";
 
-export type ProjectionRuntimeArtifactName =
-  | "canonical-manifest"
-  | "hot-byte-fixture"
-  | "hot-layout-manifest"
-  | "resolved-contract";
+export type ProjectionRuntimeArtifactName = Exclude<
+  ConformanceArtifactName,
+  "authored-contract" | "readme"
+>;
 
-export type ProjectionRuntimeFixtureFailureArtifact =
-  | ProjectionRuntimeArtifactName
-  | "compile"
-  | "fixture-file"
-  | "hot-layout-version";
+export type ProjectionRuntimeFixtureFailureArtifact = ConformanceFailureArtifactName;
 
 export interface ProjectionRuntimeFixtureFailure {
   readonly artifact: ProjectionRuntimeFixtureFailureArtifact;
+  readonly failureCode: ConformanceFailureCode;
   readonly reason: string;
   readonly expected?: unknown;
   readonly actual?: unknown;
@@ -60,7 +58,13 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
   readonly expectedArtifacts?: Partial<
     Pick<
       ProjectionRuntimeFixtureArtifacts,
-      "canonicalManifest" | "hotByteFixture" | "hotLayoutManifest" | "resolvedContract"
+      | "canonicalManifest"
+      | "hotByteFixture"
+      | "hotBlockAFixture"
+      | "hotBlockBFixture"
+      | "hotCompleteFixtureRegion"
+      | "hotLayoutManifest"
+      | "resolvedContract"
     >
   >;
 }
@@ -85,6 +89,12 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.canonicalManifest ?? artifacts.canonicalManifest;
   const expectedHotByteFixture =
     options.expectedArtifacts?.hotByteFixture ?? artifacts.hotByteFixture;
+  const expectedHotBlockAFixture =
+    options.expectedArtifacts?.hotBlockAFixture ?? artifacts.hotBlockAFixture;
+  const expectedHotBlockBFixture =
+    options.expectedArtifacts?.hotBlockBFixture ?? artifacts.hotBlockBFixture;
+  const expectedHotCompleteFixtureRegion =
+    options.expectedArtifacts?.hotCompleteFixtureRegion ?? artifacts.hotCompleteFixtureRegion;
   const expectedHotLayoutManifest =
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
@@ -101,8 +111,9 @@ export async function runProjectionRuntimeFixture(
       failures: [
         {
           artifact: "compile",
+          failureCode: "compilerRejected",
           reason: "compiler rejected authored-contract.json",
-          actual: compileResult.error.issues,
+          actual: compileResult.error.details.issues,
         },
       ],
     };
@@ -125,7 +136,17 @@ export async function runProjectionRuntimeFixture(
     hotLayoutManifest,
   );
   appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
-  appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
+  appendHotBlockAFixtureComparison(failures, expectedHotBlockAFixture, hotLayoutManifest, resolved);
+  appendHotBlockBFixtureComparison(failures, expectedHotBlockBFixture);
+  appendHotCompleteFixtureRegionComparison(
+    failures,
+    expectedHotCompleteFixtureRegion,
+    expectedHotByteFixture,
+    expectedHotBlockBFixture,
+    hotLayoutManifest,
+    resolved,
+  );
+  appendResolvedContractComparison(failures, expectedResolvedContract, resolved);
   appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
   appendHotLayoutVersionCheck(failures, "actual", resolved);
 
@@ -156,167 +177,5 @@ export async function runProjectionRuntimeConformance(
     passedCount,
     failedCount,
     fixtures,
-  };
-}
-
-function appendArtifactComparison(
-  failures: ProjectionRuntimeFixtureFailure[],
-  artifact: ProjectionRuntimeArtifactName,
-  expectedValue: unknown,
-  actualValue: unknown,
-): void {
-  const expected = encodeFixtureJson(expectedValue);
-  const actual = encodeFixtureJson(actualValue);
-
-  if (isDeepStrictEqual(actual, expected)) {
-    return;
-  }
-
-  failures.push({
-    artifact,
-    reason: `${artifact} does not match golden artifact`,
-    expected,
-    actual,
-  });
-}
-
-function appendHotByteFixtureComparison(
-  failures: ProjectionRuntimeFixtureFailure[],
-  expectedHotByteFixture: unknown,
-  hotLayoutManifest: HotLayoutManifest | undefined,
-): void {
-  try {
-    appendArtifactComparison(
-      failures,
-      "hot-byte-fixture",
-      expectedHotByteFixture,
-      createHotByteFixtureArtifact(hotLayoutManifest, expectedHotByteFixture),
-    );
-  } catch (error) {
-    failures.push({
-      artifact: "hot-byte-fixture",
-      reason: error instanceof Error ? error.message : "failed to verify hot-byte-fixture",
-      expected: encodeFixtureJson(expectedHotByteFixture),
-    });
-  }
-}
-
-function createHotByteFixtureArtifact(
-  hotLayoutManifest: HotLayoutManifest | undefined,
-  expectedHotByteFixture: unknown,
-): unknown {
-  if (hotLayoutManifest === undefined) {
-    throw new Error("hot-byte-fixture requires a hot layout manifest");
-  }
-
-  const values = getObjectProperty(expectedHotByteFixture, "values");
-  if (!isRecord(values)) {
-    throw new Error("hot-byte-fixture values must be an object");
-  }
-
-  const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
-  const decodedFromField = decodeHotFieldValues(hotLayoutManifest, encoded.fieldBytes).values;
-  const decodedFromRegion = decodeHotFieldValues(
-    hotLayoutManifest,
-    encoded.fixtureRegionBytes,
-  ).values;
-
-  if (
-    !isDeepStrictEqual(encodeFixtureJson(decodedFromField), encodeFixtureJson(decodedFromRegion))
-  ) {
-    throw new Error("hot-byte-fixture field and region decoding diverged");
-  }
-
-  return {
-    fixtureKind: "hot-byte-fixture",
-    contractKey: hotLayoutManifest.contractKey,
-    hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
-    totalRegionByteLength: hotLayoutManifest.totalRegionByteLength,
-    fieldDataOrigin: hotLayoutManifest.fieldDataOrigin,
-    values,
-    expected: {
-      fieldBytesHex: bytesToHex(encoded.fieldBytes),
-      fixtureRegionBytesHex: bytesToHex(encoded.fixtureRegionBytes),
-      decodedValues: decodedFromRegion,
-    },
-  };
-}
-
-function appendHotLayoutVersionCheck(
-  failures: ProjectionRuntimeFixtureFailure[],
-  source: "actual" | "expected",
-  resolvedContract: unknown,
-): void {
-  const encoded = encodeFixtureJson(resolvedContract);
-  const topLevelVersion = getObjectProperty(encoded, "hotLayoutVersion");
-  const laneVersion = getObjectProperty(
-    getObjectProperty(getObjectProperty(encoded, "laneManifests"), "hot"),
-    "hotLayoutVersion",
-  );
-
-  if (topLevelVersion === undefined || laneVersion === undefined) {
-    return;
-  }
-
-  if (isDeepStrictEqual(topLevelVersion, laneVersion)) {
-    return;
-  }
-
-  failures.push({
-    artifact: "hot-layout-version",
-    reason: `${source} hotLayoutVersion does not match laneManifests.hot.hotLayoutVersion`,
-    expected: laneVersion,
-    actual: topLevelVersion,
-  });
-}
-
-function getObjectProperty(value: unknown, key: string): unknown {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-
-  return (value as Record<string, unknown>)[key];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function fixtureFileFailureResult(
-  fixture: ProjectionRuntimeFixtureName | ProjectionRuntimeFixture,
-  error: unknown,
-): ProjectionRuntimeFixtureResult {
-  const details = error instanceof ConformanceError ? error.details : {};
-  const fixtureName =
-    details.fixtureName ?? (typeof fixture === "string" ? fixture : fixture.fixtureName);
-  const fixturePath =
-    details.fixturePath ?? (typeof fixture === "string" ? fixture : fixture.fixturePath);
-  const failure = fixtureFileFailure(error);
-
-  return {
-    fixtureName,
-    fixturePath,
-    passed: false,
-    failures: [failure],
-  };
-}
-
-function fixtureFileFailure(error: unknown): ProjectionRuntimeFixtureFailure {
-  if (error instanceof ConformanceError) {
-    return {
-      artifact: "fixture-file",
-      reason: error.message,
-      ...(error.details.fixtureFile === undefined
-        ? {}
-        : { fixtureFile: error.details.fixtureFile }),
-      ...(error.details.relativePath === undefined
-        ? {}
-        : { relativePath: error.details.relativePath }),
-    };
-  }
-
-  return {
-    artifact: "fixture-file",
-    reason: error instanceof Error ? error.message : "failed to load fixture files",
   };
 }

@@ -28,6 +28,7 @@
     "test:watch": "vitest --root ../.. --project @seqlok/compiler"
   },
   "dependencies": {
+    "@seqlok/base": "workspace:*",
     "@seqlok/hot-codec": "workspace:*",
     "@seqlok/schema": "workspace:*"
   }

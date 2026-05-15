@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { panic } from "@seqlok/base";
+
 import { compareUtf8 } from "./fields";
 import type {
   CanonicalField,
@@ -135,7 +137,7 @@ function readU64PrefixBigEndian(bytes: Uint8Array): bigint {
   for (let index = 0; index < 8; index += 1) {
     const byte = bytes[index];
     if (byte === undefined) {
-      throw new Error("SHA-256 digest unexpectedly shorter than 8 bytes");
+      panic("SHA-256 digest unexpectedly shorter than 8 bytes");
     }
 
     value = (value << 8n) | BigInt(byte);

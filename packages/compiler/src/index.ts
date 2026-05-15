@@ -4,7 +4,19 @@ export {
   type CompileProjectionSuccess,
   compileAuthoredProjectionContract,
 } from "./compile";
-export { CompilerError, type CompilerIssue } from "./error";
+export {
+  COMPILER_ERRORS,
+  COMPILER_ISSUE_DEFS,
+  type CompilerCompilationRejectedDetails,
+  type CompilerError,
+  type CompilerErrorCode,
+  type CompilerErrorKey,
+  type CompilerIssue,
+  type CompilerIssueCode,
+  type CompilerIssueSource,
+  createCompilerError,
+  createCompilerIssue,
+} from "./error";
 export type {
   CanonicalColdLaneDeclaration,
   CanonicalField,

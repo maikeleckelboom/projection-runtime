@@ -1,6 +1,6 @@
 import type { AuthoredLaneDeclarations } from "@seqlok/schema";
 
-import type { CompilerIssue } from "./error";
+import { type CompilerIssue, createCompilerIssue } from "./error";
 import { compareUtf8, type FieldLocalHotReservation } from "./fields";
 import type {
   CanonicalColdLaneDeclaration,
@@ -35,22 +35,26 @@ export function canonicalizeLanes(
     lanes.hot = { codec: "mapped-fixed", reservations };
   } else {
     for (const reservation of fieldLocalHotReservations) {
-      issues.push({
-        code: "lane.hotReservationWithoutHotLane",
-        path: reservation.path,
-        message: "hot reservation declared without a hot lane",
-      });
+      issues.push(
+        createCompilerIssue(
+          "lane.hotReservationWithoutHotLane",
+          reservation.path,
+          "hot reservation declared without a hot lane",
+        ),
+      );
     }
   }
 
   if (authoredLanes?.warm !== undefined) {
     const codec = authoredLanes.warm.codec ?? "framed-snapshot";
     if (codec !== "framed-snapshot") {
-      issues.push({
-        code: "lane.warmCodecUnsupported",
-        path: "lanes.warm.codec",
-        message: "warm codec must be framed-snapshot",
-      });
+      issues.push(
+        createCompilerIssue(
+          "lane.warmCodecUnsupported",
+          "lanes.warm.codec",
+          "warm codec must be framed-snapshot",
+        ),
+      );
     } else {
       lanes.warm = { codec };
     }
@@ -59,11 +63,13 @@ export function canonicalizeLanes(
   if (authoredLanes?.cold !== undefined) {
     const materialization = authoredLanes.cold.materialization ?? "latest-snapshot";
     if (materialization !== "latest-snapshot" && materialization !== "checkpointed-snapshot") {
-      issues.push({
-        code: "lane.coldMaterializationUnsupported",
-        path: "lanes.cold.materialization",
-        message: "cold materialization is not supported",
-      });
+      issues.push(
+        createCompilerIssue(
+          "lane.coldMaterializationUnsupported",
+          "lanes.cold.materialization",
+          "cold materialization is not supported",
+        ),
+      );
     } else {
       lanes.cold = { materialization };
     }
@@ -104,20 +110,24 @@ function validateHotReservations(
   for (const reservation of reservations) {
     const field = fieldByPath.get(reservation);
     if (field === undefined) {
-      issues.push({
-        code: "lane.hotReservationUnknownField",
-        path: `lanes.hot.reservations.${reservation}`,
-        message: "hot reservation names a field that does not exist",
-      });
+      issues.push(
+        createCompilerIssue(
+          "lane.hotReservationUnknownField",
+          `lanes.hot.reservations.${reservation}`,
+          "hot reservation names a field that does not exist",
+        ),
+      );
       continue;
     }
 
     if (field.shape.kind !== "BoundedArray" && field.shape.kind !== "BoundedMap") {
-      issues.push({
-        code: "lane.hotReservationWrongShape",
-        path: `lanes.hot.reservations.${reservation}`,
-        message: "hot reservation must name a bounded array or bounded map field",
-      });
+      issues.push(
+        createCompilerIssue(
+          "lane.hotReservationWrongShape",
+          `lanes.hot.reservations.${reservation}`,
+          "hot reservation must name a bounded array or bounded map field",
+        ),
+      );
     }
   }
 
@@ -135,11 +145,13 @@ function validateHotAdmissibility(
       continue;
     }
 
-    issues.push({
-      code: "lane.hotFieldNotAdmissible",
-      path: `fields.${field.dotPath}`,
-      message: `${field.shape.kind} is not hot-admissible without a fixed reservation`,
-    });
+    issues.push(
+      createCompilerIssue(
+        "lane.hotFieldNotAdmissible",
+        `fields.${field.dotPath}`,
+        `${field.shape.kind} is not hot-admissible without a fixed reservation`,
+      ),
+    );
   }
 
   return issues;

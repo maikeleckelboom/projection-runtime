@@ -15,14 +15,53 @@ export {
   HOT_ABI_VERSION,
   HOT_BASELINE_EPOCH_U32_OFFSET,
   HOT_BLOCK_A_BYTE_LENGTH,
+  HOT_BLOCK_B_BYTE_LENGTH,
   HOT_BLOCK_B_BYTE_OFFSET,
+  HOT_BLOCK_B_END_OFFSET,
   HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_FIELD_DATA_BYTE_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
+  HOT_REGION_MAGIC_BYTES,
   HOT_SEQLOCK_U64_OFFSET,
 } from "./constants";
-export type { HotCodecIssue } from "./error";
-export { HotByteCodecError, HotCodecError } from "./error";
+export {
+  decodeHotCompleteFixtureRegion,
+  type HotCompleteFixtureRegionDecodeOptions,
+  type HotCompleteFixtureRegionDecodeResult,
+} from "./decode";
+export {
+  createHotByteRejectedError,
+  createHotCodecError,
+  createHotCodecIssue,
+  createHotLayoutRejectedError,
+  HOT_CODEC_ERRORS,
+  HOT_CODEC_ISSUE_DEFS,
+  type HotByteCodecError,
+  type HotCodecError,
+  type HotCodecErrorCode,
+  type HotCodecErrorKey,
+  type HotCodecIssue,
+  type HotCodecIssueCode,
+  isHotCodecError,
+} from "./error";
+export {
+  encodeHotCompleteFixtureRegion,
+  type HotCompleteFixtureRegionInput,
+} from "./fixture-region";
+export {
+  decodeHotBlockAHeader,
+  decodeHotBlockBHeader,
+  encodeHotBlockAHeader,
+  encodeHotBlockBHeader,
+  type HotBlockAHeader,
+  type HotBlockAHeaderInput,
+  type HotBlockAHeaderValidationResult,
+  type HotBlockBHeader,
+  type HotBlockBHeaderInput,
+  type HotBlockBHeaderValidationResult,
+  validateHotBlockAHeader,
+  validateHotBlockBHeader,
+} from "./header";
 export type {
   HotFieldEntry,
   HotLayoutManifest,

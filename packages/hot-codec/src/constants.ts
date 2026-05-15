@@ -1,6 +1,9 @@
 export const HOT_ABI_VERSION = 1 as const;
 export const HOT_BLOCK_A_BYTE_LENGTH = 72 as const;
 export const HOT_BLOCK_B_BYTE_OFFSET = 72 as const;
+export const HOT_BLOCK_B_BYTE_LENGTH = 24 as const;
+export const HOT_BLOCK_B_END_OFFSET = 96 as const;
+export const HOT_REGION_MAGIC_BYTES: Uint8Array = new Uint8Array([0x53, 0x51, 0x4c, 0x4b]);
 export const HOT_SEQLOCK_U64_OFFSET = 72 as const;
 export const HOT_BASELINE_EPOCH_U32_OFFSET = 80 as const;
 export const HOT_CONTINUITY_GENERATION_U32_OFFSET = 84 as const;

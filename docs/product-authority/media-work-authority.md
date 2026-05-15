@@ -1,14 +1,6 @@
 # Media Work Authority
 
-Companion to:
-
-- Boundary Model
-- Control Plane Session Rules
-- Resource Plane v1
-- Publication Subscription Lifecycle
-- Hot Lane Consumer Runtime
-
-Status: Draft for ratification. Product-authority companion built on top of the Seqlok projection/runtime substrate.
+Status: Product-authority companion. This document is not Seqlok substrate canon. It shows how a product authority can use Seqlok control, publication, resource, and session contracts.
 
 This document defines the product-level authority contract for media work: waveform LOD generation, stem waveform
 generation, stem analysis generation, artwork materialization, analysis output, and other produced media resources.
@@ -23,8 +15,8 @@ The center is media work ownership, not workers.
 
 ## 1. Purpose
 
-A Rekordbox-class DJ system needs to produce, track, expose, invalidate, and reopen media-derived data without blocking
-the renderer or hiding work inside resource opens.
+A realtime media application needs to produce, track, expose, invalidate, and reopen media-derived data without blocking
+consumers or hiding work inside resource opens.
 
 This document defines:
 
@@ -40,8 +32,7 @@ This document defines:
 - invalidation and supersession behavior
 - the boundary between control, publication, resource, and hot runtime state
 
-The renderer must never depend on an unbounded wait, hidden worker state, or blocking resource open to discover
-progress.
+Consumers must never depend on an unbounded wait, hidden worker state, or blocking resource open to discover progress.
 
 Concrete waveform, artwork, stem, and analysis descriptor examples in this document are illustrative first-profile
 shapes unless a later resource-specific product contract promotes them to canonical product contracts.
@@ -56,7 +47,7 @@ Workers are implementation topology. The product contract is media work ownershi
 availability, and produced resources.
 
 The media authority may use threads, worker pools, processes, GPU jobs, local cache reads, or external services.
-Electron observes only declared boundary state.
+Consumers observe only declared boundary state.
 
 ### 2.2 WorkTicket is not ResourceHandle
 
@@ -723,7 +714,7 @@ stem.availability(subject, stem, lod, profileKey, profileVersion)
 artwork.availability(subject, size, profileKey, profileVersion)
 ```
 
-The renderer observes availability instead of polling resource opens.
+Consumers observe availability instead of polling resource opens.
 
 ---
 
@@ -811,8 +802,8 @@ A conforming implementation must ensure:
 - media work does not execute on an audio callback path
 - media work does not hold locks required by audio-critical publication
 - media work does not make hot publication progress depend on background materialization
-- resource production cannot block deck runtime publication
-- background materialization cannot block mixer meters, deck phase, transport state, or stem gain hot surfaces
+- resource production cannot block live runtime publication
+- background materialization cannot block live performance-critical hot surfaces
 
 Scheduler internals may vary, but these isolation requirements are part of the product authority contract.
 
@@ -868,7 +859,7 @@ A conforming implementation must prove at least:
 - authority epoch replacement invalidates live work tickets from the old epoch through the session layer
 - backpressure is explicit, not a silent hang
 - media work does not block audio-critical hot publication paths
-- renderer can observe queued, running, available, failed, cancelled, and superseded states without worker-specific
+- consumers can observe queued, running, available, failed, cancelled, and superseded states without worker-specific
   knowledge
 
 ---

@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ConformanceError } from "./error";
+import { type ConformanceError, createConformanceError } from "./error";
 
 export type ProjectionRuntimeFixtureName = string;
 
@@ -15,6 +15,9 @@ export interface ProjectionRuntimeFixtureArtifacts {
   readonly authoredContract: unknown;
   readonly canonicalManifest: unknown;
   readonly hotByteFixture: unknown;
+  readonly hotBlockAFixture: unknown;
+  readonly hotBlockBFixture: unknown;
+  readonly hotCompleteFixtureRegion: unknown;
   readonly hotLayoutManifest: unknown;
   readonly resolvedContract: unknown;
 }
@@ -56,6 +59,21 @@ const hotLayoutManifestFile = {
 const hotByteFixtureFile = {
   fileName: "hot-byte-fixture.json",
   artifactName: "hot-byte-fixture",
+} satisfies RequiredFixtureFile;
+
+const hotBlockAFixtureFile = {
+  fileName: "hot-block-a-fixture.json",
+  artifactName: "hot-block-a-fixture",
+} satisfies RequiredFixtureFile;
+
+const hotBlockBFixtureFile = {
+  fileName: "hot-block-b-fixture.json",
+  artifactName: "hot-block-b-fixture",
+} satisfies RequiredFixtureFile;
+
+const hotCompleteFixtureRegionFile = {
+  fileName: "hot-complete-fixture-region.json",
+  artifactName: "hot-complete-fixture-region",
 } satisfies RequiredFixtureFile;
 
 const resolvedContractFile = {
@@ -110,6 +128,24 @@ export async function loadProjectionRuntimeFixture(
     fixtureName,
     hotByteFixtureFile,
   );
+  const hotBlockAFixture = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    hotBlockAFixtureFile,
+  );
+  const hotBlockBFixture = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    hotBlockBFixtureFile,
+  );
+  const hotCompleteFixtureRegion = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    hotCompleteFixtureRegionFile,
+  );
   const resolvedContract = await readRequiredJson(
     fixturePath,
     relativeFixturePath,
@@ -125,6 +161,9 @@ export async function loadProjectionRuntimeFixture(
       authoredContract,
       canonicalManifest,
       hotByteFixture,
+      hotBlockAFixture,
+      hotBlockBFixture,
+      hotCompleteFixtureRegion,
       hotLayoutManifest,
       resolvedContract,
     },
@@ -154,7 +193,9 @@ function assertDirectFixtureName(fixtureName: ProjectionRuntimeFixtureName): voi
     fixtureName.includes("/") ||
     fixtureName.includes("\\")
   ) {
-    throw new ConformanceError(`invalid projection-runtime fixture name: ${fixtureName}`, {
+    throw createConformanceError("fixtureFileRejected", {
+      detail: `invalid projection-runtime fixture name: ${fixtureName}`,
+      failureCode: "invalidFixtureName",
       fixtureName,
     });
   }
@@ -171,7 +212,14 @@ async function readRequiredText(
   try {
     return await readFile(path, "utf8");
   } catch (error) {
-    throw fileError("missing required fixture file", relativeFixturePath, fixtureName, file, error);
+    throw fileError(
+      "missing required fixture file",
+      "missingRequiredFixtureFile",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
   }
 }
 
@@ -186,12 +234,20 @@ async function readRequiredJson(
   try {
     return JSON.parse(source);
   } catch (error) {
-    throw fileError("invalid fixture JSON", relativeFixturePath, fixtureName, file, error);
+    throw fileError(
+      "invalid fixture JSON",
+      "invalidFixtureJson",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
   }
 }
 
 function fileError(
   reason: string,
+  failureCode: "invalidFixtureJson" | "missingRequiredFixtureFile",
   relativeFixturePath: string,
   fixtureName: ProjectionRuntimeFixtureName,
   file: RequiredFixtureFile,
@@ -199,15 +255,17 @@ function fileError(
 ): ConformanceError {
   const relativePath = `${relativeFixturePath}/${file.fileName}`;
 
-  return new ConformanceError(
-    `${reason}: ${file.artifactName} at ${relativePath}`,
+  return createConformanceError(
+    "fixtureFileRejected",
     {
+      detail: `${reason}: ${file.artifactName} at ${relativePath}`,
+      failureCode,
       fixtureName,
       fixturePath: relativeFixturePath,
       fixtureFile: file.fileName,
       relativePath,
     },
-    { cause },
+    cause,
   );
 }
 

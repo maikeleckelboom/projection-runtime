@@ -26,8 +26,31 @@ For this byte fixture, Block A and the Block B header/prefix bytes are intention
 field byte semantics only. It does not claim to initialize an authority-owned mapped region, prove Rust writer
 compatibility, prove runtime seqlock read/write behavior, or cover Electron/SAB lifecycle behavior.
 
+`hot-block-a-fixture.json` adds deterministic Block A header bytes for this layout. It encodes the 72-byte immutable
+Block A header using the contract key, instance key, semantic version, layout version, field count, and mutable region
+size from the compiler output. It verifies that decoding those bytes returns the expected header fields and that
+validation against the expected input succeeds. It does not encode Block B, manage seqlock lifecycle, or create a valid
+full runtime region.
+
+`hot-block-b-fixture.json` adds deterministic Block B publication-header bytes. It encodes the standalone 24-byte slice
+for `seqlockCounter`, `baselineEpoch`, `continuityGeneration`, and `publicationSequence`, verifies lowercase
+little-endian bytes, verifies decoding, and validates the decoded header metadata through public `@seqlok/hot-codec`
+APIs. It does not perform publication lifecycle, seqlock retry, Atomics operations, SAB lifecycle management, runtime
+handle creation, live mapping binding, reader creation, or writer creation. It does not create a valid coherent runtime
+read by itself.
+
+`hot-complete-fixture-region.json` adds deterministic complete fixture-region bytes for this same static fixture. It
+combines the existing Block A header bytes, Block B header bytes, and hot field data bytes into one 136-byte array with
+field data starting at byte 96. The decoded section records the Block A header, Block B header, and field values that
+the assembled slices decode to through public `@seqlok/hot-codec` APIs.
+
+The complete fixture region is still not a live runtime region. It does not prove runtime coherence, perform seqlock
+retry, use Atomics, manage SAB lifecycle, bind mappings, create handles, or create runtime readers or writers.
+`hot-byte-fixture.json` remains the zero-filled fixture-region byte artifact for pure field byte semantics, and
+`encodeHotFixtureRegion` remains the zero-filled fixture helper.
+
 Regenerate derived artifacts from the repo root:
 
 ```sh
-node scripts/write-projection-runtime-fixture.mjs
+node scripts/write-projection-runtime-fixture.mts
 ```

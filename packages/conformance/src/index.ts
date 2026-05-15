@@ -1,5 +1,16 @@
 export { encodeFixtureJson } from "./encode";
-export { ConformanceError, type ConformanceErrorDetails } from "./error";
+export {
+  CONFORMANCE_ERRORS,
+  type ConformanceArtifactName,
+  type ConformanceError,
+  type ConformanceErrorCode,
+  type ConformanceErrorDetails,
+  type ConformanceErrorKey,
+  type ConformanceFailureArtifactName,
+  type ConformanceFailureCode,
+  createConformanceError,
+  isConformanceError,
+} from "./error";
 export {
   listProjectionRuntimeFixtures,
   loadProjectionRuntimeFixture,

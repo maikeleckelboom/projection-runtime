@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { panic } from "@seqlok/base";
+
+import { createHotCodecIssue, createHotLayoutRejectedError } from "./error";
 import type { HotFieldEntry, HotLayoutManifest, HotLayoutVersion } from "./manifest";
 import type { HotLayoutPlanningShape } from "./shape";
 import { compareUtf8 } from "./shape";
@@ -136,7 +139,7 @@ function readU64PrefixBigEndian(bytes: Uint8Array): bigint {
   for (let index = 0; index < 8; index += 1) {
     const byte = bytes[index];
     if (byte === undefined) {
-      throw new Error("SHA-256 digest unexpectedly shorter than 8 bytes");
+      panic("SHA-256 digest unexpectedly shorter than 8 bytes");
     }
 
     value = (value << 8n) | BigInt(byte);
@@ -181,5 +184,11 @@ function assertUnsignedInteger(value: number, max: number, label: string): void 
     return;
   }
 
-  throw new RangeError(`canonical hot layout ${label} value is out of range`);
+  throw createHotLayoutRejectedError([
+    createHotCodecIssue(
+      "layout.numericOutOfRange",
+      `canonicalHotLayout.${label}`,
+      `canonical hot layout ${label} value is out of range`,
+    ),
+  ]);
 }
