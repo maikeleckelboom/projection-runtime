@@ -92,19 +92,21 @@ function readDisplayName(view: DataView): string {
 
 function validateHotExchangeRegion(region: Uint8Array): void {
   if (!(region instanceof Uint8Array)) {
-    throw new TypeError("hot-exchange region must be a Uint8Array");
+    throw new TypeError("hot-exchange-v0 region must be a Uint8Array");
   }
 
   if (!(region.buffer instanceof SharedArrayBuffer)) {
-    throw new TypeError("hot-exchange region must be backed by SharedArrayBuffer");
+    throw new TypeError("hot-exchange-v0 region must be backed by SharedArrayBuffer");
   }
 
   if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {
-    throw new RangeError(`hot-exchange region must be at least ${TOTAL_REGION_BYTE_LENGTH} bytes`);
+    throw new RangeError(
+      `hot-exchange-v0 region must be at least ${TOTAL_REGION_BYTE_LENGTH} bytes`,
+    );
   }
 
   const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;
   if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {
-    throw new RangeError("hot-exchange seqlock view is not u64-aligned");
+    throw new RangeError("hot-exchange-v0 seqlock view is not u64-aligned");
   }
 }

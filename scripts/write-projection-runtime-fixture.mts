@@ -7,7 +7,7 @@ import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { writeGeneratedHotExchangeReader } from "./projection-runtime/write-generated-hot-reader.mts";
+import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -97,6 +97,11 @@ type FixtureProfile<TValues extends HotFieldValues> = {
   readonly fixtureName: string;
   readonly instanceKey: string;
   readonly values: TValues;
+};
+
+type GeneratedHotReaderProfile = {
+  readonly fixtureName: string;
+  readonly symbolStem: string;
 };
 
 type EncodedHotFieldValues<TValues extends HotFieldValues> = {
@@ -240,6 +245,17 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
   },
 ] as const satisfies readonly FixtureProfile<HotFieldValues>[];
 
+const generatedHotReaderProfiles: readonly GeneratedHotReaderProfile[] = [
+  {
+    fixtureName: "deck-runtime-v0",
+    symbolStem: "DeckRuntime",
+  },
+  {
+    fixtureName: "hot-exchange-v0",
+    symbolStem: "HotExchange",
+  },
+] as const;
+
 for (const profile of fixtureProfiles) {
   await writeProjectionRuntimeFixture(profile);
 }
@@ -289,11 +305,17 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   );
   await writeJson(resolvedContractPath, resolved);
 
-  if (profile.fixtureName === "hot-exchange-v0") {
-    await writeGeneratedHotExchangeReader({
+  const generatedHotReaderProfile = generatedHotReaderProfiles.find(
+    (entry) => entry.fixtureName === profile.fixtureName,
+  );
+
+  if (generatedHotReaderProfile !== undefined) {
+    await writeGeneratedHotReader({
+      fixtureName: generatedHotReaderProfile.fixtureName,
+      symbolStem: generatedHotReaderProfile.symbolStem,
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotReaderPath,
-      generatedFromPath: "fixtures/projection-runtime/hot-exchange-v0/hot-layout-manifest.json",
+      generatedFromPath: `fixtures/projection-runtime/${generatedHotReaderProfile.fixtureName}/hot-layout-manifest.json`,
     });
   }
 }
@@ -579,9 +601,9 @@ function formatGeneratedArtifacts(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/hot-complete-fixture-region.json`,
     `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
   ]);
-  const generatedSourcePaths = [
-    "fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts",
-  ];
+  const generatedSourcePaths = generatedHotReaderProfiles.map(
+    (profile) => `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-reader.ts`,
+  );
 
   execFileSync(
     process.execPath,
