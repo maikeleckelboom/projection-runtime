@@ -446,7 +446,7 @@ describe("@exclave/conformance execution", () => {
     const region = copyIntoSharedRegion(bytes);
     const reader = createHotExchangeReader(region);
 
-    const result = reader.read({
+    const result = reader.tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
     });
@@ -465,7 +465,7 @@ describe("@exclave/conformance execution", () => {
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes, 8);
-    const result = createHotExchangeReader(region).read({
+    const result = createHotExchangeReader(region).tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
     });

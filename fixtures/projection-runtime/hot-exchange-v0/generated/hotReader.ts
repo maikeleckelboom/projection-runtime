@@ -17,7 +17,7 @@ export type HotExchangeSnapshot = {
 };
 
 export type HotExchangeReader = {
-  readonly read: (options?: HotReadOptions) => HotReadAttemptResult<HotExchangeSnapshot>;
+  readonly tryRead: (options?: HotReadOptions) => HotReadAttemptResult<HotExchangeSnapshot>;
 };
 
 const SEQLOCK_OFFSET = 72;
@@ -46,7 +46,7 @@ export function createHotExchangeReader(region: Uint8Array): HotExchangeReader {
   const state: HotReadState<HotExchangeSnapshot> = createHotReadState<HotExchangeSnapshot>();
 
   return {
-    read: (options?: HotReadOptions) =>
+    tryRead: (options?: HotReadOptions) =>
       tryReadHotSnapshot({
         sequence,
         readCandidate: () => readHotExchangeSnapshot(region),
