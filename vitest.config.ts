@@ -13,6 +13,9 @@ const workspaceAliases = {
     new URL("./packages/conformance/src/index.ts", import.meta.url),
   ),
   "@seqlok/hot-codec": fileURLToPath(new URL("./packages/hot-codec/src/index.ts", import.meta.url)),
+  "@seqlok/hot-consumer": fileURLToPath(
+    new URL("./packages/hot-consumer/src/index.ts", import.meta.url),
+  ),
 };
 
 export default defineConfig({
@@ -72,6 +75,19 @@ export default defineConfig({
           name: "@seqlok/hot-codec",
           environment: "node",
           include: ["packages/hot-codec/tests/**/*.test.ts", "packages/hot-codec/src/**/*.test.ts"],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@seqlok/hot-consumer",
+          environment: "node",
+          include: [
+            "packages/hot-consumer/tests/**/*.test.ts",
+            "packages/hot-consumer/src/**/*.test.ts",
+          ],
         },
       },
       {

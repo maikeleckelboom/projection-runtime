@@ -56,6 +56,16 @@ importers:
         specifier: workspace:*
         version: link:../base
 
+  packages/hot-consumer:
+    dependencies:
+      '@seqlok/base':
+        specifier: workspace:*
+        version: link:../base
+    devDependencies:
+      '@seqlok/hot-codec':
+        specifier: workspace:*
+        version: link:../hot-codec
+
   packages/primitives:
     dependencies:
       '@seqlok/base':
