@@ -1,6 +1,6 @@
-# @seqlok/primitives
+# @exclave/primitives
 
-Low-level atomic and layout helpers for Seqlok runtime and compiler packages.
+Low-level atomic and layout helpers for Exclave runtime and compiler packages.
 
 This package is deliberately small. It does not own projection semantics, hot
 consumer read policy, lane planning, or transport contracts. Those boundaries
@@ -57,7 +57,7 @@ projection field taxonomy and should not be expanded into one here.
 ## Example
 
 ```ts
-import { addAtomicU32, loadAtomicU32, loadAtomicU64, roundUpTo } from "@seqlok/primitives";
+import { addAtomicU32, loadAtomicU32, loadAtomicU64, roundUpTo } from "@exclave/primitives";
 
 const u32 = new Uint32Array(new SharedArrayBuffer(Uint32Array.BYTES_PER_ELEMENT));
 addAtomicU32(u32, 0, 1);

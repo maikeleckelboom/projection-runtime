@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { panic } from "@seqlok/base";
+import { panic } from "@exclave/base";
 
 import { compareUtf8 } from "./fields";
 import type {

@@ -11,7 +11,7 @@ import {
   validateAuthoredProjectionContract,
 } from "../src/index";
 
-describe("@seqlok/schema", () => {
+describe("@exclave/schema", () => {
   it("validates a minimal authored projection contract", () => {
     const contract = {
       key: "deck.runtime",

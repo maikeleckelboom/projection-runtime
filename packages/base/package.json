@@ -1,7 +1,7 @@
 {
-  "name": "@seqlok/base",
+  "name": "@exclave/base",
   "version": "0.0.0",
-  "description": "Small shared foundations for Seqlok packages.",
+  "description": "Small shared foundations for Exclave packages.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,7 +24,7 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "test": "vitest run --root ../.. --project @seqlok/base",
-    "test:watch": "vitest --root ../.. --project @seqlok/base"
+    "test": "vitest run --root ../.. --project @exclave/base",
+    "test:watch": "vitest --root ../.. --project @exclave/base"
   }
 }

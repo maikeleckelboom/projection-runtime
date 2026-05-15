@@ -14,7 +14,7 @@ between the canonical manifest, `semanticVersion`, `laneManifests.hot`, and the 
 Those values must match. Version-like u64 values in this fixture are encoded as 16-character lowercase hexadecimal
 strings without a `0x` prefix.
 
-This fixture is validated by `@seqlok/conformance`. It does not prove runtime reads or writes, Rust compatibility,
+This fixture is validated by `@exclave/conformance`. It does not prove runtime reads or writes, Rust compatibility,
 generated bindings, Electron/SAB lifecycle behavior, product contracts, or warm/cold/resource lanes.
 
 `hot-byte-fixture.json` adds the first deterministic TypeScript hot field byte golden for this layout. It uses the
@@ -34,7 +34,7 @@ full runtime region.
 
 `hot-block-b-fixture.json` adds deterministic Block B publication-header bytes. It encodes the standalone 24-byte slice
 for `seqlockCounter`, `baselineEpoch`, `continuityGeneration`, and `publicationSequence`, verifies lowercase
-little-endian bytes, verifies decoding, and validates the decoded header metadata through public `@seqlok/hot-codec`
+little-endian bytes, verifies decoding, and validates the decoded header metadata through public `@exclave/hot-codec`
 APIs. It does not perform publication lifecycle, seqlock retry, Atomics operations, SAB lifecycle management, runtime
 handle creation, live mapping binding, reader creation, or writer creation. It does not create a valid coherent runtime
 read by itself.
@@ -42,7 +42,7 @@ read by itself.
 `hot-complete-fixture-region.json` adds deterministic complete fixture-region bytes for this same static fixture. It
 combines the existing Block A header bytes, Block B header bytes, and hot field data bytes into one 136-byte array with
 field data starting at byte 96. The decoded section records the Block A header, Block B header, and field values that
-the assembled slices decode to through public `@seqlok/hot-codec` APIs.
+the assembled slices decode to through public `@exclave/hot-codec` APIs.
 
 The complete fixture region is still not a live runtime region. It does not prove runtime coherence, perform seqlock
 retry, use Atomics, manage SAB lifecycle, bind mappings, create handles, or create runtime readers or writers.

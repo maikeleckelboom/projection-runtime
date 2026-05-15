@@ -1,8 +1,8 @@
-# Seqlok Hot Lane Codec and Layout Spec
+# Exclave Hot Lane Codec and Layout Spec
 
 Companion to:
 
-- Seqlok Projection Spine: Canonical Architecture Spec
+- Exclave Projection Spine: Canonical Architecture Spec
 - Hot Lane Consumer Runtime
 - Hot SAB Lifecycle
 - Compiler and Conformance Layout

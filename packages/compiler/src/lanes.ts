@@ -1,4 +1,4 @@
-import type { AuthoredLaneDeclarations } from "@seqlok/schema";
+import type { AuthoredLaneDeclarations } from "@exclave/schema";
 
 import { type CompilerIssue, createCompilerIssue } from "./error";
 import { compareUtf8, type FieldLocalHotReservation } from "./fields";

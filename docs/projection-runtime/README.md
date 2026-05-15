@@ -1,12 +1,12 @@
-# Seqlok Projection/Runtime Boundary Specs
+# Exclave Projection/Runtime Boundary Specs
 
-This folder contains the current Seqlok projection/runtime boundary specs.
+This folder contains the current Exclave projection/runtime boundary specs.
 
 ## Conceptual center
 
 - Boundary Model
-- Seqlok Projection Spine: Canonical Architecture Spec
-- Seqlok Hot Lane Codec and Layout Spec
+- Exclave Projection Spine: Canonical Architecture Spec
+- Exclave Hot Lane Codec and Layout Spec
 
 ## Runtime companions
 
@@ -22,8 +22,8 @@ This folder contains the current Seqlok projection/runtime boundary specs.
 ## Recommended reading order
 
 1. Boundary Model
-2. Seqlok Projection Spine: Canonical Architecture Spec
-3. Seqlok Hot Lane Codec and Layout Spec
+2. Exclave Projection Spine: Canonical Architecture Spec
+3. Exclave Hot Lane Codec and Layout Spec
 4. Control Plane Session Rules
 5. Cold Reopen Sequence
 6. Warm Codec v1

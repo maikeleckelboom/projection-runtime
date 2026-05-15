@@ -1,8 +1,13 @@
 import type {
   HotLayoutVersion as HotCodecLayoutVersion,
   HotLayoutManifest,
-} from "@seqlok/hot-codec";
-import type { EnumStorageType, ProjectionFamily, ScalarType, StringEncoding } from "@seqlok/schema";
+} from "@exclave/hot-codec";
+import type {
+  EnumStorageType,
+  ProjectionFamily,
+  ScalarType,
+  StringEncoding,
+} from "@exclave/schema";
 
 export type SemanticVersion = bigint;
 export type HotLayoutVersion = HotCodecLayoutVersion;

@@ -3,17 +3,19 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const workspaceAliases = {
-  "@seqlok/base": fileURLToPath(new URL("./packages/base/src/index.ts", import.meta.url)),
-  "@seqlok/primitives": fileURLToPath(
+  "@exclave/base": fileURLToPath(new URL("./packages/base/src/index.ts", import.meta.url)),
+  "@exclave/primitives": fileURLToPath(
     new URL("./packages/primitives/src/index.ts", import.meta.url),
   ),
-  "@seqlok/schema": fileURLToPath(new URL("./packages/schema/src/index.ts", import.meta.url)),
-  "@seqlok/compiler": fileURLToPath(new URL("./packages/compiler/src/index.ts", import.meta.url)),
-  "@seqlok/conformance": fileURLToPath(
+  "@exclave/schema": fileURLToPath(new URL("./packages/schema/src/index.ts", import.meta.url)),
+  "@exclave/compiler": fileURLToPath(new URL("./packages/compiler/src/index.ts", import.meta.url)),
+  "@exclave/conformance": fileURLToPath(
     new URL("./packages/conformance/src/index.ts", import.meta.url),
   ),
-  "@seqlok/hot-codec": fileURLToPath(new URL("./packages/hot-codec/src/index.ts", import.meta.url)),
-  "@seqlok/hot-consumer": fileURLToPath(
+  "@exclave/hot-codec": fileURLToPath(
+    new URL("./packages/hot-codec/src/index.ts", import.meta.url),
+  ),
+  "@exclave/hot-consumer": fileURLToPath(
     new URL("./packages/hot-consumer/src/index.ts", import.meta.url),
   ),
 };
@@ -29,7 +31,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/base",
+          name: "@exclave/base",
           environment: "node",
           include: ["packages/base/tests/**/*.test.ts", "packages/base/src/**/*.test.ts"],
         },
@@ -39,7 +41,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/schema",
+          name: "@exclave/schema",
           environment: "node",
           include: ["packages/schema/tests/**/*.test.ts", "packages/schema/src/**/*.test.ts"],
         },
@@ -49,7 +51,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/compiler",
+          name: "@exclave/compiler",
           environment: "node",
           include: ["packages/compiler/tests/**/*.test.ts", "packages/compiler/src/**/*.test.ts"],
         },
@@ -59,7 +61,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/conformance",
+          name: "@exclave/conformance",
           environment: "node",
           include: [
             "packages/conformance/tests/**/*.test.ts",
@@ -72,7 +74,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/hot-codec",
+          name: "@exclave/hot-codec",
           environment: "node",
           include: ["packages/hot-codec/tests/**/*.test.ts", "packages/hot-codec/src/**/*.test.ts"],
         },
@@ -82,7 +84,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/hot-consumer",
+          name: "@exclave/hot-consumer",
           environment: "node",
           include: [
             "packages/hot-consumer/tests/**/*.test.ts",
@@ -95,7 +97,7 @@ export default defineConfig({
           alias: workspaceAliases,
         },
         test: {
-          name: "@seqlok/primitives",
+          name: "@exclave/primitives",
           environment: "node",
           include: [
             "packages/primitives/tests/**/*.test.ts",

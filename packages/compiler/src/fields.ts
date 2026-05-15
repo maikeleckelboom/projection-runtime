@@ -4,7 +4,7 @@ import type {
   AuthoredFixedEnumField,
   AuthoredFixedScalarField,
   AuthoredFixedVectorField,
-} from "@seqlok/schema";
+} from "@exclave/schema";
 
 import { type CompilerIssue, type CompilerIssueCode, createCompilerIssue } from "./error";
 import { deriveFieldId, type FieldIdDeriver } from "./field-id";

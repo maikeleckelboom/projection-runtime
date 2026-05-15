@@ -25,7 +25,7 @@ function captureThrow(fn: () => void): unknown {
   throw new Error("expected function to throw");
 }
 
-describe("@seqlok/primitives atomics", () => {
+describe("@exclave/primitives atomics", () => {
   it("loads and adds u32 words with explicit atomic helpers", () => {
     const u32 = new Uint32Array(new SharedArrayBuffer(2 * Uint32Array.BYTES_PER_ELEMENT));
 
@@ -63,7 +63,7 @@ describe("@seqlok/primitives atomics", () => {
   });
 });
 
-describe("@seqlok/primitives layout helpers", () => {
+describe("@exclave/primitives layout helpers", () => {
   it("keeps the existing plane packing vocabulary small", () => {
     expect(PLANE_PACK_ORDER).toEqual(["MF64", "PF32", "PI32", "PU", "MF32", "MU32", "MU", "PB"]);
     expect(ALL_PLANES).toBe(PLANE_PACK_ORDER);
@@ -95,7 +95,7 @@ describe("@seqlok/primitives layout helpers", () => {
   });
 });
 
-describe("@seqlok/primitives errors and public surface", () => {
+describe("@exclave/primitives errors and public surface", () => {
   it("publishes a primitives-owned error domain for retained helpers", () => {
     expect(PRIMITIVES_DOMAIN.prefix).toBe("primitives");
     expect(Object.keys(PRIMITIVES_ERRORS).sort()).toEqual([

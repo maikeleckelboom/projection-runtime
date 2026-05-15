@@ -6,11 +6,11 @@ import {
   type ErrorDetails,
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
-  isSeqlokError,
+  type ExclaveError,
+  isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
-  type SeqlokError,
-} from "@seqlok/base";
+} from "@exclave/base";
 
 export const HOT_CODEC_ISSUE_DEFS = {
   "input.invalid": "hot layout planning input must be an object",
@@ -175,11 +175,11 @@ interface HotCodecDetailsByKey {
   readonly byteRejected: HotByteCodecRejectedDetails;
 }
 
-export type HotCodecError = SeqlokError<"hotCodec.layoutRejected"> & {
+export type HotCodecError = ExclaveError<"hotCodec.layoutRejected"> & {
   readonly details: HotCodecLayoutRejectedDetails;
 };
 
-export type HotByteCodecError = SeqlokError<"hotCodec.byteRejected"> & {
+export type HotByteCodecError = ExclaveError<"hotCodec.byteRejected"> & {
   readonly details: HotByteCodecRejectedDetails;
 };
 
@@ -227,7 +227,7 @@ export function createHotByteRejectedError(
 
 export function isHotCodecError(value: unknown): value is HotCodecPackageError {
   return (
-    isSeqlokError(value) &&
+    isExclaveError(value) &&
     (value.code === HOT_CODEC_ERRORS.layoutRejected.code ||
       value.code === HOT_CODEC_ERRORS.byteRejected.code)
   );

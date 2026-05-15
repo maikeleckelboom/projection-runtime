@@ -1,8 +1,8 @@
-# @seqlok/compiler
+# @exclave/compiler
 
-`@seqlok/compiler` is the build-time compiler for Seqlok authored projection contracts.
+`@exclave/compiler` is the build-time compiler for Exclave authored projection contracts.
 
-It accepts `AuthoredProjectionContract` values from `@seqlok/schema` and emits deterministic canonical projection
+It accepts `AuthoredProjectionContract` values from `@exclave/schema` and emits deterministic canonical projection
 manifests plus resolved contract metadata. Schema owns authored syntax and syntactic validation only; this package owns
 authored-to-canonical normalization, semantic and cross-cutting legality, field id derivation, lane admissibility, and
 `semanticVersion` derivation.
@@ -33,7 +33,7 @@ Compiler v0 does not:
 - implement runtime hot readers or writers
 - integrate Electron, SAB lifecycle management, or host adapters
 
-Hot layout planning is delegated to `@seqlok/hot-codec`. Warm codec manifests, cold materialization manifests,
+Hot layout planning is delegated to `@exclave/hot-codec`. Warm codec manifests, cold materialization manifests,
 resource lane manifests, generated bindings, conformance fixture emission, runtime readers/writers, and Electron
 adapter behavior belong to later packages or later compiler slices.
 
@@ -61,7 +61,7 @@ admissibility for every field. `BoundedArray` and `BoundedMap` fields are hot-ad
 the canonical reservation set. The canonical reservation set is the sorted, deduplicated union of preferred
 `lanes.hot.reservations` entries and legacy field-local `hotReservation: true` markers.
 
-When a hot lane is declared, the compiler calls `@seqlok/hot-codec` to plan the deterministic `HotLayoutManifest`.
+When a hot lane is declared, the compiler calls `@exclave/hot-codec` to plan the deterministic `HotLayoutManifest`.
 Successful compiler output includes:
 
 ```ts
@@ -78,13 +78,13 @@ type ResolvedProjectionContract = {
 ```
 
 `hotLayoutVersion` is copied from `laneManifests.hot.hotLayoutVersion`; it remains owned and derived by
-`@seqlok/hot-codec`. If no hot lane is declared, the compiler omits `laneManifests.hot` and omits `hotLayoutVersion`.
+`@exclave/hot-codec`. If no hot lane is declared, the compiler omits `laneManifests.hot` and omits `hotLayoutVersion`.
 If hot layout planning rejects the input, compilation returns `ok: false` with compiler issues that preserve the
 `hot-codec` issue source and cause code.
 
 ## Error model
 
-Compiler failures are domain-coded `SeqlokError` values with code `compiler.compilationRejected`. The `CompilerError`
+Compiler failures are domain-coded `ExclaveError` values with code `compiler.compilationRejected`. The `CompilerError`
 name is a TypeScript alias plus helper factory, not a runtime subclass. Each compiler error carries a sorted
 `details.issues` list of `CompilerIssue` objects with typed issue codes such as `schema.invalid`,
 `lane.hotFieldNotAdmissible`, or `hot-codec.planningFailed`. Issue codes are drawn from a predeclared registry; callers
@@ -99,7 +99,7 @@ Cold declarations are retained as reserved materialization declarations, but com
 ## Usage
 
 ```ts
-import { compileAuthoredProjectionContract } from "@seqlok/compiler";
+import { compileAuthoredProjectionContract } from "@exclave/compiler";
 
 const result = compileAuthoredProjectionContract({
   key: "deck.runtime",

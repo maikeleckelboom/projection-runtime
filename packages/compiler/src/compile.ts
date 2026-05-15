@@ -2,7 +2,7 @@ import {
   type AuthoredProjectionContract,
   SchemaValidationError,
   validateAuthoredProjectionContract,
-} from "@seqlok/schema";
+} from "@exclave/schema";
 
 import {
   type CompilerError,

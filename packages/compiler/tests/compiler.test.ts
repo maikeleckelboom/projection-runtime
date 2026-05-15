@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { SeqlokError } from "@seqlok/base";
-import { type AuthoredProjectionContract, SchemaValidationError } from "@seqlok/schema";
+import { ExclaveError } from "@exclave/base";
+import { type AuthoredProjectionContract, SchemaValidationError } from "@exclave/schema";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { compileAuthoredProjectionContractWithOptions } from "../src/compile";
 import * as compiler from "../src/index";
@@ -107,7 +107,7 @@ function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
   } satisfies AuthoredProjectionContract;
 }
 
-describe("@seqlok/compiler happy path", () => {
+describe("@exclave/compiler happy path", () => {
   it("compiles a minimal authored projection contract", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
@@ -245,13 +245,13 @@ describe("@seqlok/compiler happy path", () => {
   });
 });
 
-describe("@seqlok/compiler schema boundary", () => {
+describe("@exclave/compiler schema boundary", () => {
   it("returns compiler failure for a structurally invalid authored contract", () => {
     const error = expectFailure(
       compileAuthoredProjectionContract({} as AuthoredProjectionContract),
     );
 
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error.code).toBe("compiler.compilationRejected");
     expect(error.details.issues.map((issue) => issue.code)).toContain("schema.invalid");
   });
@@ -261,12 +261,12 @@ describe("@seqlok/compiler schema boundary", () => {
       compileAuthoredProjectionContract({} as AuthoredProjectionContract),
     );
 
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error).not.toBeInstanceOf(SchemaValidationError);
   });
 });
 
-describe("@seqlok/compiler field ids", () => {
+describe("@exclave/compiler field ids", () => {
   it("derives deterministic field ids", () => {
     const first = unwrap(
       compileAuthoredProjectionContract({
@@ -309,7 +309,7 @@ describe("@seqlok/compiler field ids", () => {
   });
 });
 
-describe("@seqlok/compiler lane admissibility", () => {
+describe("@exclave/compiler lane admissibility", () => {
   it("accepts a hot lane for a fixed scalar field", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
@@ -494,7 +494,7 @@ describe("@seqlok/compiler lane admissibility", () => {
   });
 });
 
-describe("@seqlok/compiler hot lane manifests", () => {
+describe("@exclave/compiler hot lane manifests", () => {
   it("omits hot layout data when no hot lane is declared", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
@@ -762,7 +762,7 @@ describe("@seqlok/compiler hot lane manifests", () => {
   });
 });
 
-describe("@seqlok/compiler shared projection-runtime fixtures", () => {
+describe("@exclave/compiler shared projection-runtime fixtures", () => {
   it("keeps hot-basic-v0 golden artifacts current", () => {
     const authoredContract = readFixtureJson(
       "authored-contract.json",
@@ -820,7 +820,7 @@ describe("@seqlok/compiler shared projection-runtime fixtures", () => {
   });
 });
 
-describe("@seqlok/compiler warm and cold", () => {
+describe("@exclave/compiler warm and cold", () => {
   it("retains and canonicalizes warm declarations without byte encoding", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
@@ -858,18 +858,18 @@ describe("@seqlok/compiler warm and cold", () => {
   });
 });
 
-describe("@seqlok/compiler error model", () => {
-  it("compiler failure errors are SeqlokError values with code compiler.compilationRejected", () => {
+describe("@exclave/compiler error model", () => {
+  it("compiler failure errors are ExclaveError values with code compiler.compilationRejected", () => {
     const error = expectFailure(
       compileAuthoredProjectionContract({} as AuthoredProjectionContract),
     );
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error.code).toBe("compiler.compilationRejected");
     expect(error.details.issueCount).toBe(error.details.issues.length);
   });
 });
 
-describe("@seqlok/compiler public surface", () => {
+describe("@exclave/compiler public surface", () => {
   it("exports only the intended runtime API", () => {
     expect(Object.keys(compiler).sort()).toEqual([
       "COMPILER_ERRORS",

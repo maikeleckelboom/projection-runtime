@@ -10,7 +10,7 @@ import {
   type ErrorKeyOf,
   type IsExact,
   type KeyedErrorFactoryOf,
-} from "@seqlok/base";
+} from "@exclave/base";
 
 export type PrimitivesErrorCode = ErrorCodeOf<PrimitivesDomain>;
 export type PrimitivesErrorKey = ErrorKeyFromCode<PrimitivesErrorCode>;

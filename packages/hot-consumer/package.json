@@ -1,7 +1,7 @@
 {
-  "name": "@seqlok/hot-consumer",
+  "name": "@exclave/hot-consumer",
   "version": "0.0.0",
-  "description": "Bounded hot-lane read attempts for already-opened Seqlok sequence views.",
+  "description": "Bounded hot-lane read attempts for already-opened Exclave sequence views.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,13 +24,13 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "test": "vitest run --root ../.. --project @seqlok/hot-consumer",
-    "test:watch": "vitest --root ../.. --project @seqlok/hot-consumer"
+    "test": "vitest run --root ../.. --project @exclave/hot-consumer",
+    "test:watch": "vitest --root ../.. --project @exclave/hot-consumer"
   },
   "dependencies": {
-    "@seqlok/base": "workspace:*"
+    "@exclave/base": "workspace:*"
   },
   "devDependencies": {
-    "@seqlok/hot-codec": "workspace:*"
+    "@exclave/hot-codec": "workspace:*"
   }
 }

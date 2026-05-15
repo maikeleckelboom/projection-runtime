@@ -4,8 +4,8 @@ import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SeqlokError } from "@seqlok/base";
-import { decodeHotCompleteFixtureRegion, hexToBytes } from "@seqlok/hot-codec";
+import { ExclaveError } from "@exclave/base";
+import { decodeHotCompleteFixtureRegion, hexToBytes } from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import * as conformance from "../src/index";
@@ -33,7 +33,7 @@ const GENERATED_FIXTURE_FILES = [
   "resolved-contract.json",
 ] as const;
 
-describe("@seqlok/conformance fixture discovery", () => {
+describe("@exclave/conformance fixture discovery", () => {
   it("discovers all checked-in projection-runtime fixtures", async () => {
     await expect(listProjectionRuntimeFixtures()).resolves.toEqual(
       expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0"]),
@@ -62,7 +62,7 @@ describe("@seqlok/conformance fixture discovery", () => {
   });
 });
 
-describe("@seqlok/conformance fixture loading", () => {
+describe("@exclave/conformance fixture loading", () => {
   it("loads every required hot-basic-v0 artifact", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
 
@@ -323,7 +323,7 @@ describe("@seqlok/conformance fixture loading", () => {
   });
 });
 
-describe("@seqlok/conformance execution", () => {
+describe("@exclave/conformance execution", () => {
   it("passes hot-basic-v0 conformance", async () => {
     const result = await runProjectionRuntimeFixture("hot-basic-v0");
 
@@ -614,13 +614,13 @@ describe("@seqlok/conformance execution", () => {
   });
 });
 
-describe("@seqlok/conformance error model", () => {
-  it("conformance fixture-file errors are SeqlokError values with domain-coded code", () => {
+describe("@exclave/conformance error model", () => {
+  it("conformance fixture-file errors are ExclaveError values with domain-coded code", () => {
     const error: ConformanceError = createConformanceError("fixtureFileRejected", {
       failureCode: "invalidFixtureName",
       fixtureName: "test",
     });
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error.code).toBe("conformance.fixtureFileRejected");
     expect(error.details.fixtureName).toBe("test");
     expect(error.details.failureCode).toBe("invalidFixtureName");
@@ -645,7 +645,7 @@ describe("@seqlok/conformance error model", () => {
   });
 });
 
-describe("@seqlok/conformance internal topology", () => {
+describe("@exclave/conformance internal topology", () => {
   it("keeps run.ts as the projection-runtime orchestration surface", () => {
     const runSource = readFileSync(resolve(conformanceSourceRoot, "run.ts"), "utf8");
 
@@ -654,7 +654,7 @@ describe("@seqlok/conformance internal topology", () => {
   });
 });
 
-describe("@seqlok/conformance public surface", () => {
+describe("@exclave/conformance public surface", () => {
   it("does not export a runtime ConformanceError class", () => {
     expect("ConformanceError" in conformance).toBe(false);
     expect("createConformanceError" in conformance).toBe(true);
@@ -672,7 +672,7 @@ describe("@seqlok/conformance public surface", () => {
 });
 
 async function withTempFixtureRoot(callback: (root: string) => Promise<void>): Promise<void> {
-  const root = await mkdir(resolve(tmpdir(), `seqlok-conformance-${process.pid}-${Date.now()}`), {
+  const root = await mkdir(resolve(tmpdir(), `exclave-conformance-${process.pid}-${Date.now()}`), {
     recursive: true,
   });
 

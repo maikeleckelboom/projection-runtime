@@ -6,11 +6,11 @@ import {
   type ErrorDetails,
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
-  isSeqlokError,
+  type ExclaveError,
+  isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
-  type SeqlokError,
-} from "@seqlok/base";
+} from "@exclave/base";
 
 export const HOT_CONSUMER_ISSUE_DEFS = {
   "input.requestInvalid": "hot read attempt input must be an object",
@@ -85,7 +85,7 @@ interface HotConsumerDetailsByKey {
   readonly inputRejected: HotConsumerInputRejectedDetails;
 }
 
-export type HotConsumerError = SeqlokError<"hotConsumer.inputRejected"> & {
+export type HotConsumerError = ExclaveError<"hotConsumer.inputRejected"> & {
   readonly details: HotConsumerInputRejectedDetails;
 };
 
@@ -112,7 +112,7 @@ export function createHotConsumerInputRejectedError(
 }
 
 export function isHotConsumerError(value: unknown): value is HotConsumerError {
-  return isSeqlokError(value) && value.code === HOT_CONSUMER_ERRORS.inputRejected.code;
+  return isExclaveError(value) && value.code === HOT_CONSUMER_ERRORS.inputRejected.code;
 }
 
 export function sortHotConsumerIssues(

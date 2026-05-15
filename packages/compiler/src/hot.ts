@@ -1,10 +1,10 @@
-import { panic } from "@seqlok/base";
+import { panic } from "@exclave/base";
 import {
   type HotCodecIssue,
   type HotLayoutManifest,
   type HotLayoutPlanningInput,
   planHotLayoutManifest,
-} from "@seqlok/hot-codec";
+} from "@exclave/hot-codec";
 
 import { type CompilerIssue, createCompilerIssue } from "./error";
 import type { CanonicalProjectionManifest } from "./manifest";

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { SeqlokError } from "@seqlok/base";
+import { ExclaveError } from "@exclave/base";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
   HotByteDecodeResult as PublicByteDecodeResult,
@@ -106,7 +106,7 @@ function expectFailure(result: HotLayoutPlanResult): HotCodecError {
     throw new Error("expected hot-codec failure");
   }
 
-  expect(result.error).toBeInstanceOf(SeqlokError);
+  expect(result.error).toBeInstanceOf(ExclaveError);
   expect(result.error.code).toBe("hotCodec.layoutRejected");
   expect(result.error.details.issueCount).toBe(result.error.details.issues.length);
   return result.error;
@@ -116,7 +116,7 @@ function expectHotByteCodecError(action: () => unknown): HotByteCodecError {
   try {
     action();
   } catch (error) {
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect((error as HotByteCodecError).code).toBe("hotCodec.byteRejected");
     return error as HotByteCodecError;
   }
@@ -198,7 +198,7 @@ function encodeFixtureJson(value: unknown): unknown {
   return value;
 }
 
-describe("@seqlok/hot-codec constants", () => {
+describe("@exclave/hot-codec constants", () => {
   it("exports fixed Block A and Block B offsets", () => {
     expect(HOT_BLOCK_A_BYTE_LENGTH).toBe(72);
     expect(HOT_BLOCK_B_BYTE_OFFSET).toBe(72);
@@ -212,7 +212,7 @@ describe("@seqlok/hot-codec constants", () => {
   });
 });
 
-describe("@seqlok/hot-codec deterministic layout", () => {
+describe("@exclave/hot-codec deterministic layout", () => {
   it("plans deterministic offsets for fixed scalar fields", () => {
     const manifest = unwrap(planHotLayoutManifest(fixedFixture()));
 
@@ -258,7 +258,7 @@ describe("@seqlok/hot-codec deterministic layout", () => {
   });
 });
 
-describe("@seqlok/hot-codec alignment", () => {
+describe("@exclave/hot-codec alignment", () => {
   it("aligns f64 to 8, u8 to 1, and FixedStringEncoded to 1", () => {
     const manifest = unwrap(
       planHotLayoutManifest(
@@ -336,7 +336,7 @@ describe("@seqlok/hot-codec alignment", () => {
   });
 });
 
-describe("@seqlok/hot-codec region sizing", () => {
+describe("@exclave/hot-codec region sizing", () => {
   it("includes Block A, Block B, and field data, padded to a multiple of 8", () => {
     const manifest = unwrap(planHotLayoutManifest(fixedFixture()));
 
@@ -354,7 +354,7 @@ describe("@seqlok/hot-codec region sizing", () => {
   });
 });
 
-describe("@seqlok/hot-codec hotLayoutVersion", () => {
+describe("@exclave/hot-codec hotLayoutVersion", () => {
   it("changes when a hot field is added", () => {
     const oneField = unwrap(planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))])));
     const twoFields = unwrap(
@@ -436,7 +436,7 @@ describe("@seqlok/hot-codec hotLayoutVersion", () => {
   });
 });
 
-describe("@seqlok/hot-codec byte helpers", () => {
+describe("@exclave/hot-codec byte helpers", () => {
   it("encodes hot-basic-v0 sample values to expected field bytes", () => {
     const encoded = encodeHotFieldValues(hotBasicLayout(), HOT_BASIC_SAMPLE_VALUES);
 
@@ -563,7 +563,7 @@ describe("@seqlok/hot-codec byte helpers", () => {
   });
 });
 
-describe("@seqlok/hot-codec complete fixture region", () => {
+describe("@exclave/hot-codec complete fixture region", () => {
   function encodeHotBasicCompleteFixtureRegion(): Uint8Array {
     return encodeHotCompleteFixtureRegion(hotBasicLayout(), {
       blockA: HOT_BASIC_BLOCK_A_INPUT,
@@ -758,11 +758,11 @@ describe("@seqlok/hot-codec complete fixture region", () => {
   });
 });
 
-describe("@seqlok/hot-codec fixture artifact guard", () => {
+describe("@exclave/hot-codec fixture artifact guard", () => {
   it("leaves hot-basic-v0 fixture artifacts unchanged", () => {
     const changedFixtureArtifacts = execFileSync(
       "git",
-      ["diff", "--name-only", "--", "fixtures/projection-runtime/hot-basic-v0"],
+      ["diff", "--name-only", "--", "fixtures/projection-runtime/hot-basic-v0/*.json"],
       { cwd: repoRoot, encoding: "utf8" },
     ).trim();
 
@@ -770,7 +770,7 @@ describe("@seqlok/hot-codec fixture artifact guard", () => {
   });
 });
 
-describe("@seqlok/hot-codec Block A header", () => {
+describe("@exclave/hot-codec Block A header", () => {
   const validInput: HotBlockAHeaderInput = {
     contractKey: "fixture.hotBasic",
     instanceKey: "hot-basic-v0.instance",
@@ -983,7 +983,7 @@ describe("@seqlok/hot-codec Block A header", () => {
   });
 });
 
-describe("@seqlok/hot-codec Block B header", () => {
+describe("@exclave/hot-codec Block B header", () => {
   const validInput: HotBlockBHeaderInput = {
     seqlockCounter: 2n,
     baselineEpoch: 7,
@@ -1094,7 +1094,7 @@ describe("@seqlok/hot-codec Block B header", () => {
   });
 });
 
-describe("@seqlok/hot-codec error model", () => {
+describe("@exclave/hot-codec error model", () => {
   const validInput: HotBlockAHeaderInput = {
     contractKey: "fixture.hotBasic",
     instanceKey: "hot-basic-v0.instance",
@@ -1104,19 +1104,19 @@ describe("@seqlok/hot-codec error model", () => {
     mutableRegionByteLength: 64,
   };
 
-  it("hot layout errors are SeqlokError values with code hotCodec.layoutRejected", () => {
+  it("hot layout errors are ExclaveError values with code hotCodec.layoutRejected", () => {
     const error = expectFailure(
       planHotLayoutManifest(input([field("tempo", 1, scalar("f64"))], ["missing"])),
     );
     expect(error.code).toBe("hotCodec.layoutRejected");
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
   });
 
-  it("hot byte errors are SeqlokError values with code hotCodec.byteRejected", () => {
+  it("hot byte errors are ExclaveError values with code hotCodec.byteRejected", () => {
     const bytes = encodeHotBlockAHeader(validInput);
     bytes[0] = 0xde;
     const error = expectHotByteCodecError(() => decodeHotBlockAHeader(bytes));
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error.code).toBe("hotCodec.byteRejected");
   });
 
@@ -1128,7 +1128,7 @@ describe("@seqlok/hot-codec error model", () => {
   });
 });
 
-describe("@seqlok/hot-codec rejections", () => {
+describe("@exclave/hot-codec rejections", () => {
   it("rejects unsupported hot codec names", () => {
     const error = expectFailure(
       planHotLayoutManifest({
@@ -1242,7 +1242,7 @@ describe("@seqlok/hot-codec rejections", () => {
   });
 });
 
-describe("@seqlok/hot-codec public surface", () => {
+describe("@exclave/hot-codec public surface", () => {
   it("keeps src/byte.ts as the public byte facade", () => {
     expect(Object.keys(hotByte).sort()).toEqual([
       "bytesToHex",

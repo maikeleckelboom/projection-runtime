@@ -2,8 +2,8 @@
 
 Companion to:
 
-- Seqlok Projection Spine: Canonical Architecture Spec
-- Seqlok Hot Lane Codec and Layout Spec
+- Exclave Projection Spine: Canonical Architecture Spec
+- Exclave Hot Lane Codec and Layout Spec
 - Hot SAB Lifecycle
 
 Status: Draft for ratification as part of the hot-lane implementation bundle. This document, the Hot Lane Codec and

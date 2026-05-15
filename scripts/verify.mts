@@ -116,8 +116,8 @@ assertNotContains("no runtime error subclasses", allSourceFiles, [
     match: /class\s+\w+\s+extends\s+Error\b/,
   },
   {
-    description: "class extending SeqlokError",
-    match: /class\s+\w+\s+extends\s+SeqlokError\b/,
+    description: "class extending ExclaveError",
+    match: /class\s+\w+\s+extends\s+ExclaveError\b/,
   },
 ]);
 

@@ -3,7 +3,7 @@
 Companion to:
 
 - Boundary Model
-- Seqlok Projection Spine: Canonical Architecture Spec
+- Exclave Projection Spine: Canonical Architecture Spec
 - Control Plane Session Rules
 - Cold Reopen Sequence
 - Hot Lane Consumer Runtime

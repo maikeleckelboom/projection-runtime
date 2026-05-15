@@ -18,11 +18,11 @@ export type {
 export {
   createErrorFactory,
   defineErrorDomain,
-  isSeqlokError,
-  SeqlokError,
+  ExclaveError,
+  isExclaveError,
 } from "./error";
 export type { InvariantErrorFactory } from "./invariant";
 export { invariant } from "./invariant";
 export type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from "./json";
 export { panic } from "./panic";
-export type { AssertTrue, IsExact, IsExtends, TypedArrayName } from "./types";
+export type { AssertTrue, IsExact, IsExtends } from "./types";

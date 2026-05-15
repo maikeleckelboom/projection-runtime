@@ -1,4 +1,4 @@
-import { panic } from "@seqlok/base";
+import { panic } from "@exclave/base";
 
 import {
   HOT_ABI_VERSION,

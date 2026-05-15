@@ -1,9 +1,9 @@
-# Seqlok Projection Spine: Canonical Architecture Spec
+# Exclave Projection Spine: Canonical Architecture Spec
 
 Status: Canonical. Implementation-authoritative for projection identity, lane admissibility, publication metadata,
 lifecycle rules, and hot-lane ABI foundations.
 
-This document is the canonical architecture specification for the Seqlok projection spine. It defines the ownership
+This document is the canonical architecture specification for the Exclave projection spine. It defines the ownership
 model, canonical manifest, version identity model, lane admissibility rules, hot-lane ABI foundations, publication
 metadata model, instance lifecycle rules, and the first projection family.
 

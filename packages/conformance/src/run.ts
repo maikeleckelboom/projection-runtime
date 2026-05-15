@@ -1,4 +1,4 @@
-import { compileAuthoredProjectionContract } from "@seqlok/compiler";
+import { compileAuthoredProjectionContract } from "@exclave/compiler";
 
 import type {
   ConformanceArtifactName,

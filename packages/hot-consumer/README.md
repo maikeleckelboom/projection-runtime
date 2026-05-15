@@ -1,6 +1,6 @@
-# @seqlok/hot-consumer
+# @exclave/hot-consumer
 
-`@seqlok/hot-consumer` v0 owns only bounded hot read attempts over an already-opened hot sequence view and a
+`@exclave/hot-consumer` v0 owns only bounded hot read attempts over an already-opened hot sequence view and a
 caller-provided snapshot reader.
 
 It uses `Atomics.load(sequence, 0)` on a caller-provided `BigUint64Array` sequence view. The caller owns how that view

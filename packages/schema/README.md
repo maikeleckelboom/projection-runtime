@@ -1,6 +1,6 @@
-# @seqlok/schema
+# @exclave/schema
 
-`@seqlok/schema` publishes authored projection contract types and syntactic validation for Seqlok.
+`@exclave/schema` publishes authored projection contract types and syntactic validation for Exclave.
 
 This package owns the authored projection contract syntax: the pre-canonical contract shape that authors write before
 compiler normalization. It validates syntactic legality and structural shape, and it publishes the versioned JSON Schema
@@ -47,16 +47,16 @@ field ids are derived, or whether derived versions and manifests are legal.
 
 ## JSON Schema Artifact
 
-Current artifact: `@seqlok/schema/authored-projection-contract/v1.json`
+Current artifact: `@exclave/schema/authored-projection-contract/v1.json`
 
-Current `$id`: `https://seqlok.dev/schema/authored-projection-contract/v1.json`
+Current `$id`: `https://exclave.dev/schema/authored-projection-contract/v1.json`
 
 `v1` is the authored contract artifact version. It is not a semantic contract version, lane layout version, codec
 version, planner version, or compatibility policy.
 
 ```ts
-import schema from "@seqlok/schema/authored-projection-contract/v1.json";
-import { AUTHORED_PROJECTION_CONTRACT_V1_ID } from "@seqlok/schema";
+import schema from "@exclave/schema/authored-projection-contract/v1.json";
+import { AUTHORED_PROJECTION_CONTRACT_V1_ID } from "@exclave/schema";
 
 console.assert(schema.$id === AUTHORED_PROJECTION_CONTRACT_V1_ID);
 ```
@@ -67,7 +67,7 @@ console.assert(schema.$id === AUTHORED_PROJECTION_CONTRACT_V1_ID);
 import {
   type AuthoredProjectionContract,
   validateAuthoredProjectionContract,
-} from "@seqlok/schema";
+} from "@exclave/schema";
 
 const contract: AuthoredProjectionContract = {
   key: "deck.runtime",

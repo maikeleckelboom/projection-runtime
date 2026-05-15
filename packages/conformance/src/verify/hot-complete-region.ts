@@ -14,7 +14,7 @@ import {
   type HotFieldValues,
   type HotLayoutManifest,
   hexToBytes,
-} from "@seqlok/hot-codec";
+} from "@exclave/hot-codec";
 
 import { encodeFixtureJson } from "../encode";
 import { createConformanceError } from "../error";

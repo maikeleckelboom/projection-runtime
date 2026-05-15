@@ -5,11 +5,11 @@ import {
   type ErrorDetails,
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
+  type ExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
-  type SeqlokError,
-} from "@seqlok/base";
-import type { HotCodecIssueCode } from "@seqlok/hot-codec";
+} from "@exclave/base";
+import type { HotCodecIssueCode } from "@exclave/hot-codec";
 
 export const COMPILER_ISSUE_DEFS = {
   "schema.invalid": "schema validation failed",
@@ -121,7 +121,7 @@ interface CompilerDetailsByKey {
   readonly compilationRejected: CompilerCompilationRejectedDetails;
 }
 
-export type CompilerError = SeqlokError<"compiler.compilationRejected"> & {
+export type CompilerError = ExclaveError<"compiler.compilationRejected"> & {
   readonly details: CompilerCompilationRejectedDetails;
 };
 

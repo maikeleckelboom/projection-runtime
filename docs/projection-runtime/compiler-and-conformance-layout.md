@@ -2,7 +2,7 @@
 
 Companion to:
 
-- Seqlok Projection Spine: Canonical Architecture Spec
+- Exclave Projection Spine: Canonical Architecture Spec
 - Hot Lane Codec and Layout Spec
 - Hot Lane Consumer Runtime
 - Warm Codec v1
@@ -12,7 +12,7 @@ Companion to:
 Status: Draft for ratification. Intended to become implementation-authoritative for build-time compiler ownership,
 generated artifacts, fixture layout, and cross-language conformance.
 
-This document defines the build-time compiler and conformance contract for Seqlok projection and lane artifacts.
+This document defines the build-time compiler and conformance contract for Exclave projection and lane artifacts.
 
 It does not redefine authored projection semantics, hot ABI layout, warm frame encoding, resource protocol behavior, or
 runtime session lifecycle. Those concerns belong to their companion documents.
@@ -126,19 +126,19 @@ The compiler belongs in a build-time package or tool, not in runtime core.
 
 The recommended package boundary is:
 
-- `@seqlok/schema`: authored contract types, syntactic legality checks, structural validation that does not require
+- `@exclave/schema`: authored contract types, syntactic legality checks, structural validation that does not require
   canonicalization, and JSON Schema artifact
-- `@seqlok/compiler`: authored-to-canonical normalization, semantic and cross-cutting legality checks, canonical
+- `@exclave/compiler`: authored-to-canonical normalization, semantic and cross-cutting legality checks, canonical
   manifest emission, lane planning, codegen orchestration, fixture emission
-- `@seqlok/hot-codec`: hot ABI rules and generated reader/writer helpers
-- `@seqlok/warm-codec`: warm framed-snapshot codec rules and helpers
-- `@seqlok/conformance`: shared fixture runner and cross-language assertions
+- `@exclave/hot-codec`: hot ABI rules and generated reader/writer helpers
+- `@exclave/warm-codec`: warm framed-snapshot codec rules and helpers
+- `@exclave/conformance`: shared fixture runner and cross-language assertions
 
 Package names may be adjusted during implementation, but the ownership split is fixed:
 
 **Compiler ownership is build-time ownership, not runtime core ownership.**
 
-`@seqlok/core`, if it exists, must not become a dumping ground for compiler, codec, adapter, and conformance ownership.
+`@exclave/core`, if it exists, must not become a dumping ground for compiler, codec, adapter, and conformance ownership.
 
 ---
 
@@ -635,7 +635,7 @@ A generated diff with no explaining source change is suspicious.
 
 ## 19. Package ownership boundaries
 
-### 19.1 `@seqlok/schema`
+### 19.1 `@exclave/schema`
 
 Owns:
 
@@ -672,7 +672,7 @@ Does not own:
 well-formed?" It does not answer "is this contract semantically coherent or cross-lane legal?" Semantic questions belong
 to the compiler.
 
-### 19.2 `@seqlok/compiler`
+### 19.2 `@exclave/compiler`
 
 Owns:
 
@@ -727,7 +727,7 @@ Do not own:
 - runtime session lifecycle
 - unrelated lane planning
 
-### 19.4 `@seqlok/conformance`
+### 19.4 `@exclave/conformance`
 
 Owns:
 

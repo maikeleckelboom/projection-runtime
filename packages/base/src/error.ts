@@ -31,7 +31,7 @@ export type ErrorKeyFromCode<Code extends string> = Code extends `${string}.${in
   ? Key
   : never;
 
-export class SeqlokError<Code extends string = string> extends Error {
+export class ExclaveError<Code extends string = string> extends Error {
   readonly code: Code;
   readonly details: ErrorDetails;
   readonly meta: ErrorMeta;
@@ -45,7 +45,7 @@ export class SeqlokError<Code extends string = string> extends Error {
   ) {
     super(message, { cause });
 
-    this.name = "SeqlokError";
+    this.name = "ExclaveError";
     this.code = code;
     this.details = details;
     this.meta = meta;
@@ -63,7 +63,7 @@ export class SeqlokError<Code extends string = string> extends Error {
   }
 }
 
-export function isSeqlokError(value: unknown): value is SeqlokError {
+export function isExclaveError(value: unknown): value is ExclaveError {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -75,7 +75,7 @@ export function isSeqlokError(value: unknown): value is SeqlokError {
   };
 
   return (
-    candidate.name === "SeqlokError" &&
+    candidate.name === "ExclaveError" &&
     typeof candidate.code === "string" &&
     typeof candidate.message === "string"
   );
@@ -125,13 +125,13 @@ export type ErrorFactoryOf<D extends ErrorDomain<string, ErrorRegistry>> = <
   key: Key,
   details?: ErrorDetails,
   cause?: unknown,
-) => SeqlokError<D["registry"][Key]["code"]>;
+) => ExclaveError<D["registry"][Key]["code"]>;
 
 type ErrorFactoryForRegistry<Registry extends ErrorRegistry> = <Key extends StringKeyOf<Registry>>(
   key: Key,
   details?: ErrorDetails,
   cause?: unknown,
-) => SeqlokError<Registry[Key]["code"]>;
+) => ExclaveError<Registry[Key]["code"]>;
 
 export type KeyedErrorFactoryOf<
   D extends ErrorDomain<string, ErrorRegistry>,
@@ -140,7 +140,7 @@ export type KeyedErrorFactoryOf<
   key: Key,
   details: DetailsByKey[Key],
   cause?: unknown,
-) => SeqlokError<D["registry"][Key]["code"]>;
+) => ExclaveError<D["registry"][Key]["code"]>;
 
 export type ErrorDomainWithFactory<
   Prefix extends string,
@@ -156,14 +156,14 @@ export function createErrorFactory<Registry extends ErrorRegistry>(
     key: Key,
     details: ErrorDetails = {},
     cause?: unknown,
-  ): SeqlokError<Registry[Key]["code"]> => {
+  ): ExclaveError<Registry[Key]["code"]> => {
     const descriptor = registry[key];
 
     if (descriptor === undefined) {
       panic(`unknown error key: ${key}`);
     }
 
-    return new SeqlokError(descriptor.code, descriptor.message, details, descriptor.meta, cause);
+    return new ExclaveError(descriptor.code, descriptor.message, details, descriptor.meta, cause);
   };
 }
 

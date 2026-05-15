@@ -1,7 +1,7 @@
 {
-  "name": "@seqlok/compiler",
+  "name": "@exclave/compiler",
   "version": "0.0.0",
-  "description": "Build-time compiler for Seqlok authored projection contracts.",
+  "description": "Build-time compiler for Exclave authored projection contracts.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,12 +24,12 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "test": "vitest run --root ../.. --project @seqlok/compiler",
-    "test:watch": "vitest --root ../.. --project @seqlok/compiler"
+    "test": "vitest run --root ../.. --project @exclave/compiler",
+    "test:watch": "vitest --root ../.. --project @exclave/compiler"
   },
   "dependencies": {
-    "@seqlok/base": "workspace:*",
-    "@seqlok/hot-codec": "workspace:*",
-    "@seqlok/schema": "workspace:*"
+    "@exclave/base": "workspace:*",
+    "@exclave/hot-codec": "workspace:*",
+    "@exclave/schema": "workspace:*"
   }
 }

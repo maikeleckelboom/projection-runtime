@@ -7,9 +7,9 @@ import {
   type ErrorDetails,
   type ErrorKeyOf,
   type ErrorMeta,
+  ExclaveError,
   invariant,
-  isSeqlokError,
-  SeqlokError,
+  isExclaveError,
 } from "../src/index";
 
 const meta = {
@@ -18,9 +18,9 @@ const meta = {
   boundarySafe: true,
 } as const satisfies ErrorMeta;
 
-describe("SeqlokError", () => {
+describe("ExclaveError", () => {
   it("serializes to a portable envelope", () => {
-    const error = new SeqlokError(
+    const error = new ExclaveError(
       "demo.failed",
       "Demo failed",
       { where: "tests", reason: "example" },
@@ -28,7 +28,7 @@ describe("SeqlokError", () => {
     );
 
     expect(error).toBeInstanceOf(Error);
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(error.toJSON()).toEqual({
       code: "demo.failed",
       message: "Demo failed",
@@ -37,11 +37,13 @@ describe("SeqlokError", () => {
     });
   });
 
-  it("recognizes structural Seqlok errors", () => {
-    expect(isSeqlokError(new SeqlokError("demo.failed", "Demo failed", {}, meta))).toBe(true);
-    expect(isSeqlokError({ name: "SeqlokError", code: "demo.failed", message: "Demo" })).toBe(true);
-    expect(isSeqlokError({ name: "SeqlokError", code: 1, message: "Demo" })).toBe(false);
-    expect(isSeqlokError(new Error("plain"))).toBe(false);
+  it("recognizes structural Exclave errors", () => {
+    expect(isExclaveError(new ExclaveError("demo.failed", "Demo failed", {}, meta))).toBe(true);
+    expect(isExclaveError({ name: "ExclaveError", code: "demo.failed", message: "Demo" })).toBe(
+      true,
+    );
+    expect(isExclaveError({ name: "ExclaveError", code: 1, message: "Demo" })).toBe(false);
+    expect(isExclaveError(new Error("plain"))).toBe(false);
   });
 });
 
@@ -61,7 +63,7 @@ describe("createErrorFactory", () => {
     expect(error.message).toBe("Demo failed");
     expect(error.details).toEqual({ where: "tests" });
     expect(error.meta).toBe(meta);
-    expectTypeOf(error).toEqualTypeOf<SeqlokError<"demo.failed">>();
+    expectTypeOf(error).toEqualTypeOf<ExclaveError<"demo.failed">>();
   });
 
   it("rejects unknown keys at runtime", () => {
@@ -111,17 +113,17 @@ describe("invariant", () => {
 
     invariant(true, () => {
       allocated = true;
-      return new SeqlokError("demo.failed", "Demo failed", {}, meta);
+      return new ExclaveError("demo.failed", "Demo failed", {}, meta);
     });
 
     expect(allocated).toBe(false);
   });
 
-  it("throws the lazy SeqlokError when the condition fails", () => {
+  it("throws the lazy ExclaveError when the condition fails", () => {
     const details = { where: "tests", detail: "expected true" } satisfies ErrorDetails;
 
     expect(() =>
-      invariant(false, () => new SeqlokError("demo.failed", "Demo failed", details, meta)),
-    ).toThrow(SeqlokError);
+      invariant(false, () => new ExclaveError("demo.failed", "Demo failed", details, meta)),
+    ).toThrow(ExclaveError);
   });
 });

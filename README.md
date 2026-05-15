@@ -1,6 +1,6 @@
-# Seqlok
+# Exclave
 
-Seqlok is a typed boundary substrate for local realtime systems.
+Exclave is a typed boundary substrate for local realtime systems.
 
 It separates control-plane requests, publication-plane state, resource-plane payload access, and session lifecycle. Its hot lane uses fixed-layout shared memory for low-latency publication surfaces, but shared memory is not the whole system.
 
@@ -8,15 +8,15 @@ This repository is a clean public extraction and not a bulk copy of the old rese
 
 Currently landed:
 
-- `@seqlok/base`
-- `@seqlok/schema`
-- `@seqlok/primitives`
-- `@seqlok/hot-codec`
-- `@seqlok/hot-consumer`
-- `@seqlok/compiler`
-- `@seqlok/conformance`
+- `@exclave/base`
+- `@exclave/schema`
+- `@exclave/primitives`
+- `@exclave/hot-codec`
+- `@exclave/hot-consumer`
+- `@exclave/compiler`
+- `@exclave/conformance`
 
-No `@seqlok/core` package is required for public v1. If it exists later, it must be either a tiny convenience aggregator or a narrow shared runtime contract layer. It must not own compiler, codecs, session lifecycle, resources, conformance, product authorities, or app integration.
+No `@exclave/core` package is required for public v1. If it exists later, it must be either a tiny convenience aggregator or a narrow shared runtime contract layer. It must not own compiler, codecs, session lifecycle, resources, conformance, product authorities, or app integration.
 
 Packages such as commands, stream buffers, diagnostics, worklet mounting, introspection, and all app/demo/lab surfaces are intentionally excluded for now.
 

@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { SeqlokError } from "@seqlok/base";
+import { ExclaveError } from "@exclave/base";
 import {
   decodeHotCompleteFixtureRegion,
   HOT_SEQLOCK_U64_OFFSET,
   type HotLayoutManifest,
   hexToBytes,
-} from "@seqlok/hot-codec";
+} from "@exclave/hot-codec";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import * as hotConsumer from "../src/index";
@@ -43,7 +43,7 @@ function expectHotConsumerError(action: () => unknown): HotConsumerError {
   try {
     action();
   } catch (error) {
-    expect(error).toBeInstanceOf(SeqlokError);
+    expect(error).toBeInstanceOf(ExclaveError);
     expect(isHotConsumerError(error)).toBe(true);
     expect((error as HotConsumerError).code).toBe(HOT_CONSUMER_ERRORS.inputRejected.code);
     return error as HotConsumerError;
@@ -84,7 +84,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("@seqlok/hot-consumer bounded read attempts", () => {
+describe("@exclave/hot-consumer bounded read attempts", () => {
   it("returns a fresh snapshot on a clean even/even sequence read and stores lastGood", () => {
     const sequence = sequenceView(2n);
     const state = createHotReadState<{ readonly cursor: number }>();
@@ -388,7 +388,7 @@ describe("@seqlok/hot-consumer bounded read attempts", () => {
   });
 });
 
-describe("@seqlok/hot-consumer input errors and public error surface", () => {
+describe("@exclave/hot-consumer input errors and public error surface", () => {
   it("uses small explicit defaults and accepts zero budgets", () => {
     expect(HOT_READ_DEFAULTS).toEqual({
       maxWriterActivePolls: 2,
@@ -414,7 +414,7 @@ describe("@seqlok/hot-consumer input errors and public error surface", () => {
     });
   });
 
-  it("throws typed Seqlok errors for invalid programmer inputs", () => {
+  it("throws typed Exclave errors for invalid programmer inputs", () => {
     const error = expectHotConsumerError(() =>
       tryReadHotSnapshot({
         sequence: new Uint8Array(8),
@@ -468,7 +468,7 @@ describe("@seqlok/hot-consumer input errors and public error surface", () => {
     expect(HOT_CONSUMER_ERRORS.inputRejected.code).toBe("hotConsumer.inputRejected");
     expect(typeof hotConsumer.createHotConsumerInputRejectedError).toBe("function");
     expect(typeof hotConsumer.isHotConsumerError).toBe("function");
-    expectTypeOf<HotConsumerError>().toMatchTypeOf<SeqlokError<"hotConsumer.inputRejected">>();
+    expectTypeOf<HotConsumerError>().toMatchTypeOf<ExclaveError<"hotConsumer.inputRejected">>();
   });
 
   it("rejects a BigUint64Array backed by a normal ArrayBuffer", () => {

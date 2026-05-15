@@ -28,47 +28,47 @@ importers:
 
   packages/compiler:
     dependencies:
-      '@seqlok/base':
+      '@exclave/base':
         specifier: workspace:*
         version: link:../base
-      '@seqlok/hot-codec':
+      '@exclave/hot-codec':
         specifier: workspace:*
         version: link:../hot-codec
-      '@seqlok/schema':
+      '@exclave/schema':
         specifier: workspace:*
         version: link:../schema
 
   packages/conformance:
     dependencies:
-      '@seqlok/base':
+      '@exclave/base':
         specifier: workspace:*
         version: link:../base
-      '@seqlok/compiler':
+      '@exclave/compiler':
         specifier: workspace:*
         version: link:../compiler
-      '@seqlok/hot-codec':
+      '@exclave/hot-codec':
         specifier: workspace:*
         version: link:../hot-codec
 
   packages/hot-codec:
     dependencies:
-      '@seqlok/base':
+      '@exclave/base':
         specifier: workspace:*
         version: link:../base
 
   packages/hot-consumer:
     dependencies:
-      '@seqlok/base':
+      '@exclave/base':
         specifier: workspace:*
         version: link:../base
     devDependencies:
-      '@seqlok/hot-codec':
+      '@exclave/hot-codec':
         specifier: workspace:*
         version: link:../hot-codec
 
   packages/primitives:
     dependencies:
-      '@seqlok/base':
+      '@exclave/base':
         specifier: workspace:*
         version: link:../base
 

@@ -5,9 +5,9 @@ import {
   type ErrorDetails,
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
-  isSeqlokError,
-  type SeqlokError,
-} from "@seqlok/base";
+  type ExclaveError,
+  isExclaveError,
+} from "@exclave/base";
 
 export type ConformanceArtifactName =
   | "authored-contract"
@@ -168,11 +168,11 @@ interface ConformanceDetailsByKey {
   readonly fixtureCompileRejected: ConformanceFixtureCompileRejectedDetails;
 }
 
-export type ConformanceError = SeqlokError<ConformanceErrorCode> & {
+export type ConformanceError = ExclaveError<ConformanceErrorCode> & {
   readonly details: ConformanceErrorDetails;
 };
 
-export type ConformanceErrorForKey<Key extends keyof ConformanceDetailsByKey> = SeqlokError<
+export type ConformanceErrorForKey<Key extends keyof ConformanceDetailsByKey> = ExclaveError<
   (typeof CONFORMANCE_ERRORS)[Key]["code"]
 > & {
   readonly details: ConformanceDetailsByKey[Key];
@@ -187,5 +187,5 @@ export function createConformanceError<Key extends keyof ConformanceDetailsByKey
 }
 
 export function isConformanceError(value: unknown): value is ConformanceError {
-  return isSeqlokError(value) && value.code.startsWith("conformance.");
+  return isExclaveError(value) && value.code.startsWith("conformance.");
 }

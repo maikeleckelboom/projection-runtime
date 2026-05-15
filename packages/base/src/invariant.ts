@@ -1,8 +1,8 @@
-import type { SeqlokError } from "./error";
+import type { ExclaveError } from "./error";
 
-export type InvariantErrorFactory<E extends SeqlokError = SeqlokError> = () => E;
+export type InvariantErrorFactory<E extends ExclaveError = ExclaveError> = () => E;
 
-export function invariant<E extends SeqlokError>(
+export function invariant<E extends ExclaveError>(
   condition: unknown,
   createError: InvariantErrorFactory<E>,
 ): asserts condition {

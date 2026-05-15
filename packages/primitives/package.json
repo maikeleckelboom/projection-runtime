@@ -1,7 +1,7 @@
 {
-  "name": "@seqlok/primitives",
+  "name": "@exclave/primitives",
   "version": "0.0.0",
-  "description": "Low-level atomic and layout helpers for Seqlok runtime and compiler packages.",
+  "description": "Low-level atomic and layout helpers for Exclave runtime and compiler packages.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,10 +24,10 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "test": "vitest run --root ../.. --project @seqlok/primitives",
-    "test:watch": "vitest --root ../.. --project @seqlok/primitives"
+    "test": "vitest run --root ../.. --project @exclave/primitives",
+    "test:watch": "vitest --root ../.. --project @exclave/primitives"
   },
   "dependencies": {
-    "@seqlok/base": "workspace:*"
+    "@exclave/base": "workspace:*"
   }
 }

@@ -161,17 +161,17 @@ type HotCodecModule = {
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const projectionRuntimeFixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const workspaceAliases = new Map<string, string>([
-  ["@seqlok/base", resolve(repoRoot, "packages/base/src/index.ts")],
-  ["@seqlok/primitives", resolve(repoRoot, "packages/primitives/src/index.ts")],
-  ["@seqlok/schema", resolve(repoRoot, "packages/schema/src/index.ts")],
-  ["@seqlok/hot-codec", resolve(repoRoot, "packages/hot-codec/src/index.ts")],
-  ["@seqlok/compiler", resolve(repoRoot, "packages/compiler/src/index.ts")],
+  ["@exclave/base", resolve(repoRoot, "packages/base/src/index.ts")],
+  ["@exclave/primitives", resolve(repoRoot, "packages/primitives/src/index.ts")],
+  ["@exclave/schema", resolve(repoRoot, "packages/schema/src/index.ts")],
+  ["@exclave/hot-codec", resolve(repoRoot, "packages/hot-codec/src/index.ts")],
+  ["@exclave/compiler", resolve(repoRoot, "packages/compiler/src/index.ts")],
 ]);
 
 registerWorkspaceTsHooks();
 
 const { compileAuthoredProjectionContract } =
-  await importWorkspaceModule<CompilerModule>("@seqlok/compiler");
+  await importWorkspaceModule<CompilerModule>("@exclave/compiler");
 const {
   bytesToHex,
   decodeHotFieldValues,
@@ -183,7 +183,7 @@ const {
   decodeHotBlockBHeader,
   validateHotBlockBHeader,
   encodeHotCompleteFixtureRegion,
-} = await importWorkspaceModule<HotCodecModule>("@seqlok/hot-codec");
+} = await importWorkspaceModule<HotCodecModule>("@exclave/hot-codec");
 
 const hotBasicSampleValues = {
   cursor: 123,

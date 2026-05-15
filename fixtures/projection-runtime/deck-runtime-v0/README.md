@@ -14,5 +14,5 @@ node scripts/write-projection-runtime-fixture.mts
 ```
 
 Version-like u64 values are encoded as 16-character lowercase hexadecimal strings without a `0x` prefix. This fixture is
-validated by `@seqlok/conformance`; it does not prove live runtime publication, SAB lifecycle behavior, generated
+validated by `@exclave/conformance`; it does not prove live runtime publication, SAB lifecycle behavior, generated
 bindings, or product-specific contracts.

@@ -1,7 +1,7 @@
 {
-  "name": "@seqlok/conformance",
+  "name": "@exclave/conformance",
   "version": "0.0.0",
-  "description": "Projection-runtime fixture conformance harness for Seqlok.",
+  "description": "Projection-runtime fixture conformance harness for Exclave.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,12 +24,12 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "test": "vitest run --root ../.. --project @seqlok/conformance",
-    "test:watch": "vitest --root ../.. --project @seqlok/conformance"
+    "test": "vitest run --root ../.. --project @exclave/conformance",
+    "test:watch": "vitest --root ../.. --project @exclave/conformance"
   },
   "dependencies": {
-    "@seqlok/base": "workspace:*",
-    "@seqlok/compiler": "workspace:*",
-    "@seqlok/hot-codec": "workspace:*"
+    "@exclave/base": "workspace:*",
+    "@exclave/compiler": "workspace:*",
+    "@exclave/hot-codec": "workspace:*"
   }
 }

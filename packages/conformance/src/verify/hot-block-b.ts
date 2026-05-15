@@ -5,7 +5,7 @@ import {
   type HotBlockBHeaderInput,
   hexToBytes,
   validateHotBlockBHeader,
-} from "@seqlok/hot-codec";
+} from "@exclave/hot-codec";
 
 import { createConformanceError } from "../error";
 import type { ProjectionRuntimeFixtureFailure } from "../run";

@@ -1,6 +1,6 @@
-# @seqlok/base
+# @exclave/base
 
-`@seqlok/base` is the small shared foundation used by Seqlok packages.
+`@exclave/base` is the small shared foundation used by Exclave packages.
 
 It owns the portable pieces that every layer can agree on without pulling in
 schema, primitives, runtime composition, diagnostics, or application concerns.
@@ -8,10 +8,10 @@ schema, primitives, runtime composition, diagnostics, or application concerns.
 ## What Belongs Here
 
 - JSON-safe payload types.
-- The `SeqlokError` runtime class and portable error envelope shape.
+- The `ExclaveError` runtime class and portable error envelope shape.
 - Error metadata and domain registry types.
 - Generic helpers for turning local error registries into typed constructors.
-- A lazy `invariant` helper for throwing package-owned `SeqlokError` values.
+- A lazy `invariant` helper for throwing package-owned `ExclaveError` values.
 - Tiny type-level assertion helpers used by package API tests.
 
 ## What Does Not Belong Here
@@ -26,14 +26,14 @@ schema, primitives, runtime composition, diagnostics, or application concerns.
 
 ## Error Model
 
-Seqlok packages should throw `SeqlokError<Code>` for known library failures.
-Every `SeqlokError` can be serialized with `toJSON()` into an `ErrorEnvelope`
+Exclave packages should throw `ExclaveError<Code>` for known library failures.
+Every `ExclaveError` can be serialized with `toJSON()` into an `ErrorEnvelope`
 that is safe to log or send across a worker boundary.
 
 Domain packages define their own registries on top of base:
 
 ```ts
-import { defineErrorDomain } from "@seqlok/base";
+import { defineErrorDomain } from "@exclave/base";
 
 const DEMO_ERRORS = {
   failed: {
@@ -54,5 +54,5 @@ throw DEMO.createError("failed", {
 });
 ```
 
-Base does not reserve or publish concrete Seqlok error codes. It only provides
+Base does not reserve or publish concrete Exclave error codes. It only provides
 the small vocabulary used by packages that own those codes.
