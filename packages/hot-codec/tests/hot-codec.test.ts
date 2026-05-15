@@ -1,10 +1,18 @@
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SeqlokError } from "@seqlok/base";
 import { describe, expect, expectTypeOf, it } from "vitest";
-
+import type {
+  HotByteDecodeResult as PublicByteDecodeResult,
+  HotByteEncodeResult as PublicByteEncodeResult,
+  HotFieldScalarValue as PublicByteFieldScalarValue,
+  HotFieldValue as PublicByteFieldValue,
+  HotFieldValues as PublicByteFieldValues,
+} from "../src/byte";
+import * as hotByte from "../src/byte";
 import * as hotCodec from "../src/index";
 import {
   bytesToHex,
@@ -30,7 +38,11 @@ import {
   type HotBlockAHeaderInput,
   type HotBlockBHeaderInput,
   type HotByteCodecError,
+  type HotByteDecodeResult,
+  type HotByteEncodeResult,
   type HotCodecError,
+  type HotFieldScalarValue,
+  type HotFieldValue,
   type HotFieldValues,
   type HotLayoutManifest,
   type HotLayoutPlanningField,
@@ -50,6 +62,13 @@ const hotBasicLayoutPath = resolve(
   "fixtures/projection-runtime/hot-basic-v0/hot-layout-manifest.json",
 );
 const hotCodecSourceRoot = resolve(repoRoot, "packages/hot-codec/src");
+const compilerSourceRoot = resolve(repoRoot, "packages/compiler/src");
+const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
+const guardedProductionSourceRoots = [
+  hotCodecSourceRoot,
+  compilerSourceRoot,
+  conformanceSourceRoot,
+];
 
 const HOT_BASIC_SAMPLE_VALUES = {
   cursor: 123,
@@ -169,6 +188,10 @@ function sourceText(root: string): string {
   }
 
   return text;
+}
+
+function guardedProductionSourceText(): string {
+  return guardedProductionSourceRoots.map(sourceText).join("\n");
 }
 
 describe("@seqlok/hot-codec constants", () => {
@@ -667,6 +690,18 @@ describe("@seqlok/hot-codec complete fixture region", () => {
   });
 });
 
+describe("@seqlok/hot-codec fixture artifact guard", () => {
+  it("leaves hot-basic-v0 fixture artifacts unchanged", () => {
+    const changedFixtureArtifacts = execFileSync(
+      "git",
+      ["diff", "--name-only", "--", "fixtures/projection-runtime/hot-basic-v0"],
+      { cwd: repoRoot, encoding: "utf8" },
+    ).trim();
+
+    expect(changedFixtureArtifacts).toBe("");
+  });
+});
+
 describe("@seqlok/hot-codec Block A header", () => {
   const validInput: HotBlockAHeaderInput = {
     contractKey: "fixture.hotBasic",
@@ -1025,21 +1060,25 @@ describe("@seqlok/hot-codec error model", () => {
   });
 
   it("has no production generic Error subclass construction", () => {
-    const text = sourceText(hotCodecSourceRoot);
+    const text = guardedProductionSourceText();
     expect(text).not.toContain("throw new Error");
     expect(text).not.toContain("throw new RangeError");
     expect(text).not.toContain("throw new TypeError");
   });
 
   it("has no production code: string in issue types", () => {
-    const text = sourceText(hotCodecSourceRoot);
+    const text = guardedProductionSourceText();
     expect(text).not.toMatch(/code\s*:\s*string/);
   });
 
   it("has no production runtime hot-codec error subclasses or subclass checks", () => {
-    const text = sourceText(hotCodecSourceRoot);
-    expect(text).not.toMatch(/class HotCodecError|class HotByteCodecError/);
-    expect(text).not.toMatch(/instanceof HotCodecError|instanceof HotByteCodecError/);
+    const text = guardedProductionSourceText();
+    expect(text).not.toMatch(
+      /class HotCodecError|class HotByteCodecError|class CompilerError|class ConformanceError/,
+    );
+    expect(text).not.toMatch(
+      /instanceof HotCodecError|instanceof HotByteCodecError|instanceof CompilerError|instanceof ConformanceError/,
+    );
   });
 
   it("does not duplicate HOT_REGION_MAGIC_BYTES definition outside constants", () => {
@@ -1164,6 +1203,39 @@ describe("@seqlok/hot-codec rejections", () => {
 });
 
 describe("@seqlok/hot-codec public surface", () => {
+  it("keeps src/byte.ts as the public byte facade", () => {
+    expect(Object.keys(hotByte).sort()).toEqual([
+      "bytesToHex",
+      "decodeHotFieldValues",
+      "encodeHotFieldData",
+      "encodeHotFieldValues",
+      "encodeHotFixtureRegion",
+      "hexToBytes",
+    ]);
+
+    const byteSource = readFileSync(resolve(hotCodecSourceRoot, "byte.ts"), "utf8");
+    expect(byteSource).toContain('export { bytesToHex, hexToBytes } from "./byte/hex"');
+    expect(byteSource).toContain('} from "./byte/types"');
+    expect(byteSource).not.toContain("function writeScalar");
+    expect(byteSource).not.toContain("function readScalar");
+    expect(byteSource).not.toContain("function writeEnum");
+    expect(byteSource).not.toContain("function readEnum");
+    expect(byteSource).not.toContain("function writeVector");
+    expect(byteSource).not.toContain("function readVector");
+    expect(byteSource).not.toContain("function writeFixedString");
+    expect(byteSource).not.toContain("function readFixedString");
+    expect(byteSource).not.toContain("function writeBoundedArray");
+    expect(byteSource).not.toContain("function readBoundedArray");
+  });
+
+  it("keeps byte public types equivalent through the root export", () => {
+    expectTypeOf<PublicByteDecodeResult>().toEqualTypeOf<HotByteDecodeResult>();
+    expectTypeOf<PublicByteEncodeResult>().toEqualTypeOf<HotByteEncodeResult>();
+    expectTypeOf<PublicByteFieldScalarValue>().toEqualTypeOf<HotFieldScalarValue>();
+    expectTypeOf<PublicByteFieldValue>().toEqualTypeOf<HotFieldValue>();
+    expectTypeOf<PublicByteFieldValues>().toEqualTypeOf<HotFieldValues>();
+  });
+
   it("exports only the intended runtime API values", () => {
     expect(Object.keys(hotCodec).sort()).toEqual([
       "HOT_ABI_VERSION",

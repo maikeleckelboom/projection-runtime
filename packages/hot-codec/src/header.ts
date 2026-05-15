@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { bytesToHex } from "./byte";
+import { bytesToHex } from "./byte/hex";
 import {
   HOT_ABI_VERSION,
   HOT_BLOCK_A_BYTE_LENGTH,
