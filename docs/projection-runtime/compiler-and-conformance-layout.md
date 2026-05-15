@@ -464,6 +464,16 @@ Hot conformance must prove:
 Hot conformance is not satisfied by checking manifest JSON shape alone.
 It must prove byte-level agreement.
 
+### 11.1 Fixture-backed TypeScript hot exchange proof
+
+The `hot-exchange-v0` projection-runtime fixture is the first closed TypeScript proof for the hot lane. It starts from
+an authored contract, compiles the canonical manifest, derives the hot layout manifest, writes a complete hot fixture
+region, reads it through the bounded `@exclave/hot-consumer` kernel over a `SharedArrayBuffer` sequence view, and
+compares the decoded snapshot with the authored logical sample values.
+
+This proof is not runtime binding lifecycle, SAB lifecycle management, Electron or host adapter behavior, or Rust/TS
+cross-language exchange. It is the prerequisite evidence before generated bindings or Rust writer work.
+
 ---
 
 ## 12. Warm conformance

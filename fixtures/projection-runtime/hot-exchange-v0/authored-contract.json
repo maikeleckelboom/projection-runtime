@@ -1,0 +1,33 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": {
+    "displayName": {
+      "byteLength": 16,
+      "encoding": "ascii",
+      "kind": "fixed-string-encoded"
+    },
+    "gain": {
+      "kind": "fixed-scalar",
+      "type": "f32"
+    },
+    "levelVector": {
+      "elementType": "f32",
+      "kind": "fixed-vector",
+      "length": 4
+    },
+    "phase": {
+      "kind": "fixed-scalar",
+      "type": "f64"
+    },
+    "revision": {
+      "kind": "fixed-scalar",
+      "type": "u32"
+    }
+  },
+  "key": "fixture.hotExchange.v0",
+  "lanes": {
+    "hot": {
+      "reservations": []
+    }
+  }
+}

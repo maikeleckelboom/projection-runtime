@@ -32,6 +32,18 @@ const hotBasicCompleteFixtureRegionPath = resolve(
   repoRoot,
   "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
 );
+const hotExchangeLayoutPath = resolve(
+  repoRoot,
+  "fixtures/projection-runtime/hot-exchange-v0/hot-layout-manifest.json",
+);
+const hotExchangeByteFixturePath = resolve(
+  repoRoot,
+  "fixtures/projection-runtime/hot-exchange-v0/hot-byte-fixture.json",
+);
+const hotExchangeCompleteFixtureRegionPath = resolve(
+  repoRoot,
+  "fixtures/projection-runtime/hot-exchange-v0/hot-complete-fixture-region.json",
+);
 
 function sequenceView(initial: bigint): BigUint64Array {
   const sequence = new BigUint64Array(new SharedArrayBuffer(8));
@@ -53,11 +65,19 @@ function expectHotConsumerError(action: () => unknown): HotConsumerError {
 }
 
 function hotBasicLayout(): HotLayoutManifest {
-  const raw = JSON.parse(readFileSync(hotBasicLayoutPath, "utf8")) as Record<string, unknown>;
+  return readHotLayoutFixture(hotBasicLayoutPath);
+}
+
+function hotExchangeLayout(): HotLayoutManifest {
+  return readHotLayoutFixture(hotExchangeLayoutPath);
+}
+
+function readHotLayoutFixture(path: string): HotLayoutManifest {
+  const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
   const hotLayoutVersion = raw.hotLayoutVersion;
 
   if (typeof hotLayoutVersion !== "string") {
-    throw new Error("hot-basic-v0 hotLayoutVersion must be a hex string");
+    throw new Error(`${path} hotLayoutVersion must be a hex string`);
   }
 
   return {
@@ -67,17 +87,39 @@ function hotBasicLayout(): HotLayoutManifest {
 }
 
 function hotBasicCompleteFixtureRegionBytes(): Uint8Array {
-  const artifact = JSON.parse(readFileSync(hotBasicCompleteFixtureRegionPath, "utf8")) as Record<
-    string,
-    unknown
-  >;
+  return readCompleteFixtureRegionBytes(hotBasicCompleteFixtureRegionPath);
+}
+
+function hotExchangeCompleteFixtureRegionBytes(): Uint8Array {
+  return readCompleteFixtureRegionBytes(hotExchangeCompleteFixtureRegionPath);
+}
+
+function readCompleteFixtureRegionBytes(path: string): Uint8Array {
+  const artifact = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
   const hex = artifact.completeFixtureRegionBytesHex;
 
   if (typeof hex !== "string") {
-    throw new Error("hot-basic-v0 complete fixture region bytes must be hex");
+    throw new Error(`${path} complete fixture region bytes must be hex`);
   }
 
   return hexToBytes(hex);
+}
+
+function hotExchangeExpectedValues(): Record<string, unknown> {
+  const artifact = JSON.parse(readFileSync(hotExchangeByteFixturePath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+
+  if (!isRecord(artifact.values)) {
+    throw new Error("hot-exchange-v0 values must be an object");
+  }
+
+  return artifact.values;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 afterEach(() => {
@@ -362,6 +404,47 @@ describe("@exclave/hot-consumer bounded read attempts", () => {
       phase: 12.5,
     });
     expect(state.lastGood?.fieldValues).toEqual(result.snapshot.fieldValues);
+  });
+
+  it("reads the hot-exchange-v0 fixture-backed region through the bounded consumer kernel", () => {
+    const manifest = hotExchangeLayout();
+    const fixtureBytes = hotExchangeCompleteFixtureRegionBytes();
+    const copiedRegion = new Uint8Array(new SharedArrayBuffer(fixtureBytes.byteLength));
+    copiedRegion.set(fixtureBytes);
+    const sequence = new BigUint64Array(copiedRegion.buffer, HOT_SEQLOCK_U64_OFFSET, 1);
+    type Snapshot = ReturnType<typeof decodeHotCompleteFixtureRegion>;
+    const state = createHotReadState<Snapshot>();
+    const expectedValues = hotExchangeExpectedValues();
+
+    const result = tryReadHotSnapshot({
+      sequence,
+      readCandidate: () =>
+        decodeHotCompleteFixtureRegion(manifest, copiedRegion, {
+          expectedContractKey: "fixture.hotExchange.v0",
+          expectedInstanceKey: "hot-exchange-v0.instance",
+        }),
+      state,
+      options: {
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected hot-exchange fixture read to succeed");
+    }
+    expect(result.writerActivePolls).toBe(0);
+    expect(result.tornReads).toBe(0);
+    expect(result.sequence).toBe(2n);
+    expect(result.snapshot.blockB).toMatchObject({
+      baselineEpoch: 7,
+      continuityGeneration: 3,
+      publicationSequence: 42n,
+      seqlockCounter: 2n,
+    });
+    expect(result.snapshot.fieldValues).toEqual(expectedValues);
+    expect(state.lastGood?.fieldValues).toEqual(expectedValues);
   });
 
   it("propagates readCandidate errors unchanged and leaves lastGood untouched", () => {
