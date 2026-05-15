@@ -21,11 +21,15 @@
     "check": "pnpm verify",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "verify": "node scripts/verify.mts"
+    "verify": "node scripts/verify.mts",
+    "lint:commits": "commitlint --last --verbose"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "@commitlint/types": "^21.0.1",
     "@types/node": "^25.7.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
