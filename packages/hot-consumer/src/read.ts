@@ -150,12 +150,15 @@ function validateHotReadAttemptInput<TSnapshot>(
   const state = input.state;
   const options = input.options;
 
-  if (!(sequence instanceof BigUint64Array)) {
+  if (sequence instanceof BigUint64Array) {
+    if (!(sequence.buffer instanceof SharedArrayBuffer)) {
+      issues.push(createHotConsumerIssue("input.sequenceBufferNotShared", "input.sequence"));
+    }
+    if (sequence.length < 1) {
+      issues.push(createHotConsumerIssue("input.sequenceViewTooShort", "input.sequence"));
+    }
+  } else {
     issues.push(createHotConsumerIssue("input.sequenceViewInvalid", "input.sequence"));
-  } else if (!(sequence.buffer instanceof SharedArrayBuffer)) {
-    issues.push(createHotConsumerIssue("input.sequenceBufferNotShared", "input.sequence"));
-  } else if (sequence.length < 1) {
-    issues.push(createHotConsumerIssue("input.sequenceViewTooShort", "input.sequence"));
   }
 
   if (typeof readCandidate !== "function") {

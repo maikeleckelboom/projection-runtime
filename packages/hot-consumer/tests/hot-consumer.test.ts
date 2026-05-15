@@ -545,6 +545,7 @@ describe("@seqlok/hot-consumer input errors and public error surface", () => {
     expect(readCandidate).not.toHaveBeenCalled();
     expect(error.details.issues.map((issue) => issue.code)).toEqual([
       "input.sequenceBufferNotShared",
+      "input.sequenceViewTooShort",
     ]);
   });
 
