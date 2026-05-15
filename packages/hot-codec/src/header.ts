@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { bytesToHex } from "./byte/hex";
 import {
   HOT_ABI_VERSION,
@@ -14,6 +13,10 @@ import {
   type HotCodecIssueCode,
   isHotCodecError,
 } from "./error";
+import {
+  deriveHotBlockAIdentityHashBytes,
+  deriveHotBlockAIdentityHashHex,
+} from "./header-identity";
 
 export type HotBlockAHeaderInput = {
   readonly contractKey: string;
@@ -65,8 +68,8 @@ export function encodeHotBlockAHeader(input: HotBlockAHeaderInput): Uint8Array {
 
   bytes.set(HOT_REGION_MAGIC_BYTES, 0);
   view.setUint32(4, HOT_ABI_VERSION, true);
-  bytes.set(hashKey(input.contractKey), 8);
-  bytes.set(hashKey(input.instanceKey), 24);
+  bytes.set(deriveHotBlockAIdentityHashBytes(input.contractKey), 8);
+  bytes.set(deriveHotBlockAIdentityHashBytes(input.instanceKey), 24);
   view.setBigUint64(40, input.semanticVersion, true);
   view.setBigUint64(48, input.hotLayoutVersion, true);
   view.setUint32(56, input.fieldCount, true);
@@ -148,7 +151,7 @@ export function validateHotBlockAHeader(
 
   const issues: HotCodecIssue[] = [];
 
-  const expectedContractKeyHashHex = bytesToHex(hashKey(expected.contractKey));
+  const expectedContractKeyHashHex = deriveHotBlockAIdentityHashHex(expected.contractKey);
   if (decoded.contractKeyHashHex !== expectedContractKeyHashHex) {
     issues.push(
       createHotCodecIssue(
@@ -159,7 +162,7 @@ export function validateHotBlockAHeader(
     );
   }
 
-  const expectedInstanceKeyHashHex = bytesToHex(hashKey(expected.instanceKey));
+  const expectedInstanceKeyHashHex = deriveHotBlockAIdentityHashHex(expected.instanceKey);
   if (decoded.instanceKeyHashHex !== expectedInstanceKeyHashHex) {
     issues.push(
       createHotCodecIssue(
@@ -391,10 +394,6 @@ function validateBlockBInput(input: HotBlockBHeaderInput): void {
   if (issues.length > 0) {
     throw createHotByteRejectedError(issues);
   }
-}
-
-function hashKey(key: string): Uint8Array {
-  return createHash("sha256").update(key, "utf8").digest().subarray(0, 16);
 }
 
 function headerError(code: HotCodecIssueCode, path: string, message: string): HotByteCodecError {

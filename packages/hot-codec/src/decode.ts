@@ -9,11 +9,11 @@ import { createHotByteRejectedError, createHotCodecIssue, type HotCodecIssue } f
 import {
   decodeHotBlockAHeader,
   decodeHotBlockBHeader,
-  encodeHotBlockAHeader,
   type HotBlockAHeader,
   type HotBlockBHeader,
   validateHotBlockAHeader,
 } from "./header";
+import { deriveHotBlockAIdentityHashHex } from "./header-identity";
 import type { HotLayoutManifest } from "./manifest";
 
 export type HotCompleteFixtureRegionDecodeOptions = {
@@ -145,7 +145,7 @@ function validateCompleteFixtureRegionExpectedKeys(
   const issues: HotCodecIssue[] = [];
 
   if (options.expectedContractKey !== undefined) {
-    const expectedHashHex = expectedContractKeyHashHex(blockA, options.expectedContractKey);
+    const expectedHashHex = deriveHotBlockAIdentityHashHex(options.expectedContractKey);
     if (blockA.contractKeyHashHex !== expectedHashHex) {
       issues.push(
         createHotCodecIssue(
@@ -158,7 +158,7 @@ function validateCompleteFixtureRegionExpectedKeys(
   }
 
   if (options.expectedInstanceKey !== undefined) {
-    const expectedHashHex = expectedInstanceKeyHashHex(blockA, options.expectedInstanceKey);
+    const expectedHashHex = deriveHotBlockAIdentityHashHex(options.expectedInstanceKey);
     if (blockA.instanceKeyHashHex !== expectedHashHex) {
       issues.push(
         createHotCodecIssue(
@@ -171,30 +171,4 @@ function validateCompleteFixtureRegionExpectedKeys(
   }
 
   return issues;
-}
-
-function expectedContractKeyHashHex(blockA: HotBlockAHeader, contractKey: string): string {
-  return decodeHotBlockAHeader(
-    encodeHotBlockAHeader({
-      contractKey,
-      instanceKey: "fixture-region-placeholder",
-      semanticVersion: blockA.semanticVersion,
-      hotLayoutVersion: blockA.hotLayoutVersion,
-      fieldCount: blockA.fieldCount,
-      mutableRegionByteLength: blockA.mutableRegionByteLength,
-    }),
-  ).contractKeyHashHex;
-}
-
-function expectedInstanceKeyHashHex(blockA: HotBlockAHeader, instanceKey: string): string {
-  return decodeHotBlockAHeader(
-    encodeHotBlockAHeader({
-      contractKey: "fixture-region-placeholder",
-      instanceKey,
-      semanticVersion: blockA.semanticVersion,
-      hotLayoutVersion: blockA.hotLayoutVersion,
-      fieldCount: blockA.fieldCount,
-      mutableRegionByteLength: blockA.mutableRegionByteLength,
-    }),
-  ).instanceKeyHashHex;
 }
