@@ -11,7 +11,7 @@
     "clean": "node scripts/clean.mts",
     "build": "tsc -b tsconfig.packages.json",
     "typecheck": "pnpm typecheck:packages && pnpm typecheck:tooling",
-    "typecheck:packages": "tsc -b tsconfig.packages.json --pretty false --noEmit",
+    "typecheck:packages": "tsc -b tsconfig.packages.json --pretty false",
     "typecheck:tooling": "tsc -p tsconfig.tooling.json --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import {execFileSync} from "node:child_process";
-import {readFileSync} from "node:fs";
-import {writeFile} from "node:fs/promises";
-import Module, {createRequire} from "node:module";
-import {dirname, resolve} from "node:path";
-import {fileURLToPath} from "node:url";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import Module, { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -67,7 +67,9 @@ type CompileSuccess = {
 type CompileResult = CompileSuccess | CompileFailure;
 
 type CompilerModule = {
-  readonly compileAuthoredProjectionContract: (contract: AuthoredProjectionContract) => CompileResult;
+  readonly compileAuthoredProjectionContract: (
+    contract: AuthoredProjectionContract,
+  ) => CompileResult;
 };
 
 type EncodedHotFieldValues<TValues extends HotFieldValues> = {
@@ -78,6 +80,12 @@ type EncodedHotFieldValues<TValues extends HotFieldValues> = {
 
 type DecodedHotFieldValues<TValues extends HotFieldValues> = {
   readonly values: TValues;
+};
+
+type HotCompleteFixtureRegionInput = {
+  readonly blockA: HotBlockAHeaderInput;
+  readonly blockB: HotBlockBHeaderInput;
+  readonly values: HotFieldValues;
 };
 
 type HotBlockAHeaderInput = {
@@ -127,6 +135,10 @@ type HotCodecModule = {
     bytes: Uint8Array,
     expected: HotBlockBHeaderInput,
   ) => ValidationResult;
+  readonly encodeHotCompleteFixtureRegion: (
+    hotLayoutManifest: HotLayoutManifest,
+    input: HotCompleteFixtureRegionInput,
+  ) => Uint8Array;
 };
 
 type TypeScriptModule = typeof import("typescript");
@@ -150,9 +162,8 @@ const require = createRequire(import.meta.url);
 
 registerWorkspaceTsRequireHook();
 
-const { compileAuthoredProjectionContract } = requireWorkspaceModule<CompilerModule>(
-  "@seqlok/compiler",
-);
+const { compileAuthoredProjectionContract } =
+  requireWorkspaceModule<CompilerModule>("@seqlok/compiler");
 const {
   bytesToHex,
   decodeHotFieldValues,
@@ -163,6 +174,7 @@ const {
   encodeHotBlockBHeader,
   decodeHotBlockBHeader,
   validateHotBlockBHeader,
+  encodeHotCompleteFixtureRegion,
 } = requireWorkspaceModule<HotCodecModule>("@seqlok/hot-codec");
 
 const authoredContractPath = resolve(fixtureRoot, "authored-contract.json");
@@ -171,6 +183,7 @@ const hotLayoutManifestPath = resolve(fixtureRoot, "hot-layout-manifest.json");
 const hotByteFixturePath = resolve(fixtureRoot, "hot-byte-fixture.json");
 const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
 const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
+const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
 const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
 
 const hotBasicSampleValues = {
@@ -202,6 +215,10 @@ await writeJson(hotLayoutManifestPath, hotLayoutManifest);
 await writeJson(hotByteFixturePath, createHotByteFixture(hotLayoutManifest, hotBasicSampleValues));
 await writeJson(hotBlockAFixturePath, createHotBlockAFixture(hotLayoutManifest, resolved));
 await writeJson(hotBlockBFixturePath, createHotBlockBFixture());
+await writeJson(
+  hotCompleteFixtureRegionPath,
+  createHotCompleteFixtureRegionFixture(hotLayoutManifest, resolved, hotBasicSampleValues),
+);
 await writeJson(resolvedContractPath, resolved);
 formatGeneratedJson();
 
@@ -327,20 +344,7 @@ function createHotBlockAFixture(
   hotLayoutManifest: HotLayoutManifest,
   resolved: ResolvedProjectionContract,
 ): FixtureObject {
-  const instanceKey = "hot-basic-v0.instance";
-  const semanticVersion = decodeU64Hex(resolved.semanticVersion, "semanticVersion");
-  const hotLayoutVersion = decodeU64Hex(
-    hotLayoutManifest.hotLayoutVersion,
-    "hotLayoutVersion",
-  );
-  const input = {
-    contractKey: hotLayoutManifest.contractKey,
-    instanceKey,
-    semanticVersion,
-    hotLayoutVersion,
-    fieldCount: hotLayoutManifest.fields.length,
-    mutableRegionByteLength: hotLayoutManifest.mutableRegionByteLength,
-  } satisfies HotBlockAHeaderInput;
+  const input = createHotBlockAInput(hotLayoutManifest, resolved);
   const blockABytes = encodeHotBlockAHeader(input);
   const decoded = decodeHotBlockAHeader(blockABytes);
   const validation = validateHotBlockAHeader(blockABytes, input);
@@ -364,13 +368,34 @@ function createHotBlockAFixture(
   };
 }
 
-function createHotBlockBFixture(): FixtureObject {
-  const input = {
+function createHotBlockAInput(
+  hotLayoutManifest: HotLayoutManifest,
+  resolved: ResolvedProjectionContract,
+): HotBlockAHeaderInput {
+  const semanticVersion = decodeU64Hex(resolved.semanticVersion, "semanticVersion");
+  const hotLayoutVersion = decodeU64Hex(hotLayoutManifest.hotLayoutVersion, "hotLayoutVersion");
+
+  return {
+    contractKey: hotLayoutManifest.contractKey,
+    instanceKey: "hot-basic-v0.instance",
+    semanticVersion,
+    hotLayoutVersion,
+    fieldCount: hotLayoutManifest.fields.length,
+    mutableRegionByteLength: hotLayoutManifest.mutableRegionByteLength,
+  };
+}
+
+function createHotBlockBInput(): HotBlockBHeaderInput {
+  return {
     seqlockCounter: 2n,
     baselineEpoch: 7,
     continuityGeneration: 3,
     publicationSequence: 42n,
-  } satisfies HotBlockBHeaderInput;
+  };
+}
+
+function createHotBlockBFixture(): FixtureObject {
+  const input = createHotBlockBInput();
   const blockBBytes = encodeHotBlockBHeader(input);
   const decoded = decodeHotBlockBHeader(blockBBytes);
   const validation = validateHotBlockBHeader(blockBBytes, input);
@@ -388,6 +413,40 @@ function createHotBlockBFixture(): FixtureObject {
     expected: {
       blockBBytesHex: bytesToHex(blockBBytes),
       decoded,
+    },
+  };
+}
+
+function createHotCompleteFixtureRegionFixture(
+  hotLayoutManifest: HotLayoutManifest,
+  resolved: ResolvedProjectionContract,
+  values: HotBasicSampleValues,
+): FixtureObject {
+  const blockA = createHotBlockAInput(hotLayoutManifest, resolved);
+  const blockB = createHotBlockBInput();
+  const blockABytes = encodeHotBlockAHeader(blockA);
+  const blockBBytes = encodeHotBlockBHeader(blockB);
+  const fieldBytes = encodeHotFieldValues(hotLayoutManifest, values).fieldBytes;
+  const completeFixtureRegionBytes = encodeHotCompleteFixtureRegion(hotLayoutManifest, {
+    blockA,
+    blockB,
+    values,
+  });
+
+  return {
+    fixtureKind: "hot-complete-fixture-region",
+    contractKey: blockA.contractKey,
+    instanceKey: blockA.instanceKey,
+    hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
+    totalRegionByteLength: hotLayoutManifest.totalRegionByteLength,
+    blockABytesHex: bytesToHex(blockABytes),
+    blockBBytesHex: bytesToHex(blockBBytes),
+    fieldBytesHex: bytesToHex(fieldBytes),
+    completeFixtureRegionBytesHex: bytesToHex(completeFixtureRegionBytes),
+    decoded: {
+      blockA: decodeHotBlockAHeader(blockABytes),
+      blockB: decodeHotBlockBHeader(blockBBytes),
+      fieldValues: decodeHotFieldValues(hotLayoutManifest, fieldBytes).values,
     },
   };
 }
@@ -445,6 +504,7 @@ function formatGeneratedJson(): void {
       "fixtures/projection-runtime/hot-basic-v0/hot-byte-fixture.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-block-a-fixture.json",
       "fixtures/projection-runtime/hot-basic-v0/hot-block-b-fixture.json",
+      "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
       "fixtures/projection-runtime/hot-basic-v0/resolved-contract.json",
     ],
     { cwd: repoRoot, stdio: "inherit" },

@@ -91,6 +91,11 @@ describe("@seqlok/conformance fixture loading", () => {
       fixtureKind: "hot-block-b-fixture",
       seqlockCounter: "0000000000000002",
     });
+    expect(fixture.artifacts.hotCompleteFixtureRegion).toMatchObject({
+      fixtureKind: "hot-complete-fixture-region",
+      contractKey: "fixture.hotBasic",
+      instanceKey: "hot-basic-v0.instance",
+    });
     expect(fixture.artifacts.resolvedContract).toMatchObject({
       manifest: { key: "fixture.hotBasic" },
     });
@@ -243,6 +248,57 @@ describe("@seqlok/conformance fixture loading", () => {
       expect(result.failures[0]?.relativePath).toContain("broken-fixture/hot-block-b-fixture.json");
     });
   });
+
+  it("loads hot-basic-v0 hot-complete-fixture-region.json with deterministic slices", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotLayoutManifest = cloneRecord(fixture.artifacts.hotLayoutManifest);
+    const hotCompleteFixtureRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const decoded = cloneRecord(hotCompleteFixtureRegion.decoded);
+
+    expect(hotCompleteFixtureRegion).toMatchObject({
+      fixtureKind: "hot-complete-fixture-region",
+      contractKey: "fixture.hotBasic",
+      instanceKey: "hot-basic-v0.instance",
+      hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
+      totalRegionByteLength: hotLayoutManifest.totalRegionByteLength,
+    });
+    expect(typeof hotCompleteFixtureRegion.blockABytesHex).toBe("string");
+    expect(typeof hotCompleteFixtureRegion.blockBBytesHex).toBe("string");
+    expect(typeof hotCompleteFixtureRegion.fieldBytesHex).toBe("string");
+    expect(typeof hotCompleteFixtureRegion.completeFixtureRegionBytesHex).toBe("string");
+    expect(decoded.fieldValues).toEqual({
+      cursor: 123,
+      health: "warn",
+      level: 0.75,
+      peaks: [0.125, 0.25, 0.5],
+      phase: 12.5,
+    });
+  });
+
+  it("reports missing hot-complete-fixture-region.json explicitly", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-fixture");
+      await cp(hotBasicFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "hot-complete-fixture-region.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-fixture", { fixtureRoot: root });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
+          fixtureFile: "hot-complete-fixture-region.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain(
+        "broken-fixture/hot-complete-fixture-region.json",
+      );
+    });
+  });
 });
 
 describe("@seqlok/conformance execution", () => {
@@ -339,6 +395,21 @@ describe("@seqlok/conformance execution", () => {
     const failure = expectFailure(result.failures, "hot-block-b-fixture");
     expect(failure.failureCode).toBe("headerValidationFailed");
     expect(failure.reason).toContain("hot-block-b-fixture validation failed");
+  });
+
+  it("reports hot-complete-fixture-region failures for changed in-memory expected bytes", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-basic-v0");
+    const hotCompleteFixtureRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const decoded = cloneRecord(hotCompleteFixtureRegion.decoded);
+    decoded.fieldValues = { cursor: 999 };
+    hotCompleteFixtureRegion.decoded = decoded;
+
+    const result = await runProjectionRuntimeFixture(fixture, {
+      expectedArtifacts: { hotCompleteFixtureRegion },
+    });
+
+    const failure = expectFailure(result.failures, "hot-complete-fixture-region");
+    expect(failure.reason).toBe("hot-complete-fixture-region does not match golden artifact");
   });
 
   it("reports resolved-contract failures for changed in-memory expected contracts", async () => {

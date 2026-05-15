@@ -40,6 +40,10 @@ export {
   isHotCodecError,
 } from "./error";
 export {
+  encodeHotCompleteFixtureRegion,
+  type HotCompleteFixtureRegionInput,
+} from "./fixture-region";
+export {
   decodeHotBlockAHeader,
   decodeHotBlockBHeader,
   encodeHotBlockAHeader,

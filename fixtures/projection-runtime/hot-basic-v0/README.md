@@ -39,6 +39,16 @@ APIs. It does not perform publication lifecycle, seqlock retry, Atomics operatio
 handle creation, live mapping binding, reader creation, or writer creation. It does not create a valid coherent runtime
 read by itself.
 
+`hot-complete-fixture-region.json` adds deterministic complete fixture-region bytes for this same static fixture. It
+combines the existing Block A header bytes, Block B header bytes, and hot field data bytes into one 136-byte array with
+field data starting at byte 96. The decoded section records the Block A header, Block B header, and field values that
+the assembled slices decode to through public `@seqlok/hot-codec` APIs.
+
+The complete fixture region is still not a live runtime region. It does not prove runtime coherence, perform seqlock
+retry, use Atomics, manage SAB lifecycle, bind mappings, create handles, or create runtime readers or writers.
+`hot-byte-fixture.json` remains the zero-filled fixture-region byte artifact for pure field byte semantics, and
+`encodeHotFixtureRegion` remains the zero-filled fixture helper.
+
 Regenerate derived artifacts from the repo root:
 
 ```sh

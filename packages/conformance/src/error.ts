@@ -15,6 +15,7 @@ export type ConformanceArtifactName =
   | "hot-block-a-fixture"
   | "hot-block-b-fixture"
   | "hot-byte-fixture"
+  | "hot-complete-fixture-region"
   | "hot-layout-manifest"
   | "readme"
   | "resolved-contract";

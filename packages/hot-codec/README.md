@@ -6,9 +6,10 @@ It is build-time planning code. It owns hot ABI constants, hot field layout plan
 sizing, `hotLayoutVersion` derivation, and pure deterministic hot field byte codec helpers.
 
 The field byte helpers encode and decode values against an already-planned `HotLayoutManifest`. They can produce
-field-data bytes, full zero-filled fixture region bytes, and lowercase hex strings for golden fixtures. These fixture
-region bytes are not valid runtime hot regions: Block A and Block B are zero-filled because runtime publication backing
-is owned elsewhere.
+field-data bytes, full zero-filled fixture region bytes, complete fixture region bytes, and lowercase hex strings for
+golden fixtures. `encodeHotFixtureRegion` remains the zero-filled prefix fixture helper: Block A and Block B are
+zero-filled because runtime publication backing is owned elsewhere. `encodeHotCompleteFixtureRegion` deterministically
+combines Block A header bytes, Block B header bytes, and hot field data bytes for test and conformance fixtures.
 
 Hot-codec throws and returns `SeqlokError` values with package-domain codes. Planning failures expose code
 `hotCodec.layoutRejected` and a sorted `details.issues` list of `HotCodecIssue` objects with stable typed issue codes
@@ -43,3 +44,19 @@ for fixture and conformance use. Block B contains `seqlockCounter`, `baselineEpo
 The Block B helpers do not perform publication lifecycle, seqlock retry, Atomics operations, SharedArrayBuffer lifecycle
 management, runtime handle creation, live mapping binding, reader creation, or writer creation. They do not interpret
 odd/even seqlock state as runtime validity and do not create valid coherent runtime reads by themselves.
+
+## Complete fixture region helper
+
+`encodeHotCompleteFixtureRegion` assembles deterministic fixture bytes as:
+
+- Block A at bytes 0 through 71
+- Block B at bytes 72 through 95
+- field data starting at byte 96
+
+The returned byte array length is exactly `manifest.totalRegionByteLength`. Before assembly it checks that the Block A
+fixture input agrees with the hot layout manifest identity, layout version, field count, mutable region size, field data
+origin, and region length.
+
+This complete fixture region is still test/conformance data. It is not a live runtime region, does not prove runtime
+coherence, does not perform seqlock retry, does not use Atomics, does not manage SharedArrayBuffer lifecycle, and does
+not create runtime readers, writers, mappings, or handles.

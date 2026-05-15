@@ -64,6 +64,10 @@ export const HOT_CODEC_ISSUE_DEFS = {
   "byte.stringEncodingInvalid": "string contains a non-ascii code unit",
   "byte.valueOutOfRange": "value is outside valid range",
   "byte.reservationMissing": "missing hot reservation metadata",
+  "byte.fixtureRegionContractKeyMismatch": "fixture region contractKey must match manifest",
+  "byte.fixtureRegionFieldDataOriginInvalid":
+    "fixture region manifest fieldDataOrigin must match hot ABI",
+  "byte.fixtureRegionLengthInvalid": "fixture region byte length is invalid",
   "header.byteLengthInvalid": "Block A header byte length is invalid",
   "header.magicInvalid": "Block A header magic bytes are invalid",
   "header.hotAbiVersionUnsupported": "Block A header hotAbiVersion is not supported",

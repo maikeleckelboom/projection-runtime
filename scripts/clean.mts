@@ -1,14 +1,14 @@
-import type {Dirent} from "node:fs";
-import {access, readdir, rm} from "node:fs/promises";
-import {join} from "node:path";
-import {fileURLToPath} from "node:url";
+import type { Dirent } from "node:fs";
+import { access, readdir, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const packagesRoot = join(root, "packages");
 
-const packageEntries: readonly Dirent[] = await readdir(packagesRoot, { withFileTypes: true }).catch(
-  (): readonly Dirent[] => [],
-);
+const packageEntries: readonly Dirent[] = await readdir(packagesRoot, {
+  withFileTypes: true,
+}).catch((): readonly Dirent[] => []);
 const packageNames: string[] = [];
 
 for (const entry of packageEntries) {
@@ -37,7 +37,7 @@ const pathsToRemove: readonly string[] = [
 ];
 
 await Promise.all(
-  pathsToRemove.map((relativePath): Promise<void> =>
-    rm(join(root, relativePath), { recursive: true, force: true }),
+  pathsToRemove.map(
+    (relativePath): Promise<void> => rm(join(root, relativePath), { recursive: true, force: true }),
   ),
 );

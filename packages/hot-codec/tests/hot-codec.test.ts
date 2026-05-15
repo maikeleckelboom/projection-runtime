@@ -14,6 +14,7 @@ import {
   deriveHotLayoutVersion,
   encodeHotBlockAHeader,
   encodeHotBlockBHeader,
+  encodeHotCompleteFixtureRegion,
   encodeHotFieldData,
   encodeHotFieldValues,
   encodeHotFixtureRegion,
@@ -61,6 +62,20 @@ const HOT_BASIC_SAMPLE_VALUES = {
 const HOT_BASIC_EXPECTED_FIELD_BYTES_HEX =
   "7b000000010000000000403f030000000000003e0000803e0000003f000000000000000000002940";
 const HOT_BASIC_EXPECTED_FIXTURE_REGION_BYTES_HEX = `${"00".repeat(96)}${HOT_BASIC_EXPECTED_FIELD_BYTES_HEX}`;
+const HOT_BASIC_BLOCK_A_INPUT = {
+  contractKey: "fixture.hotBasic",
+  instanceKey: "hot-basic-v0.instance",
+  semanticVersion: 0x67b271f31c6b06a0n,
+  hotLayoutVersion: 0x8f3eb897fd88495cn,
+  fieldCount: 5,
+  mutableRegionByteLength: 64,
+} as const satisfies HotBlockAHeaderInput;
+const HOT_BASIC_BLOCK_B_INPUT = {
+  seqlockCounter: 2n,
+  baselineEpoch: 7,
+  continuityGeneration: 3,
+  publicationSequence: 42n,
+} as const satisfies HotBlockBHeaderInput;
 
 function unwrap(result: HotLayoutPlanResult): HotLayoutManifest {
   expect(result.ok).toBe(true);
@@ -528,6 +543,126 @@ describe("@seqlok/hot-codec byte helpers", () => {
     expect(text).not.toContain("retry");
     expect(text).not.toContain("handle");
     expect("createHotReader" in hotCodec).toBe(false);
+    expect("createHotWriter" in hotCodec).toBe(false);
+    expect("openHotBinding" in hotCodec).toBe(false);
+  });
+});
+
+describe("@seqlok/hot-codec complete fixture region", () => {
+  function encodeHotBasicCompleteFixtureRegion(): Uint8Array {
+    return encodeHotCompleteFixtureRegion(hotBasicLayout(), {
+      blockA: HOT_BASIC_BLOCK_A_INPUT,
+      blockB: HOT_BASIC_BLOCK_B_INPUT,
+      values: HOT_BASIC_SAMPLE_VALUES,
+    });
+  }
+
+  it("returns exactly manifest.totalRegionByteLength bytes", () => {
+    const manifest = hotBasicLayout();
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+
+    expect(bytes.byteLength).toBe(manifest.totalRegionByteLength);
+  });
+
+  it("places Block A, Block B, and field data in the ABI offsets", () => {
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+
+    expect(bytesToHex(bytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH))).toBe(
+      bytesToHex(encodeHotBlockAHeader(HOT_BASIC_BLOCK_A_INPUT)),
+    );
+    expect(bytesToHex(bytes.subarray(HOT_BLOCK_B_BYTE_OFFSET, HOT_BLOCK_B_END_OFFSET))).toBe(
+      bytesToHex(encodeHotBlockBHeader(HOT_BASIC_BLOCK_B_INPUT)),
+    );
+    expect(bytesToHex(bytes.subarray(HOT_FIELD_DATA_BYTE_OFFSET))).toBe(
+      bytesToHex(encodeHotFieldData(hotBasicLayout(), HOT_BASIC_SAMPLE_VALUES)),
+    );
+    expect(bytesToHex(bytes.subarray(HOT_FIELD_DATA_BYTE_OFFSET))).toBe(
+      bytesToHex(encodeHotFieldValues(hotBasicLayout(), HOT_BASIC_SAMPLE_VALUES).fieldBytes),
+    );
+  });
+
+  it("decodes the assembled Block A, Block B, and field-data slices", () => {
+    const manifest = hotBasicLayout();
+    const bytes = encodeHotBasicCompleteFixtureRegion();
+
+    expect(decodeHotBlockAHeader(bytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH))).toMatchObject({
+      hotLayoutVersion: HOT_BASIC_BLOCK_A_INPUT.hotLayoutVersion,
+      fieldCount: HOT_BASIC_BLOCK_A_INPUT.fieldCount,
+      mutableRegionByteLength: HOT_BASIC_BLOCK_A_INPUT.mutableRegionByteLength,
+    });
+    expect(
+      decodeHotBlockBHeader(bytes.subarray(HOT_BLOCK_B_BYTE_OFFSET, HOT_BLOCK_B_END_OFFSET)),
+    ).toEqual(HOT_BASIC_BLOCK_B_INPUT);
+    expect(
+      decodeHotFieldValues(manifest, bytes.subarray(HOT_FIELD_DATA_BYTE_OFFSET)).values,
+    ).toEqual(HOT_BASIC_SAMPLE_VALUES);
+  });
+
+  it("rejects blockA contractKey mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      encodeHotCompleteFixtureRegion(hotBasicLayout(), {
+        blockA: { ...HOT_BASIC_BLOCK_A_INPUT, contractKey: "fixture.other" },
+        blockB: HOT_BASIC_BLOCK_B_INPUT,
+        values: HOT_BASIC_SAMPLE_VALUES,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "byte.fixtureRegionContractKeyMismatch",
+    );
+  });
+
+  it("rejects blockA hotLayoutVersion mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      encodeHotCompleteFixtureRegion(hotBasicLayout(), {
+        blockA: { ...HOT_BASIC_BLOCK_A_INPUT, hotLayoutVersion: 0n },
+        blockB: HOT_BASIC_BLOCK_B_INPUT,
+        values: HOT_BASIC_SAMPLE_VALUES,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.hotLayoutVersionMismatch",
+    );
+  });
+
+  it("rejects blockA fieldCount mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      encodeHotCompleteFixtureRegion(hotBasicLayout(), {
+        blockA: { ...HOT_BASIC_BLOCK_A_INPUT, fieldCount: 6 },
+        blockB: HOT_BASIC_BLOCK_B_INPUT,
+        values: HOT_BASIC_SAMPLE_VALUES,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain("header.fieldCountMismatch");
+  });
+
+  it("rejects blockA mutableRegionByteLength mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      encodeHotCompleteFixtureRegion(hotBasicLayout(), {
+        blockA: { ...HOT_BASIC_BLOCK_A_INPUT, mutableRegionByteLength: 65 },
+        blockB: HOT_BASIC_BLOCK_B_INPUT,
+        values: HOT_BASIC_SAMPLE_VALUES,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.mutableRegionByteLengthMismatch",
+    );
+  });
+
+  it("does not introduce runtime reader, writer, seqlock retry, Atomics, SAB, or handle surfaces", () => {
+    const text = sourceText(hotCodecSourceRoot);
+
+    expect(text).not.toContain("Atomics");
+    expect(text).not.toContain("SharedArrayBuffer");
+    expect(text).not.toContain("retry");
+    expect(text).not.toContain("runtime reader");
+    expect(text).not.toContain("runtime writer");
+    expect(text).not.toContain("handle");
+    expect("createHotReader" in hotCodec).toBe(false);
+    expect("createHotWriter" in hotCodec).toBe(false);
     expect("openHotBinding" in hotCodec).toBe(false);
   });
 });
@@ -1055,6 +1190,7 @@ describe("@seqlok/hot-codec public surface", () => {
       "deriveHotLayoutVersion",
       "encodeHotBlockAHeader",
       "encodeHotBlockBHeader",
+      "encodeHotCompleteFixtureRegion",
       "encodeHotFieldData",
       "encodeHotFieldValues",
       "encodeHotFixtureRegion",

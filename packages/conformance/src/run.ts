@@ -8,7 +8,12 @@ import {
   decodeHotFieldValues,
   encodeHotBlockAHeader,
   encodeHotBlockBHeader,
+  encodeHotCompleteFixtureRegion,
   encodeHotFieldValues,
+  HOT_BLOCK_A_BYTE_LENGTH,
+  HOT_BLOCK_B_BYTE_OFFSET,
+  HOT_BLOCK_B_END_OFFSET,
+  HOT_FIELD_DATA_BYTE_OFFSET,
   type HotBlockAHeaderInput,
   type HotBlockBHeaderInput,
   type HotFieldValues,
@@ -75,6 +80,7 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
       | "hotByteFixture"
       | "hotBlockAFixture"
       | "hotBlockBFixture"
+      | "hotCompleteFixtureRegion"
       | "hotLayoutManifest"
       | "resolvedContract"
     >
@@ -105,6 +111,8 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.hotBlockAFixture ?? artifacts.hotBlockAFixture;
   const expectedHotBlockBFixture =
     options.expectedArtifacts?.hotBlockBFixture ?? artifacts.hotBlockBFixture;
+  const expectedHotCompleteFixtureRegion =
+    options.expectedArtifacts?.hotCompleteFixtureRegion ?? artifacts.hotCompleteFixtureRegion;
   const expectedHotLayoutManifest =
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
@@ -148,6 +156,14 @@ export async function runProjectionRuntimeFixture(
   appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
   appendHotBlockAFixtureComparison(failures, expectedHotBlockAFixture, hotLayoutManifest, resolved);
   appendHotBlockBFixtureComparison(failures, expectedHotBlockBFixture);
+  appendHotCompleteFixtureRegionComparison(
+    failures,
+    expectedHotCompleteFixtureRegion,
+    expectedHotByteFixture,
+    expectedHotBlockBFixture,
+    hotLayoutManifest,
+    resolved,
+  );
   appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
   appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
   appendHotLayoutVersionCheck(failures, "actual", resolved);
@@ -517,6 +533,295 @@ function createHotBlockBFixtureArtifact(expectedHotBlockBFixture: unknown): unkn
   };
 }
 
+function appendHotCompleteFixtureRegionComparison(
+  failures: ProjectionRuntimeFixtureFailure[],
+  expectedHotCompleteFixtureRegion: unknown,
+  expectedHotByteFixture: unknown,
+  expectedHotBlockBFixture: unknown,
+  hotLayoutManifest: HotLayoutManifest | undefined,
+  resolved: unknown,
+): void {
+  try {
+    appendArtifactComparison(
+      failures,
+      "hot-complete-fixture-region",
+      expectedHotCompleteFixtureRegion,
+      createHotCompleteFixtureRegionArtifact(
+        expectedHotCompleteFixtureRegion,
+        expectedHotByteFixture,
+        expectedHotBlockBFixture,
+        hotLayoutManifest,
+        resolved,
+      ),
+    );
+  } catch (error) {
+    failures.push(
+      conformanceFailureFromError(
+        error,
+        "hot-complete-fixture-region",
+        expectedHotCompleteFixtureRegion,
+      ),
+    );
+  }
+}
+
+function createHotCompleteFixtureRegionArtifact(
+  expectedHotCompleteFixtureRegion: unknown,
+  expectedHotByteFixture: unknown,
+  expectedHotBlockBFixture: unknown,
+  hotLayoutManifest: HotLayoutManifest | undefined,
+  resolved: unknown,
+): unknown {
+  if (hotLayoutManifest === undefined) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region requires a hot layout manifest",
+      failureCode: "missingHotLayoutManifest",
+    });
+  }
+  if (!isRecord(resolved)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region requires resolved contract",
+      failureCode: "missingResolvedContract",
+    });
+  }
+  if (!isRecord(expectedHotCompleteFixtureRegion)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region must be an object",
+      failureCode: "fixtureNotObject",
+    });
+  }
+  if (!isRecord(expectedHotByteFixture)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-byte-fixture must be an object",
+      failureCode: "fixtureNotObject",
+    });
+  }
+  if (!isRecord(expectedHotBlockBFixture)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-block-b-fixture must be an object",
+      failureCode: "fixtureNotObject",
+    });
+  }
+
+  const contractKey = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "contractKey",
+    "expected.contractKey",
+  );
+  const instanceKey = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "instanceKey",
+    "expected.instanceKey",
+  );
+  const hotLayoutVersion = getU64HexProperty(
+    expectedHotCompleteFixtureRegion,
+    "hotLayoutVersion",
+    "expected.hotLayoutVersion",
+  );
+  const totalRegionByteLength = getNumberProperty(
+    expectedHotCompleteFixtureRegion,
+    "totalRegionByteLength",
+    "expected.totalRegionByteLength",
+  );
+  const blockABytesHex = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "blockABytesHex",
+    "expected.blockABytesHex",
+  );
+  const blockBBytesHex = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "blockBBytesHex",
+    "expected.blockBBytesHex",
+  );
+  const fieldBytesHex = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "fieldBytesHex",
+    "expected.fieldBytesHex",
+  );
+  const completeFixtureRegionBytesHex = getStringProperty(
+    expectedHotCompleteFixtureRegion,
+    "completeFixtureRegionBytesHex",
+    "expected.completeFixtureRegionBytesHex",
+  );
+  const values = getObjectProperty(expectedHotByteFixture, "values");
+  if (!isRecord(values)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region requires hot-byte-fixture values",
+      failureCode: "valuesNotObject",
+    });
+  }
+
+  if (contractKey !== hotLayoutManifest.contractKey) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: `hot-complete-fixture-region contractKey mismatch: expected ${contractKey}, manifest ${hotLayoutManifest.contractKey}`,
+      failureCode: "artifactMismatch",
+    });
+  }
+
+  if (
+    encodeFixtureJson(hotLayoutVersion) !== encodeFixtureJson(hotLayoutManifest.hotLayoutVersion)
+  ) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region hotLayoutVersion mismatch",
+      failureCode: "hotLayoutVersionMismatch",
+    });
+  }
+
+  if (totalRegionByteLength !== hotLayoutManifest.totalRegionByteLength) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: `hot-complete-fixture-region totalRegionByteLength mismatch: expected ${totalRegionByteLength}, manifest ${hotLayoutManifest.totalRegionByteLength}`,
+      failureCode: "artifactMismatch",
+    });
+  }
+
+  const blockA: HotBlockAHeaderInput = {
+    contractKey,
+    instanceKey,
+    semanticVersion: getU64Property(resolved, "semanticVersion", "resolved.semanticVersion"),
+    hotLayoutVersion,
+    fieldCount: hotLayoutManifest.fields.length,
+    mutableRegionByteLength: hotLayoutManifest.mutableRegionByteLength,
+  };
+  const blockB: HotBlockBHeaderInput = {
+    seqlockCounter: getU64HexProperty(
+      expectedHotBlockBFixture,
+      "seqlockCounter",
+      "hotBlockBFixture.seqlockCounter",
+    ),
+    baselineEpoch: getNumberProperty(
+      expectedHotBlockBFixture,
+      "baselineEpoch",
+      "hotBlockBFixture.baselineEpoch",
+    ),
+    continuityGeneration: getNumberProperty(
+      expectedHotBlockBFixture,
+      "continuityGeneration",
+      "hotBlockBFixture.continuityGeneration",
+    ),
+    publicationSequence: getU64HexProperty(
+      expectedHotBlockBFixture,
+      "publicationSequence",
+      "hotBlockBFixture.publicationSequence",
+    ),
+  };
+
+  const blockABytes = encodeHotBlockAHeader(blockA);
+  const blockBBytes = encodeHotBlockBHeader(blockB);
+  const encoded = encodeHotFieldValues(hotLayoutManifest, values as HotFieldValues);
+  const completeFixtureRegionBytes = encodeHotCompleteFixtureRegion(hotLayoutManifest, {
+    blockA,
+    blockB,
+    values: values as HotFieldValues,
+  });
+  const expectedCompleteFixtureRegionBytes = hexToBytes(completeFixtureRegionBytesHex);
+
+  if (expectedCompleteFixtureRegionBytes.byteLength !== hotLayoutManifest.totalRegionByteLength) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: `hot-complete-fixture-region byte length mismatch: expected ${hotLayoutManifest.totalRegionByteLength}, got ${expectedCompleteFixtureRegionBytes.byteLength}`,
+      failureCode: "artifactMismatch",
+    });
+  }
+
+  const expectedBlockABytes = hexToBytes(blockABytesHex);
+  const expectedBlockBBytes = hexToBytes(blockBBytesHex);
+  const expectedFieldBytes = hexToBytes(fieldBytesHex);
+  const expectedConcatenatedBytes = new Uint8Array(
+    expectedBlockABytes.byteLength + expectedBlockBBytes.byteLength + expectedFieldBytes.byteLength,
+  );
+  expectedConcatenatedBytes.set(expectedBlockABytes, 0);
+  expectedConcatenatedBytes.set(expectedBlockBBytes, HOT_BLOCK_B_BYTE_OFFSET);
+  expectedConcatenatedBytes.set(expectedFieldBytes, HOT_FIELD_DATA_BYTE_OFFSET);
+
+  if (bytesToHex(expectedConcatenatedBytes) !== completeFixtureRegionBytesHex) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail:
+        "hot-complete-fixture-region complete bytes do not equal Block A + Block B + field bytes",
+      failureCode: "artifactMismatch",
+    });
+  }
+
+  const blockAValidation = validateHotBlockAHeader(
+    expectedCompleteFixtureRegionBytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH),
+    blockA,
+  );
+  if (!blockAValidation.ok) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: `hot-complete-fixture-region Block A validation failed: ${blockAValidation.error.message}`,
+      failureCode: "headerValidationFailed",
+    });
+  }
+
+  const blockBValidation = validateHotBlockBHeader(
+    expectedCompleteFixtureRegionBytes.subarray(HOT_BLOCK_B_BYTE_OFFSET, HOT_BLOCK_B_END_OFFSET),
+    blockB,
+  );
+  if (!blockBValidation.ok) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: `hot-complete-fixture-region Block B validation failed: ${blockBValidation.error.message}`,
+      failureCode: "headerValidationFailed",
+    });
+  }
+
+  const decodedFieldValues = decodeHotFieldValues(hotLayoutManifest, expectedFieldBytes).values;
+  const decodedFieldValuesFromComplete = decodeHotFieldValues(
+    hotLayoutManifest,
+    expectedCompleteFixtureRegionBytes.subarray(
+      HOT_FIELD_DATA_BYTE_OFFSET,
+      hotLayoutManifest.totalRegionByteLength,
+    ),
+  ).values;
+
+  if (
+    !isDeepStrictEqual(
+      encodeFixtureJson(decodedFieldValues),
+      encodeFixtureJson(decodedFieldValuesFromComplete),
+    )
+  ) {
+    throw createConformanceError("fixtureArtifactMismatch", {
+      artifact: "hot-complete-fixture-region",
+      detail: "hot-complete-fixture-region field and complete-region field slice decoding diverged",
+      failureCode: "fieldRegionDecodeDiverged",
+    });
+  }
+
+  return {
+    fixtureKind: "hot-complete-fixture-region",
+    contractKey,
+    instanceKey,
+    hotLayoutVersion,
+    totalRegionByteLength,
+    blockABytesHex: bytesToHex(blockABytes),
+    blockBBytesHex: bytesToHex(blockBBytes),
+    fieldBytesHex: bytesToHex(encoded.fieldBytes),
+    completeFixtureRegionBytesHex: bytesToHex(completeFixtureRegionBytes),
+    decoded: {
+      blockA: decodeHotBlockAHeader(
+        expectedCompleteFixtureRegionBytes.subarray(0, HOT_BLOCK_A_BYTE_LENGTH),
+      ),
+      blockB: decodeHotBlockBHeader(
+        expectedCompleteFixtureRegionBytes.subarray(
+          HOT_BLOCK_B_BYTE_OFFSET,
+          HOT_BLOCK_B_END_OFFSET,
+        ),
+      ),
+      fieldValues: decodedFieldValues,
+    },
+  };
+}
+
 function getStringProperty(obj: Record<string, unknown>, key: string, path: string): string {
   const value = obj[key];
   if (typeof value !== "string") {
@@ -530,6 +835,22 @@ function getStringProperty(obj: Record<string, unknown>, key: string, path: stri
 }
 
 const U64_HEX_RE = /^[0-9a-f]{16}$/;
+
+function getU64Property(obj: Record<string, unknown>, key: string, path: string): bigint {
+  const value = obj[key];
+  if (typeof value === "bigint") {
+    if (value < 0n || value > 0xffff_ffff_ffff_ffffn) {
+      throw createConformanceError("fixtureShapeRejected", {
+        detail: `expected ${key} to be a u64`,
+        failureCode: "u64OutOfRange",
+        path,
+      });
+    }
+    return value;
+  }
+
+  return getU64HexProperty(obj, key, path);
+}
 
 function getU64HexProperty(obj: Record<string, unknown>, key: string, path: string): bigint {
   const value = obj[key];
