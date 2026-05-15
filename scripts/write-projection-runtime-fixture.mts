@@ -7,6 +7,8 @@ import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { writeGeneratedHotExchangeReader } from "./projection-runtime/write-generated-hot-reader.mts";
+
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
 type JsonArray = readonly JsonValue[];
@@ -242,7 +244,7 @@ for (const profile of fixtureProfiles) {
   await writeProjectionRuntimeFixture(profile);
 }
 
-formatGeneratedJson();
+formatGeneratedArtifacts();
 
 async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   profile: FixtureProfile<TValues>,
@@ -255,6 +257,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
   const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
   const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
+  const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
   const result = compileAuthoredProjectionContract(authoredContract);
@@ -285,6 +288,14 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
     createHotCompleteFixtureRegionFixture(hotLayoutManifest, resolved, profile),
   );
   await writeJson(resolvedContractPath, resolved);
+
+  if (profile.fixtureName === "hot-exchange-v0") {
+    await writeGeneratedHotExchangeReader({
+      manifestPath: hotLayoutManifestPath,
+      outputPath: generatedHotReaderPath,
+      generatedFromPath: "fixtures/projection-runtime/hot-exchange-v0/hot-layout-manifest.json",
+    });
+  }
 }
 
 async function importWorkspaceModule<TModule>(specifier: string): Promise<TModule> {
@@ -558,7 +569,7 @@ function isExtensionlessRelative(specifier: string): boolean {
   );
 }
 
-function formatGeneratedJson(): void {
+function formatGeneratedArtifacts(): void {
   const generatedFixturePaths = fixtureProfiles.flatMap((profile) => [
     `fixtures/projection-runtime/${profile.fixtureName}/canonical-manifest.json`,
     `fixtures/projection-runtime/${profile.fixtureName}/hot-layout-manifest.json`,
@@ -568,6 +579,9 @@ function formatGeneratedJson(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/hot-complete-fixture-region.json`,
     `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
   ]);
+  const generatedSourcePaths = [
+    "fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts",
+  ];
 
   execFileSync(
     process.execPath,
@@ -576,6 +590,7 @@ function formatGeneratedJson(): void {
       "format",
       "--write",
       ...generatedFixturePaths,
+      ...generatedSourcePaths,
     ],
     {
       cwd: repoRoot,
