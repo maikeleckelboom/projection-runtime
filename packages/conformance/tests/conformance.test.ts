@@ -8,6 +8,10 @@ import { ExclaveError } from "@exclave/base";
 import { decodeHotCompleteFixtureRegion, hexToBytes } from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
+import {
+  createHotExchangeReader,
+  readHotExchangeSnapshotUnchecked,
+} from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -31,6 +35,10 @@ const GENERATED_FIXTURE_FILES = [
   "hot-block-b-fixture.json",
   "hot-complete-fixture-region.json",
   "resolved-contract.json",
+] as const;
+const GENERATED_HOT_EXCHANGE_FIXTURE_FILES = [
+  ...GENERATED_FIXTURE_FILES,
+  "generated/hot-reader.ts",
 ] as const;
 
 describe("@exclave/conformance fixture discovery", () => {
@@ -431,6 +439,88 @@ describe("@exclave/conformance execution", () => {
     });
   });
 
+  it("reads hot-exchange-v0 through the generated contract-shaped hot reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const reader = createHotExchangeReader(region);
+
+    const result = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated hot-exchange reader to succeed");
+    }
+    expect(result.sequence).toBe(2n);
+    expect(result.snapshot).toEqual(cloneRecord(completeRegion.decoded).fieldValues);
+    expect(readHotExchangeSnapshotUnchecked(region)).toEqual(result.snapshot);
+  });
+
+  it("binds the generated hot-exchange seqlock view with a non-zero region byteOffset", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes, 8);
+    const result = createHotExchangeReader(region).tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated non-zero byteOffset read to succeed");
+    }
+    expect(result.sequence).toBe(2n);
+    expect(result.snapshot).toEqual(cloneRecord(completeRegion.decoded).fieldValues);
+  });
+
+  it("rejects generated hot-exchange reader regions without SharedArrayBuffer backing", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = new Uint8Array(bytes.byteLength);
+    region.set(bytes);
+
+    expect(() => createHotExchangeReader(region)).toThrow(
+      "hot-exchange region must be backed by SharedArrayBuffer",
+    );
+  });
+
+  it("rejects generated hot-exchange reader regions shorter than the manifest length", () => {
+    const region = new Uint8Array(new SharedArrayBuffer(151));
+
+    expect(() => createHotExchangeReader(region)).toThrow(
+      "hot-exchange region must be at least 152 bytes",
+    );
+  });
+
+  it("rejects generated hot-exchange reader regions with a misaligned seqlock view", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes, 4);
+
+    expect(() => createHotExchangeReader(region)).toThrow(
+      "hot-exchange seqlock view is not u64-aligned",
+    );
+  });
+
+  it("keeps the generated hot-exchange reader source zero-discovery", () => {
+    const source = readFileSync(
+      resolve(fixtureRoot, "hot-exchange-v0/generated/hot-reader.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain(".fields");
+    expect(source).not.toContain("dotPath");
+    expect(source).not.toContain("shape");
+    expect(source).not.toContain(".find(");
+  });
+
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
     const before = readGeneratedFixtureFiles([
       "hot-basic-v0",
@@ -768,12 +858,28 @@ function readGeneratedFixtureFiles(
 ): Record<string, string> {
   return Object.fromEntries(
     fixtureNames.flatMap((fixtureName) =>
-      GENERATED_FIXTURE_FILES.map((fileName) => [
+      generatedFixtureFilesFor(fixtureName).map((fileName) => [
         `${fixtureName}/${fileName}`,
         readFileSync(resolve(fixtureRoot, fixtureName, fileName), "utf8"),
       ]),
     ),
   );
+}
+
+function generatedFixtureFilesFor(
+  fixtureName: "hot-basic-v0" | "deck-runtime-v0" | "hot-exchange-v0",
+): readonly string[] {
+  if (fixtureName === "hot-exchange-v0") {
+    return GENERATED_HOT_EXCHANGE_FIXTURE_FILES;
+  }
+
+  return GENERATED_FIXTURE_FILES;
+}
+
+function copyIntoSharedRegion(bytes: Uint8Array, byteOffset = 0): Uint8Array {
+  const region = new Uint8Array(new SharedArrayBuffer(byteOffset + bytes.byteLength), byteOffset);
+  region.set(bytes);
+  return region;
 }
 
 function expectFailure(
