@@ -219,7 +219,7 @@ const PHASE_OFFSET = ${constants.phaseOffset};
 const REVISION_OFFSET = ${constants.revisionOffset};
 const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;
 
-export function readHotExchangeSnapshot(region: Uint8Array): HotExchangeSnapshot {
+export function readHotExchangeSnapshotUnchecked(region: Uint8Array): HotExchangeSnapshot {
   const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
   return readHotExchangeFields(view);
 }
@@ -234,7 +234,7 @@ export function createHotExchangeReader(region: Uint8Array): HotExchangeReader {
     tryRead: (options?: HotReadOptions) =>
       tryReadHotSnapshot({
         sequence,
-        readCandidate: () => readHotExchangeSnapshot(region),
+        readCandidate: () => readHotExchangeSnapshotUnchecked(region),
         state,
         options,
       }),

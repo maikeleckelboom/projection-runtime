@@ -257,7 +257,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const hotBlockAFixturePath = resolve(fixtureRoot, "hot-block-a-fixture.json");
   const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
   const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
-  const generatedHotReaderPath = resolve(fixtureRoot, "generated/hotReader.ts");
+  const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
   const result = compileAuthoredProjectionContract(authoredContract);
@@ -580,7 +580,7 @@ function formatGeneratedArtifacts(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
   ]);
   const generatedSourcePaths = [
-    "fixtures/projection-runtime/hot-exchange-v0/generated/hotReader.ts",
+    "fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts",
   ];
 
   execFileSync(

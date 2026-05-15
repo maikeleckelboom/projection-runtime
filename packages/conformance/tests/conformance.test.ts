@@ -10,8 +10,8 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   createHotExchangeReader,
-  readHotExchangeSnapshot,
-} from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hotReader.ts";
+  readHotExchangeSnapshotUnchecked,
+} from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -38,7 +38,7 @@ const GENERATED_FIXTURE_FILES = [
 ] as const;
 const GENERATED_HOT_EXCHANGE_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
-  "generated/hotReader.ts",
+  "generated/hot-reader.ts",
 ] as const;
 
 describe("@exclave/conformance fixture discovery", () => {
@@ -457,7 +457,7 @@ describe("@exclave/conformance execution", () => {
     }
     expect(result.sequence).toBe(2n);
     expect(result.snapshot).toEqual(cloneRecord(completeRegion.decoded).fieldValues);
-    expect(readHotExchangeSnapshot(region)).toEqual(result.snapshot);
+    expect(readHotExchangeSnapshotUnchecked(region)).toEqual(result.snapshot);
   });
 
   it("binds the generated hot-exchange seqlock view with a non-zero region byteOffset", async () => {
@@ -511,7 +511,7 @@ describe("@exclave/conformance execution", () => {
 
   it("keeps the generated hot-exchange reader source zero-discovery", () => {
     const source = readFileSync(
-      resolve(fixtureRoot, "hot-exchange-v0/generated/hotReader.ts"),
+      resolve(fixtureRoot, "hot-exchange-v0/generated/hot-reader.ts"),
       "utf8",
     );
 
