@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { writeGeneratedHotArtifactManifest } from "./projection-runtime/write-generated-hot-artifact-manifest.mts";
 import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "./projection-runtime/write-generated-hot-writer.mts";
+import { writeGeneratedRustHotWriter } from "./projection-runtime/write-generated-rust-hot-writer.mts";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -275,6 +276,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
   const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
   const generatedHotWriterPath = resolve(fixtureRoot, "generated/hot-writer.ts");
+  const generatedRustHotWriterPath = resolve(fixtureRoot, "generated/hot_writer.rs");
   const generatedHotArtifactManifestPath = resolve(fixtureRoot, "generated/artifacts.json");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
@@ -331,6 +333,13 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       semanticVersion: decodeU64Hex(resolved.semanticVersion, "semanticVersion")
         .toString(16)
         .padStart(16, "0"),
+    });
+    await writeGeneratedRustHotWriter({
+      fixtureName: generatedHotArtifactProfile.fixtureName,
+      symbolStem: generatedHotArtifactProfile.symbolStem,
+      manifestPath: hotLayoutManifestPath,
+      outputPath: generatedRustHotWriterPath,
+      generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
     });
     await writeGeneratedHotArtifactManifest({
       fixtureName: generatedHotArtifactProfile.fixtureName,

@@ -18,6 +18,7 @@ type GeneratedHotArtifactManifest = {
   };
   readonly artifacts: {
     readonly reader: "hot-reader.ts";
+    readonly rustWriter: "hot_writer.rs";
     readonly writer: "hot-writer.ts";
   };
 };
@@ -62,6 +63,7 @@ export async function writeGeneratedHotArtifactManifest({
     },
     artifacts: {
       reader: "hot-reader.ts",
+      rustWriter: "hot_writer.rs",
       writer: "hot-writer.ts",
     },
   };

@@ -13,6 +13,7 @@
   },
   "artifacts": {
     "reader": "hot-reader.ts",
+    "rustWriter": "hot_writer.rs",
     "writer": "hot-writer.ts"
   }
 }
