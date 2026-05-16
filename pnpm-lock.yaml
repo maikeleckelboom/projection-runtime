@@ -65,6 +65,15 @@ importers:
         specifier: workspace:*
         version: link:../hot-publisher
 
+  packages/control-plane:
+    dependencies:
+      '@exclave/base':
+        specifier: workspace:*
+        version: link:../base
+      '@exclave/session':
+        specifier: workspace:*
+        version: link:../session
+
   packages/hot-binding:
     dependencies:
       '@exclave/base':

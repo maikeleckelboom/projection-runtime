@@ -117,6 +117,7 @@ run("test", "pnpm", ["test"]);
 run("build", "pnpm", ["build"]);
 run("cargo test", "cargo", ["test"]);
 run("biome check", "pnpm", ["exec", "biome", "check", "."]);
+run("check file names", "node", ["scripts/check-file-names.mts"]);
 
 const guardedRoots = [
   resolve(root, "packages/hot-codec/src"),
@@ -126,6 +127,7 @@ const guardedRoots = [
   resolve(root, "packages/hot-consumer/src"),
   resolve(root, "packages/hot-publisher/src"),
   resolve(root, "packages/session/src"),
+  resolve(root, "packages/control-plane/src"),
 ];
 
 const allSourceFiles = guardedRoots.flatMap(readSourceFiles);

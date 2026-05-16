@@ -71,7 +71,10 @@ Preferred scopes:
 - `hot-consumer`
 - `hot-publisher`
 - `hot-binding`
+- `hot-publication`
 - `conformance`
+- `session`
+- `control-plane`
 - `fixtures`
 - `docs`
 - `tooling`
@@ -141,6 +144,23 @@ git diff --check
 Commit messages are checked with commitlint.
 
 The Windows checkout at `C:\dev\exclave` is authoritative for this project. Do not route Exclave validation through WSL.
+
+## Filename conventions
+
+Package source and test files must use kebab-case:
+
+- `packages/<scope>/src/<name>.ts`
+- `packages/<scope>/tests/<name>.test.ts`
+
+Exceptions:
+
+- `index.ts` at the package root is allowed as an entry point.
+- Generated files under `fixtures/**/generated/**` are owned by their generators and are exempt.
+- Configuration files may use whatever convention their tooling requires.
+
+Documentation files under `docs/` must use kebab-case, except `README.md`.
+
+`scripts/check-file-names.mts` enforces this convention during `pnpm verify`.
 
 ## Automation policy
 
