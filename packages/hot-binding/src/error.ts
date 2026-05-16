@@ -30,6 +30,7 @@ export const HOT_BINDING_ISSUE_DEFS = {
     "publicationSequence counter view must be u64-aligned",
   "input.counterViewsOverlap":
     "seqlock and publicationSequence counter byte ranges must not overlap",
+  "input.blockAHeaderInvalid": "Block A header validation failed",
 } as const;
 
 export type HotBindingIssueCode = keyof typeof HOT_BINDING_ISSUE_DEFS;

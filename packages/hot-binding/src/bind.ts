@@ -1,3 +1,5 @@
+import { type HotBlockAHeaderInput, validateHotBlockAHeader } from "@exclave/hot-codec";
+
 import {
   createHotBindingInputRejectedError,
   createHotBindingIssue,
@@ -9,6 +11,7 @@ export type HotReadBindingInput = {
   readonly region: Uint8Array;
   readonly seqlockOffset: number;
   readonly totalRegionByteLength: number;
+  readonly blockA?: HotBlockAHeaderInput;
 };
 
 export type HotPublishBindingInput = {
@@ -16,6 +19,7 @@ export type HotPublishBindingInput = {
   readonly seqlockOffset: number;
   readonly publicationSequenceOffset: number;
   readonly totalRegionByteLength: number;
+  readonly blockA?: HotBlockAHeaderInput;
 };
 
 export type HotReadBinding = {
@@ -79,6 +83,7 @@ function validateHotReadBindingInput(
 
   if (hasValidRegion && hasValidTotalRegionByteLength) {
     validateRegionLength(region, totalRegionByteLength, issues);
+    validateBlockAHeader(region, input.blockA, issues);
   }
 
   if (hasValidRegion && hasValidTotalRegionByteLength && hasValidSeqlockOffset) {
@@ -143,6 +148,7 @@ function validateHotPublishBindingInput(
 
   if (hasValidRegion && hasValidTotalRegionByteLength) {
     validateRegionLength(region, totalRegionByteLength, issues);
+    validateBlockAHeader(region, input.blockA, issues);
   }
 
   if (hasValidRegion && hasValidTotalRegionByteLength && hasValidSeqlockOffset) {
@@ -230,6 +236,31 @@ function validateRegionLength(
 ): void {
   if (region.byteLength < totalRegionByteLength) {
     issues.push(createHotBindingIssue("input.regionViewTooShort", "input.region"));
+  }
+}
+
+function validateBlockAHeader(
+  region: Uint8Array,
+  expected: HotBlockAHeaderInput | undefined,
+  issues: HotBindingIssue[],
+): void {
+  if (expected === undefined) {
+    return;
+  }
+
+  const validation = validateHotBlockAHeader(region.subarray(0, 72), expected);
+  if (validation.ok) {
+    return;
+  }
+
+  for (const issue of validation.error.details.issues) {
+    issues.push(
+      createHotBindingIssue(
+        "input.blockAHeaderInvalid",
+        `input.blockA.${issue.path}`,
+        `${issue.code}: ${issue.detail ?? issue.message}`,
+      ),
+    );
   }
 }
 
