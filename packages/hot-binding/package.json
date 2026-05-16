@@ -1,0 +1,33 @@
+{
+  "name": "@exclave/hot-binding",
+  "version": "0.0.0",
+  "description": "Validated bindings from already-opened Exclave hot region bytes to ABI counter views.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run --root ../.. --project @exclave/hot-binding",
+    "test:watch": "vitest --root ../.. --project @exclave/hot-binding"
+  },
+  "dependencies": {
+    "@exclave/base": "workspace:*"
+  }
+}

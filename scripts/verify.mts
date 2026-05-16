@@ -119,6 +119,7 @@ run("biome check", "pnpm", ["exec", "biome", "check", "."]);
 
 const guardedRoots = [
   resolve(root, "packages/hot-codec/src"),
+  resolve(root, "packages/hot-binding/src"),
   resolve(root, "packages/compiler/src"),
   resolve(root, "packages/conformance/src"),
   resolve(root, "packages/hot-consumer/src"),

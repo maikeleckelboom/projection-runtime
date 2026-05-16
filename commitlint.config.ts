@@ -23,6 +23,8 @@ const config: UserConfig = {
         "compiler",
         "hot-codec",
         "hot-consumer",
+        "hot-publisher",
+        "hot-binding",
         "conformance",
         "fixtures",
         "docs",

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ExclaveError } from "@exclave/base";
+import { type HotBindingError, isHotBindingError } from "@exclave/hot-binding";
 import {
   decodeHotCompleteFixtureRegion,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
@@ -636,17 +637,13 @@ describe("@exclave/conformance execution", () => {
     const region = new Uint8Array(bytes.byteLength);
     region.set(bytes);
 
-    expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange-v0 region must be backed by SharedArrayBuffer",
-    );
+    expectHotBindingIssue(() => createHotExchangeReader(region), "input.regionBufferNotShared");
   });
 
   it("rejects generated hot-exchange reader regions shorter than the manifest length", () => {
     const region = new Uint8Array(new SharedArrayBuffer(151));
 
-    expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange-v0 region must be at least 152 bytes",
-    );
+    expectHotBindingIssue(() => createHotExchangeReader(region), "input.regionViewTooShort");
   });
 
   it("rejects generated hot-exchange reader regions with a misaligned seqlock view", async () => {
@@ -655,9 +652,7 @@ describe("@exclave/conformance execution", () => {
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes, 4);
 
-    expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange-v0 seqlock view is not u64-aligned",
-    );
+    expectHotBindingIssue(() => createHotExchangeReader(region), "input.seqlockOffsetMisaligned");
   });
 
   it("rejects invalid generated deck-runtime bounded-array counts", async () => {
@@ -762,10 +757,16 @@ describe("@exclave/conformance execution", () => {
     );
 
     for (const source of sources) {
+      expect(source).toContain("bindHotReadRegion");
       expect(source).not.toContain(".fields");
       expect(source).not.toContain("dotPath");
       expect(source).not.toContain("shape");
       expect(source).not.toContain(".find(");
+      expect(source).not.toContain("new BigUint64Array");
+      expect(source).not.toContain("SharedArrayBuffer");
+      expect(source).not.toContain("byteOffset + SEQLOCK_OFFSET");
+      expect(source).not.toContain("publicationSequence view is not u64-aligned");
+      expect(source).not.toContain("@exclave/hot-codec");
     }
   });
 
@@ -775,11 +776,16 @@ describe("@exclave/conformance execution", () => {
     );
 
     for (const source of sources) {
+      expect(source).toContain("bindHotPublishRegion");
       expect(source).toContain("publishHotRegion");
       expect(source).not.toContain(".fields");
       expect(source).not.toContain("dotPath");
       expect(source).not.toContain("shape");
       expect(source).not.toContain(".find(");
+      expect(source).not.toContain("new BigUint64Array");
+      expect(source).not.toContain("SharedArrayBuffer");
+      expect(source).not.toContain("byteOffset + SEQLOCK_OFFSET");
+      expect(source).not.toContain("publicationSequence view is not u64-aligned");
       expect(source).not.toContain("@exclave/hot-codec");
     }
   });
@@ -1366,4 +1372,18 @@ function expectFailure(
   }
 
   return failure;
+}
+
+function expectHotBindingIssue(action: () => unknown, expectedCode: string): HotBindingError {
+  try {
+    action();
+  } catch (error) {
+    expect(isHotBindingError(error)).toBe(true);
+    expect((error as HotBindingError).details.issues.map((issue) => issue.code)).toContain(
+      expectedCode,
+    );
+    return error as HotBindingError;
+  }
+
+  throw new Error("expected hot binding failure");
 }
