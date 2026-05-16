@@ -50,6 +50,7 @@ type WriteGeneratedHotWriterInput = {
   readonly manifestPath: string;
   readonly outputPath: string;
   readonly generatedFromPath: string;
+  readonly semanticVersion: string;
 };
 
 export async function writeGeneratedHotWriter({
@@ -58,6 +59,7 @@ export async function writeGeneratedHotWriter({
   manifestPath,
   outputPath,
   generatedFromPath,
+  semanticVersion,
 }: WriteGeneratedHotWriterInput): Promise<void> {
   validateGeneratedArtifactProfile({ fixtureName, symbolStem, generatedFromPath });
 
@@ -74,7 +76,14 @@ export async function writeGeneratedHotWriter({
   );
   validateHotLayoutManifest(manifest, manifestPath, {
     getGeneratedConstantNames: generatedConstantNamesFor,
-    extraRootConstantNames: ["PUBLICATION_SEQUENCE_OFFSET"],
+    extraRootConstantNames: [
+      "PUBLICATION_SEQUENCE_OFFSET",
+      "CONTRACT_KEY",
+      "SEMANTIC_VERSION",
+      "HOT_LAYOUT_VERSION",
+      "FIELD_COUNT",
+      "MUTABLE_REGION_BYTE_LENGTH",
+    ],
   });
 
   const source = renderHotWriter({
@@ -82,6 +91,7 @@ export async function writeGeneratedHotWriter({
     symbolStem,
     generatedFromPath,
     manifest,
+    semanticVersion,
   });
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -130,6 +140,7 @@ function renderHotWriter(input: {
   readonly symbolStem: string;
   readonly generatedFromPath: string;
   readonly manifest: HotLayoutManifest;
+  readonly semanticVersion: string;
 }): string {
   const fields = input.manifest.fields.map((field) => generateField(input.manifest, field));
   const snapshotTypeName = `${input.symbolStem}Snapshot`;
@@ -150,6 +161,7 @@ function renderHotWriter(input: {
     `const SEQLOCK_OFFSET = ${input.manifest.seqlockOffset};`,
     `const PUBLICATION_SEQUENCE_OFFSET = ${input.manifest.publicationSeqOffset};`,
     `const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};`,
+    ...renderBlockAConstants(input.manifest, input.semanticVersion),
     ...constants.map((constant) => constant.source),
     "",
     ...renderCreateWriterFunction({
@@ -177,6 +189,19 @@ function renderImports(snapshotTypeName: string): readonly string[] {
   ];
 }
 
+function renderBlockAConstants(
+  manifest: HotLayoutManifest,
+  semanticVersion: string,
+): readonly string[] {
+  return [
+    `const CONTRACT_KEY = ${stringLiteral(manifest.contractKey)};`,
+    `const SEMANTIC_VERSION = 0x${semanticVersion}n;`,
+    `const HOT_LAYOUT_VERSION = 0x${manifest.hotLayoutVersion}n;`,
+    `const FIELD_COUNT = ${manifest.fields.length};`,
+    `const MUTABLE_REGION_BYTE_LENGTH = ${manifest.mutableRegionByteLength};`,
+  ];
+}
+
 function renderWriterType(writerTypeName: string, snapshotTypeName: string): readonly string[] {
   return [
     `export type ${writerTypeName} = {`,
@@ -199,12 +224,20 @@ function renderCreateWriterFunction({
   readonly writeFunctionName: string;
 }): readonly string[] {
   return [
-    `export function ${createFunctionName}(region: Uint8Array): ${writerTypeName} {`,
+    `export function ${createFunctionName}(region: Uint8Array, { instanceKey }: { instanceKey: string }): ${writerTypeName} {`,
     "  const binding = bindHotPublishRegion({",
     "    region,",
     "    seqlockOffset: SEQLOCK_OFFSET,",
     "    publicationSequenceOffset: PUBLICATION_SEQUENCE_OFFSET,",
     "    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,",
+    "    blockA: {",
+    "      contractKey: CONTRACT_KEY,",
+    "      instanceKey,",
+    "      semanticVersion: SEMANTIC_VERSION,",
+    "      hotLayoutVersion: HOT_LAYOUT_VERSION,",
+    "      fieldCount: FIELD_COUNT,",
+    "      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,",
+    "    },",
     "  });",
     "",
     "  return {",

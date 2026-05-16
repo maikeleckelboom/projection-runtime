@@ -319,6 +319,9 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotReaderPath,
       generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
+      semanticVersion: decodeU64Hex(resolved.semanticVersion, "semanticVersion")
+        .toString(16)
+        .padStart(16, "0"),
     });
     await writeGeneratedHotWriter({
       fixtureName: generatedHotArtifactProfile.fixtureName,
@@ -326,6 +329,9 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotWriterPath,
       generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
+      semanticVersion: decodeU64Hex(resolved.semanticVersion, "semanticVersion")
+        .toString(16)
+        .padStart(16, "0"),
     });
     await writeGeneratedHotArtifactManifest({
       fixtureName: generatedHotArtifactProfile.fixtureName,
