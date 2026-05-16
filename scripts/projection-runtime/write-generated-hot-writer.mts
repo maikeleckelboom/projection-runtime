@@ -1,84 +1,29 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-
-type GeneratedWriterScalarTypeV0 = "bool" | "f32" | "f64" | "u32" | "u64";
-type EnumStorageType = "u8";
-
-type FixedScalarShape = {
-  readonly kind: "FixedScalar";
-  readonly type: GeneratedWriterScalarTypeV0;
-};
-
-type FixedEnumShape = {
-  readonly kind: "FixedEnum";
-  readonly storage: EnumStorageType;
-  readonly variants: readonly string[];
-};
-
-type FixedStringEncodedShape = {
-  readonly kind: "FixedStringEncoded";
-  readonly byteLength: number;
-  readonly encoding: "ascii";
-};
-
-type FixedVectorShape = {
-  readonly kind: "FixedVector";
-  readonly elementType: GeneratedWriterScalarTypeV0;
-  readonly length: number;
-};
-
-type BoundedArrayShape = {
-  readonly kind: "BoundedArray";
-  readonly elementType: GeneratedWriterScalarTypeV0;
-  readonly maxLength: number;
-};
-
-type SupportedFieldShape =
-  | FixedScalarShape
-  | FixedEnumShape
-  | FixedStringEncodedShape
-  | FixedVectorShape
-  | BoundedArrayShape;
-
-type HotFieldEntry = {
-  readonly dotPath: string;
-  readonly absoluteOffset: number;
-  readonly byteSpan: number;
-  readonly shape: SupportedFieldShape;
-};
-
-type HotReservationEntry = {
-  readonly dotPath: string;
-  readonly countFieldOffset: number;
-  readonly elementsOffset: number;
-  readonly maxCount: number;
-  readonly unitByteLength: number;
-};
-
-type HotLayoutManifest = {
-  readonly seqlockOffset: number;
-  readonly publicationSeqOffset: number;
-  readonly totalRegionByteLength: number;
-  readonly fields: readonly HotFieldEntry[];
-  readonly reservations: readonly HotReservationEntry[];
-};
-
-type WriteGeneratedHotWriterInput = {
-  readonly fixtureName: string;
-  readonly symbolStem: string;
-  readonly manifestPath: string;
-  readonly outputPath: string;
-  readonly generatedFromPath: string;
-};
-
-type GeneratedField = {
-  readonly name: string;
-  readonly symbol: string;
-  readonly constants: readonly GeneratedConstant[];
-  readonly helpers: readonly GeneratedHelper[];
-  readonly validationSource: readonly string[];
-  readonly writeSource: readonly string[];
-};
+import { toConstantStem, toPascalCase } from "./generated-hot/identifiers.mts";
+import {
+  type HotFieldEntry,
+  type HotLayoutManifest,
+  readHotLayoutManifest,
+  requireByteSpan,
+  requireRangeEnd,
+  requireSafeNonNegativeInteger,
+  reservationFor,
+  validateGeneratedArtifactProfile,
+  validateHotLayoutManifest,
+} from "./generated-hot/layout-manifest.mts";
+import {
+  type GeneratedHotScalarTypeV0,
+  scalarByteWidth,
+  scalarTypeSource,
+} from "./generated-hot/scalars-v0.mts";
+import {
+  assertNever,
+  joinBlocks,
+  joinLines,
+  stringLiteral,
+  withFinalNewline,
+} from "./generated-hot/source.mts";
 
 type GeneratedConstant = {
   readonly name: string;
@@ -90,6 +35,23 @@ type GeneratedHelper = {
   readonly source: string;
 };
 
+type GeneratedField = {
+  readonly name: string;
+  readonly symbol: string;
+  readonly constants: readonly GeneratedConstant[];
+  readonly helpers: readonly GeneratedHelper[];
+  readonly validationSource: readonly string[];
+  readonly writeSource: readonly string[];
+};
+
+type WriteGeneratedHotWriterInput = {
+  readonly fixtureName: string;
+  readonly symbolStem: string;
+  readonly manifestPath: string;
+  readonly outputPath: string;
+  readonly generatedFromPath: string;
+};
+
 export async function writeGeneratedHotWriter({
   fixtureName,
   symbolStem,
@@ -97,10 +59,23 @@ export async function writeGeneratedHotWriter({
   outputPath,
   generatedFromPath,
 }: WriteGeneratedHotWriterInput): Promise<void> {
-  validateGeneratedWriterProfile({ fixtureName, symbolStem, generatedFromPath });
+  validateGeneratedArtifactProfile({ fixtureName, symbolStem, generatedFromPath });
 
   const manifest = await readHotLayoutManifest(manifestPath);
-  validateHotLayoutManifest(manifest, manifestPath);
+  requireSafeNonNegativeInteger(
+    manifest.publicationSeqOffset,
+    `${manifestPath}.publicationSeqOffset`,
+  );
+  requireRangeEnd(
+    manifest.publicationSeqOffset,
+    8,
+    manifest.totalRegionByteLength,
+    `${manifestPath}.publicationSeqOffset`,
+  );
+  validateHotLayoutManifest(manifest, manifestPath, {
+    getGeneratedConstantNames: generatedConstantNamesFor,
+    extraRootConstantNames: ["PUBLICATION_SEQUENCE_OFFSET"],
+  });
 
   const source = renderHotWriter({
     fixtureName,
@@ -111,373 +86,6 @@ export async function writeGeneratedHotWriter({
 
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, source);
-}
-
-async function readHotLayoutManifest(path: string): Promise<HotLayoutManifest> {
-  const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-
-  if (!isRecord(parsed)) {
-    throw new Error(`${path} must contain an object manifest`);
-  }
-
-  const seqlockOffset = parsed.seqlockOffset;
-  const publicationSeqOffset = parsed.publicationSeqOffset;
-  const totalRegionByteLength = parsed.totalRegionByteLength;
-  const fields = parsed.fields;
-  const reservations = parsed.reservations;
-
-  if (
-    typeof seqlockOffset !== "number" ||
-    typeof publicationSeqOffset !== "number" ||
-    typeof totalRegionByteLength !== "number" ||
-    !Array.isArray(fields) ||
-    !Array.isArray(reservations)
-  ) {
-    throw new Error(`${path} is not a supported hot layout manifest`);
-  }
-
-  return {
-    seqlockOffset,
-    publicationSeqOffset,
-    totalRegionByteLength,
-    fields: fields.map((field, index) => readHotField(field, path, index)),
-    reservations: reservations.map((reservation, index) =>
-      readHotReservation(reservation, path, index),
-    ),
-  };
-}
-
-function readHotField(value: unknown, path: string, index: number): HotFieldEntry {
-  if (!isRecord(value)) {
-    throw new Error(`${path}.fields.${index} must be an object`);
-  }
-
-  const dotPath = value.dotPath;
-  const absoluteOffset = value.absoluteOffset;
-  const byteSpan = value.byteSpan;
-  const shape = value.shape;
-
-  if (!isFieldName(dotPath)) {
-    throw new Error(`${path}.fields.${index}.dotPath is not supported by generated writer v0`);
-  }
-
-  if (typeof absoluteOffset !== "number" || typeof byteSpan !== "number") {
-    throw new Error(`${path}.fields.${index} is missing required layout data`);
-  }
-
-  return {
-    dotPath,
-    absoluteOffset,
-    byteSpan,
-    shape: readSupportedShape(shape, `${path}.fields.${index}.shape`),
-  };
-}
-
-function readHotReservation(value: unknown, path: string, index: number): HotReservationEntry {
-  if (!isRecord(value)) {
-    throw new Error(`${path}.reservations.${index} must be an object`);
-  }
-
-  const dotPath = value.dotPath;
-  const countFieldOffset = value.countFieldOffset;
-  const elementsOffset = value.elementsOffset;
-  const maxCount = value.maxCount;
-  const unitByteLength = value.unitByteLength;
-
-  if (
-    !isFieldName(dotPath) ||
-    typeof countFieldOffset !== "number" ||
-    typeof elementsOffset !== "number" ||
-    typeof maxCount !== "number" ||
-    typeof unitByteLength !== "number"
-  ) {
-    throw new Error(`${path}.reservations.${index} is not a supported reservation`);
-  }
-
-  return {
-    dotPath,
-    countFieldOffset,
-    elementsOffset,
-    maxCount,
-    unitByteLength,
-  };
-}
-
-function readSupportedShape(value: unknown, path: string): SupportedFieldShape {
-  if (!isRecord(value)) {
-    throw new Error(`${path} must be an object`);
-  }
-
-  switch (value.kind) {
-    case "FixedScalar":
-      if (!isGeneratedWriterScalarTypeV0(value.type)) {
-        throw new Error(`${path}.type is not supported by generated writer v0`);
-      }
-      return { kind: "FixedScalar", type: value.type };
-
-    case "FixedEnum":
-      if (
-        value.storage !== "u8" ||
-        !Array.isArray(value.variants) ||
-        !value.variants.every((variant) => typeof variant === "string")
-      ) {
-        throw new Error(`${path} is not a supported fixed enum shape`);
-      }
-      return { kind: "FixedEnum", storage: value.storage, variants: value.variants };
-
-    case "FixedStringEncoded":
-      if (typeof value.byteLength !== "number" || value.encoding !== "ascii") {
-        throw new Error(`${path} is not a supported fixed string shape`);
-      }
-      return {
-        kind: "FixedStringEncoded",
-        byteLength: value.byteLength,
-        encoding: value.encoding,
-      };
-
-    case "FixedVector":
-      if (!isGeneratedWriterScalarTypeV0(value.elementType) || typeof value.length !== "number") {
-        throw new Error(`${path} is not a supported fixed vector shape`);
-      }
-      return {
-        kind: "FixedVector",
-        elementType: value.elementType,
-        length: value.length,
-      };
-
-    case "BoundedArray":
-      if (
-        !isGeneratedWriterScalarTypeV0(value.elementType) ||
-        typeof value.maxLength !== "number"
-      ) {
-        throw new Error(`${path} is not a supported bounded array shape`);
-      }
-      return {
-        kind: "BoundedArray",
-        elementType: value.elementType,
-        maxLength: value.maxLength,
-      };
-
-    default:
-      throw new Error(`${path} is not supported by generated writer v0`);
-  }
-}
-
-function validateGeneratedWriterProfile({
-  fixtureName,
-  symbolStem,
-  generatedFromPath,
-}: {
-  readonly fixtureName: string;
-  readonly symbolStem: string;
-  readonly generatedFromPath: string;
-}): void {
-  if (!isSafeFixtureName(fixtureName)) {
-    throw new Error(`${fixtureName} is not a safe generated writer fixture name`);
-  }
-
-  if (!isSafeSymbolStem(symbolStem)) {
-    throw new Error(`${fixtureName} symbolStem is not a safe generated TS symbol stem`);
-  }
-
-  if (generatedFromPath.includes("\n") || generatedFromPath.includes("\r")) {
-    throw new Error(`${fixtureName} generatedFromPath must fit on one generated comment line`);
-  }
-}
-
-function validateHotLayoutManifest(manifest: HotLayoutManifest, path: string): void {
-  requireSafePositiveInteger(manifest.totalRegionByteLength, `${path}.totalRegionByteLength`);
-  requireSafeNonNegativeInteger(manifest.seqlockOffset, `${path}.seqlockOffset`);
-  requireSafeNonNegativeInteger(manifest.publicationSeqOffset, `${path}.publicationSeqOffset`);
-  requireRangeEnd(
-    manifest.seqlockOffset,
-    8,
-    manifest.totalRegionByteLength,
-    `${path}.seqlockOffset`,
-  );
-  requireRangeEnd(
-    manifest.publicationSeqOffset,
-    8,
-    manifest.totalRegionByteLength,
-    `${path}.publicationSeqOffset`,
-  );
-
-  const fieldNames = new Set<string>();
-  const boundedArrayFields = new Map<string, HotFieldEntry>();
-  const generatedPropertyNames = new Set<string>();
-  const generatedConstantNames = new Set<string>([
-    "SEQLOCK_OFFSET",
-    "PUBLICATION_SEQUENCE_OFFSET",
-    "TOTAL_REGION_BYTE_LENGTH",
-    "U64_BYTE_ALIGNMENT",
-  ]);
-
-  for (const [index, field] of manifest.fields.entries()) {
-    const fieldPath = `${path}.fields.${index}`;
-
-    requireSafeNonNegativeInteger(field.absoluteOffset, `${fieldPath}.absoluteOffset`);
-    requireSafeNonNegativeInteger(field.byteSpan, `${fieldPath}.byteSpan`);
-    requireRangeEnd(
-      field.absoluteOffset,
-      field.byteSpan,
-      manifest.totalRegionByteLength,
-      fieldPath,
-    );
-
-    if (fieldNames.has(field.dotPath)) {
-      throw new Error(`${fieldPath}.dotPath duplicates ${field.dotPath}`);
-    }
-    fieldNames.add(field.dotPath);
-
-    if (!isSafeGeneratedPropertyName(field.dotPath)) {
-      throw new Error(`${fieldPath}.dotPath is not a safe generated TS property name`);
-    }
-    if (generatedPropertyNames.has(field.dotPath)) {
-      throw new Error(`${fieldPath}.dotPath duplicates generated TS property ${field.dotPath}`);
-    }
-    generatedPropertyNames.add(field.dotPath);
-
-    validateFieldShape(field, fieldPath);
-
-    for (const constantName of generatedConstantNamesFor(field)) {
-      if (generatedConstantNames.has(constantName)) {
-        throw new Error(`${fieldPath} generates duplicate constant ${constantName}`);
-      }
-      generatedConstantNames.add(constantName);
-    }
-
-    if (field.shape.kind === "BoundedArray") {
-      boundedArrayFields.set(field.dotPath, field);
-    }
-  }
-
-  for (const [index, reservation] of manifest.reservations.entries()) {
-    const reservationPath = `${path}.reservations.${index}`;
-
-    validateReservation(reservation, manifest.totalRegionByteLength, reservationPath);
-
-    const field = boundedArrayFields.get(reservation.dotPath);
-    if (field === undefined) {
-      throw new Error(`${reservationPath}.dotPath does not belong to a BoundedArray field`);
-    }
-
-    validateBoundedArrayReservation(field, reservation, reservationPath);
-  }
-
-  for (const [dotPath, field] of boundedArrayFields) {
-    const matches = manifest.reservations.filter((reservation) => reservation.dotPath === dotPath);
-
-    if (matches.length !== 1 || matches[0] === undefined) {
-      throw new Error(`${path}.reservations must contain exactly one ${dotPath} reservation`);
-    }
-
-    validateBoundedArrayReservation(field, matches[0], `${path}.reservations.${dotPath}`);
-  }
-}
-
-function validateFieldShape(field: HotFieldEntry, path: string): void {
-  switch (field.shape.kind) {
-    case "FixedScalar":
-      requireByteSpan(field, scalarByteWidth(field.shape.type));
-      return;
-
-    case "FixedEnum":
-      requireByteSpan(field, 1);
-      if (field.shape.variants.length === 0) {
-        throw new Error(`${path}.shape.variants must not be empty`);
-      }
-      if (field.shape.variants.length > 256) {
-        throw new Error(`${path}.shape.variants must fit in u8 storage`);
-      }
-      if (new Set(field.shape.variants).size !== field.shape.variants.length) {
-        throw new Error(`${path}.shape.variants must be unique`);
-      }
-      return;
-
-    case "FixedStringEncoded":
-      requireSafePositiveInteger(field.shape.byteLength, `${path}.shape.byteLength`);
-      requireByteSpan(field, field.shape.byteLength);
-      return;
-
-    case "FixedVector":
-      requireSafePositiveInteger(field.shape.length, `${path}.shape.length`);
-      requireByteSpan(field, field.shape.length * scalarByteWidth(field.shape.elementType));
-      return;
-
-    case "BoundedArray":
-      requireSafePositiveInteger(field.shape.maxLength, `${path}.shape.maxLength`);
-      return;
-
-    default:
-      assertNever(field.shape, `${path}.shape is not supported`);
-  }
-}
-
-function validateReservation(
-  reservation: HotReservationEntry,
-  totalRegionByteLength: number,
-  path: string,
-): void {
-  requireSafeNonNegativeInteger(reservation.countFieldOffset, `${path}.countFieldOffset`);
-  requireSafeNonNegativeInteger(reservation.elementsOffset, `${path}.elementsOffset`);
-  requireSafePositiveInteger(reservation.maxCount, `${path}.maxCount`);
-  requireSafePositiveInteger(reservation.unitByteLength, `${path}.unitByteLength`);
-  requireRangeEnd(reservation.countFieldOffset, 4, totalRegionByteLength, path);
-
-  const byteSpan = reservation.maxCount * reservation.unitByteLength;
-  if (!Number.isSafeInteger(byteSpan)) {
-    throw new Error(`${path} reservation element byte span must be a safe integer`);
-  }
-  requireRangeEnd(reservation.elementsOffset, byteSpan, totalRegionByteLength, path);
-}
-
-function validateBoundedArrayReservation(
-  field: HotFieldEntry,
-  reservation: HotReservationEntry,
-  path: string,
-): void {
-  if (field.shape.kind !== "BoundedArray") {
-    throw new Error(`${path}.dotPath does not belong to a BoundedArray field`);
-  }
-
-  const unitByteLength = scalarByteWidth(field.shape.elementType);
-
-  if (reservation.countFieldOffset !== field.absoluteOffset) {
-    throw new Error(`${path}.countFieldOffset must match ${field.dotPath} field absoluteOffset`);
-  }
-
-  if (reservation.maxCount !== field.shape.maxLength) {
-    throw new Error(`${path}.maxCount must match ${field.dotPath} maxLength`);
-  }
-
-  if (reservation.unitByteLength !== unitByteLength) {
-    throw new Error(`${path}.unitByteLength must match ${field.dotPath} element byte width`);
-  }
-
-  const fieldStart = field.absoluteOffset;
-  const fieldEnd = field.absoluteOffset + field.byteSpan;
-  const countEnd = reservation.countFieldOffset + 4;
-  const elementsEnd =
-    reservation.elementsOffset + reservation.maxCount * reservation.unitByteLength;
-
-  if (
-    !Number.isSafeInteger(fieldEnd) ||
-    !Number.isSafeInteger(countEnd) ||
-    !Number.isSafeInteger(elementsEnd)
-  ) {
-    throw new Error(`${path} bounded array byte windows must be safe integers`);
-  }
-
-  if (
-    reservation.countFieldOffset < fieldStart ||
-    countEnd > fieldEnd ||
-    reservation.elementsOffset < fieldStart ||
-    elementsEnd > fieldEnd
-  ) {
-    throw new Error(
-      `${path} reservation byte window must stay inside ${field.dotPath} field window`,
-    );
-  }
 }
 
 function generatedConstantNamesFor(field: HotFieldEntry): readonly string[] {
@@ -1022,7 +630,7 @@ function renderFixedVectorValidationHelper({
   lengthConstant,
 }: {
   readonly dotPath: string;
-  readonly elementType: GeneratedWriterScalarTypeV0;
+  readonly elementType: GeneratedHotScalarTypeV0;
   readonly functionName: string;
   readonly lengthConstant: string;
 }): string {
@@ -1045,7 +653,7 @@ function renderFixedVectorWriteHelper({
   typeSource,
   valueOffsets,
 }: {
-  readonly elementType: GeneratedWriterScalarTypeV0;
+  readonly elementType: GeneratedHotScalarTypeV0;
   readonly functionName: string;
   readonly typeSource: string;
   readonly valueOffsets: readonly string[];
@@ -1067,7 +675,7 @@ function renderBoundedArrayValidationHelper({
   maxCountConstant,
 }: {
   readonly dotPath: string;
-  readonly elementType: GeneratedWriterScalarTypeV0;
+  readonly elementType: GeneratedHotScalarTypeV0;
   readonly functionName: string;
   readonly maxCountConstant: string;
 }): string {
@@ -1097,7 +705,7 @@ function renderBoundedArrayWriteHelper({
   unitByteLengthConstant,
 }: {
   readonly countOffsetConstant: string;
-  readonly elementType: GeneratedWriterScalarTypeV0;
+  readonly elementType: GeneratedHotScalarTypeV0;
   readonly elementsOffsetConstant: string;
   readonly functionName: string;
   readonly maxCountConstant: string;
@@ -1165,7 +773,7 @@ function collectGeneratedHelpers(fields: readonly GeneratedField[]): readonly Ge
   return [...helpers.values()];
 }
 
-function scalarValidationHelpers(type: GeneratedWriterScalarTypeV0): readonly GeneratedHelper[] {
+function scalarValidationHelpers(type: GeneratedHotScalarTypeV0): readonly GeneratedHelper[] {
   return [
     {
       key: scalarValidationSource(type),
@@ -1174,7 +782,7 @@ function scalarValidationHelpers(type: GeneratedWriterScalarTypeV0): readonly Ge
   ];
 }
 
-function scalarValidationSource(type: GeneratedWriterScalarTypeV0): string {
+function scalarValidationSource(type: GeneratedHotScalarTypeV0): string {
   switch (type) {
     case "bool":
       return "requireBoolean";
@@ -1191,7 +799,7 @@ function scalarValidationSource(type: GeneratedWriterScalarTypeV0): string {
 }
 
 function scalarWriteSource(
-  type: GeneratedWriterScalarTypeV0,
+  type: GeneratedHotScalarTypeV0,
   offsetSource: string,
   valueSource: string,
 ): string {
@@ -1211,7 +819,7 @@ function scalarWriteSource(
   }
 }
 
-function scalarZeroWriteSource(type: GeneratedWriterScalarTypeV0, offsetSource: string): string {
+function scalarZeroWriteSource(type: GeneratedHotScalarTypeV0, offsetSource: string): string {
   switch (type) {
     case "bool":
       return `view.setUint8(${offsetSource}, 0);`;
@@ -1223,36 +831,6 @@ function scalarZeroWriteSource(type: GeneratedWriterScalarTypeV0, offsetSource: 
       return `view.setUint32(${offsetSource}, 0, true);`;
     case "u64":
       return `view.setBigUint64(${offsetSource}, 0n, true);`;
-    default:
-      return assertNever(type, "generated writer scalar type is not supported");
-  }
-}
-
-function scalarTypeSource(type: GeneratedWriterScalarTypeV0): string {
-  switch (type) {
-    case "bool":
-      return "boolean";
-    case "f32":
-    case "f64":
-    case "u32":
-      return "number";
-    case "u64":
-      return "bigint";
-    default:
-      return assertNever(type, "generated writer scalar type is not supported");
-  }
-}
-
-function scalarByteWidth(type: GeneratedWriterScalarTypeV0): number {
-  switch (type) {
-    case "bool":
-      return 1;
-    case "f32":
-    case "u32":
-      return 4;
-    case "f64":
-    case "u64":
-      return 8;
     default:
       return assertNever(type, "generated writer scalar type is not supported");
   }
@@ -1313,196 +891,3 @@ function renderRequireU64Helper(): string {
     "}",
   ]);
 }
-
-function reservationFor(manifest: HotLayoutManifest, field: HotFieldEntry): HotReservationEntry {
-  const matches = manifest.reservations.filter(
-    (reservation) => reservation.dotPath === field.dotPath,
-  );
-
-  if (matches.length !== 1 || matches[0] === undefined) {
-    throw new Error(`${field.dotPath} must have exactly one reservation`);
-  }
-
-  return matches[0];
-}
-
-function requireByteSpan(field: HotFieldEntry, expected: number): void {
-  if (field.byteSpan !== expected) {
-    throw new Error(`${field.dotPath} byteSpan must be ${expected}`);
-  }
-}
-
-function requireSafePositiveInteger(value: number, path: string): void {
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${path} must be a safe positive integer`);
-  }
-}
-
-function requireSafeNonNegativeInteger(value: number, path: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${path} must be a safe non-negative integer`);
-  }
-}
-
-function requireRangeEnd(
-  offset: number,
-  byteSpan: number,
-  totalRegionByteLength: number,
-  path: string,
-): void {
-  const end = offset + byteSpan;
-  if (!Number.isSafeInteger(end) || end > totalRegionByteLength) {
-    throw new Error(`${path} byte range exceeds totalRegionByteLength`);
-  }
-}
-
-function isGeneratedWriterScalarTypeV0(value: unknown): value is GeneratedWriterScalarTypeV0 {
-  return (
-    value === "bool" || value === "f32" || value === "f64" || value === "u32" || value === "u64"
-  );
-}
-
-function isFieldName(value: unknown): value is string {
-  return typeof value === "string" && /^[a-z][a-zA-Z0-9]*$/.test(value);
-}
-
-function isSafeGeneratedPropertyName(value: string): boolean {
-  return (
-    isFieldName(value) &&
-    !typescriptReservedWords.has(value) &&
-    !unsafeGeneratedPropertyNames.has(value)
-  );
-}
-
-function isSafeFixtureName(value: string): boolean {
-  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value);
-}
-
-function isSafeSymbolStem(value: string): boolean {
-  return /^[A-Z][a-zA-Z0-9]*$/.test(value) && !typescriptReservedWords.has(value);
-}
-
-function toPascalCase(value: string): string {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function toConstantStem(value: string): string {
-  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
-}
-
-function stringLiteral(value: string): string {
-  return JSON.stringify(value);
-}
-
-function joinLines(lines: readonly string[]): string {
-  return lines.join("\n");
-}
-
-function withFinalNewline(lines: readonly string[]): string {
-  return `${joinLines(lines)}\n`;
-}
-
-function joinBlocks(blocks: readonly (readonly string[])[]): readonly string[] {
-  const lines: string[] = [];
-
-  for (const [index, block] of blocks.entries()) {
-    if (index > 0) {
-      lines.push("");
-    }
-    lines.push(...block);
-  }
-
-  return lines;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function assertNever(value: never, message: string): never {
-  throw new Error(`${message}: ${JSON.stringify(value)}`);
-}
-
-const unsafeGeneratedPropertyNames = new Set([
-  "__proto__",
-  "constructor",
-  "hasOwnProperty",
-  "prototype",
-  "toString",
-  "valueOf",
-]);
-
-const typescriptReservedWords = new Set([
-  "any",
-  "as",
-  "async",
-  "await",
-  "bigint",
-  "boolean",
-  "break",
-  "case",
-  "catch",
-  "class",
-  "const",
-  "constructor",
-  "continue",
-  "debugger",
-  "declare",
-  "default",
-  "delete",
-  "do",
-  "else",
-  "enum",
-  "export",
-  "extends",
-  "false",
-  "finally",
-  "for",
-  "from",
-  "function",
-  "get",
-  "if",
-  "implements",
-  "import",
-  "in",
-  "infer",
-  "instanceof",
-  "interface",
-  "keyof",
-  "let",
-  "module",
-  "namespace",
-  "never",
-  "new",
-  "null",
-  "number",
-  "object",
-  "of",
-  "package",
-  "private",
-  "protected",
-  "public",
-  "readonly",
-  "require",
-  "return",
-  "set",
-  "static",
-  "string",
-  "super",
-  "switch",
-  "symbol",
-  "this",
-  "throw",
-  "true",
-  "try",
-  "type",
-  "typeof",
-  "undefined",
-  "unique",
-  "unknown",
-  "var",
-  "void",
-  "while",
-  "with",
-  "yield",
-]);
