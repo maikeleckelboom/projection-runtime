@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -943,6 +943,7 @@ describe("@exclave/conformance execution", () => {
     const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
     view.setUint32(128, 5, true);
 
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(RangeError);
     expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
       "stemGains bounded array count exceeds maxCount",
     );
@@ -956,10 +957,162 @@ describe("@exclave/conformance execution", () => {
     const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
     view.setUint8(152, 9);
 
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(RangeError);
     expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
       "transportState enum discriminant is outside variants",
     );
   });
+
+  it("rejects invalid generated deck-runtime bool bytes", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+    view.setUint8(104, 2);
+
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(RangeError);
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
+      "loopActive bool byte must be 0 or 1",
+    );
+  });
+
+  it("rejects Rust-written deck-runtime malformed bytes through the generated reader", () => {
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
+    const rustOutput = JSON.parse(
+      execFileSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "write-deck-runtime",
+          artifactManifestRelativePath,
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      ),
+    ) as RustHotWriterOutput;
+
+    for (const testCase of [
+      {
+        name: "stemGains count",
+        mutate: (view: DataView) => view.setUint32(128, 5, true),
+        message: "stemGains bounded array count exceeds maxCount",
+      },
+      {
+        name: "transportState discriminant",
+        mutate: (view: DataView) => view.setUint8(152, 9),
+        message: "transportState enum discriminant is outside variants",
+      },
+      {
+        name: "loopActive bool byte",
+        mutate: (view: DataView) => view.setUint8(104, 2),
+        message: "loopActive bool byte must be 0 or 1",
+      },
+    ] as const) {
+      const bytes = hexToBytes(rustOutput.hotRegionBytesHex);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view);
+
+      expect(() => readDeckRuntimeSnapshotUnchecked(region), testCase.name).toThrow(RangeError);
+      expect(() => readDeckRuntimeSnapshotUnchecked(region), testCase.name).toThrow(
+        testCase.message,
+      );
+      expect(
+        () => createDeckRuntimeReader(region).tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }),
+        testCase.name,
+      ).toThrow(testCase.message);
+    }
+  }, 30_000);
+
+  it("rejects odd seqlock deck-runtime bytes through the generated bounded reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    Atomics.store(blockBSeqlockView(region), 0, 3n);
+
+    const result = createDeckRuntimeReader(region).tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      snapshot: null,
+      lastGood: null,
+      reason: "writerActiveBudgetExhausted",
+      writerActivePolls: 1,
+      tornReads: 0,
+      usedFallback: true,
+    });
+  });
+
+  it("rejects malformed TypeScript-written deck-runtime bytes through the Rust reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
+
+    for (const testCase of [
+      {
+        name: "stemGains count",
+        mutate: (view: DataView) => view.setUint32(128, 5, true),
+        stderr: "stemGains bounded array count exceeds maxCount: expected <= 4, got 5",
+      },
+      {
+        name: "transportState discriminant",
+        mutate: (view: DataView) => view.setUint8(152, 9),
+        stderr: "transportState enum discriminant is outside variants: 9",
+      },
+      {
+        name: "loopActive bool byte",
+        mutate: (view: DataView) => view.setUint8(104, 2),
+        stderr: "loopActive bool byte must be 0 or 1, got 2",
+      },
+      {
+        name: "odd seqlock",
+        mutate: (_view: DataView, region: Uint8Array) =>
+          Atomics.store(blockBSeqlockView(region), 0, 3n),
+        stderr:
+          "seqlockCounter indicates writer-active state: expected even counter, got 0x0000000000000003",
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      createDeckRuntimeWriter(region).publish(validDeckRuntimeSnapshot());
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+      const result = spawnSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "read-deck-runtime",
+          artifactManifestRelativePath,
+          bytesToHex(region),
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      );
+
+      expect(result.status, testCase.name).not.toBe(0);
+      expect(result.stdout, testCase.name).toBe("");
+      expect(result.stderr, testCase.name).toContain(testCase.stderr);
+    }
+  }, 30_000);
 
   it("rejects generated hot-exchange writer displayName values that exceed the fixed byte length before publishing", async () => {
     await expectHotExchangeWriterSnapshotRejected(

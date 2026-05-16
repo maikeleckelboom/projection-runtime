@@ -208,6 +208,7 @@ fn run_reader(args: &[String]) -> Result<(), String> {
             hot_region_bytes.len()
         ));
     }
+    reject_writer_active_seqlock(&hot_region_bytes)?;
 
     let output = RustHotReaderOutput {
         fixture_kind: "rust-hot-reader-output",
@@ -585,6 +586,18 @@ fn read_snapshot(region: &[u8]) -> Result<SnapshotOutput, String> {
     })
 }
 
+fn reject_writer_active_seqlock(region: &[u8]) -> Result<(), String> {
+    let seqlock_counter = read_u64_le(region, SEQLOCK_OFFSET);
+    if seqlock_counter & 1 == 1 {
+        return Err(format!(
+            "seqlockCounter indicates writer-active state: expected even counter, got {}",
+            format_u64_hex_prefixed(seqlock_counter)
+        ));
+    }
+
+    Ok(())
+}
+
 fn read_block_b(region: &[u8]) -> BlockBOutput {
     BlockBOutput {
         seqlock_counter: format_u64_hex_prefixed(read_u64_le(region, SEQLOCK_OFFSET)),
@@ -783,5 +796,16 @@ mod tests {
         assert!(read_stem_gains(&region)
             .unwrap_err()
             .contains("stemGains bounded array count exceeds maxCount"));
+    }
+
+    #[test]
+    fn rejects_writer_active_seqlock_counter() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        write_u64_le(&mut region, SEQLOCK_OFFSET, 3);
+
+        assert_eq!(
+            reject_writer_active_seqlock(&region).unwrap_err(),
+            "seqlockCounter indicates writer-active state: expected even counter, got 0x0000000000000003"
+        );
     }
 }
