@@ -1,0 +1,35 @@
+{
+  "name": "@exclave/resource",
+  "version": "0.0.0",
+  "description": "Resource handle descriptors, read-range contracts, and resource failures for product-neutral resource-plane payload access.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run --root ../.. --project @exclave/resource",
+    "test:watch": "vitest --root ../.. --project @exclave/resource"
+  },
+  "dependencies": {
+    "@exclave/base": "workspace:*",
+    "@exclave/control-plane": "workspace:*",
+    "@exclave/session": "workspace:*"
+  }
+}

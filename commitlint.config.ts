@@ -28,6 +28,7 @@ const config: UserConfig = {
         "conformance",
         "session",
         "control-plane",
+        "resource",
         "fixtures",
         "docs",
         "tooling",

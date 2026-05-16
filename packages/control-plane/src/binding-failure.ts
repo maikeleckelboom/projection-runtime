@@ -1,9 +1,8 @@
 import type { JsonObject } from "@exclave/base";
+import { checkJsonObjectRoot } from "@exclave/base";
 import type { BindingValidityFailure } from "@exclave/session";
-
 import type { ControlFailure, ControlFailureCode } from "./control-envelope";
 import { throwInputRejected } from "./errors";
-import { checkJsonObjectRoot } from "./json-safety";
 
 export type ControlBindingFailureDetails = {
   readonly reason: string;

@@ -105,6 +105,18 @@ importers:
         specifier: workspace:*
         version: link:../base
 
+  packages/resource:
+    dependencies:
+      '@exclave/base':
+        specifier: workspace:*
+        version: link:../base
+      '@exclave/control-plane':
+        specifier: workspace:*
+        version: link:../control-plane
+      '@exclave/session':
+        specifier: workspace:*
+        version: link:../session
+
   packages/schema: {}
 
   packages/session:
