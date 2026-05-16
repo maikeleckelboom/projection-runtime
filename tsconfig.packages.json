@@ -6,6 +6,7 @@
     { "path": "./packages/base" },
     { "path": "./packages/schema" },
     { "path": "./packages/hot-codec" },
+    { "path": "./packages/hot-binding" },
     { "path": "./packages/hot-consumer" },
     { "path": "./packages/hot-publisher" },
     { "path": "./packages/compiler" },

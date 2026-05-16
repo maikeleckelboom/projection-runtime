@@ -1,5 +1,6 @@
 // Generated from fixtures/projection-runtime/hot-exchange-v0/hot-layout-manifest.json. Do not edit by hand.
 
+import { bindHotPublishRegion } from "@exclave/hot-binding";
 import { type HotPublishResult, publishHotRegion } from "@exclave/hot-publisher";
 import type { HotExchangeSnapshot } from "./hot-reader.ts";
 
@@ -21,25 +22,22 @@ const LEVEL_VECTOR_2_OFFSET = 124;
 const LEVEL_VECTOR_3_OFFSET = 128;
 const PHASE_OFFSET = 136;
 const REVISION_OFFSET = 144;
-const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;
 
 export function createHotExchangeWriter(region: Uint8Array): HotExchangeWriter {
-  validateHotExchangeRegion(region);
-
-  const seqlock = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);
-  const publicationSequence = new BigUint64Array(
-    region.buffer,
-    region.byteOffset + PUBLICATION_SEQUENCE_OFFSET,
-    1,
-  );
+  const binding = bindHotPublishRegion({
+    region,
+    seqlockOffset: SEQLOCK_OFFSET,
+    publicationSequenceOffset: PUBLICATION_SEQUENCE_OFFSET,
+    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+  });
 
   return {
     publish: (snapshot: HotExchangeSnapshot) => {
       validateHotExchangeSnapshot(snapshot);
       return publishHotRegion({
-        seqlock,
-        publicationSequence,
-        writeRegion: () => writeHotExchangeSnapshotUnchecked(region, snapshot),
+        seqlock: binding.seqlock,
+        publicationSequence: binding.publicationSequence,
+        writeRegion: () => writeHotExchangeSnapshotUnchecked(binding.region, snapshot),
       });
     },
   };
@@ -111,32 +109,6 @@ function writeLevelVector(view: DataView, value: readonly [number, number, numbe
   view.setFloat32(LEVEL_VECTOR_1_OFFSET, value[1], true);
   view.setFloat32(LEVEL_VECTOR_2_OFFSET, value[2], true);
   view.setFloat32(LEVEL_VECTOR_3_OFFSET, value[3], true);
-}
-
-function validateHotExchangeRegion(region: Uint8Array): void {
-  if (!(region instanceof Uint8Array)) {
-    throw new TypeError("hot-exchange-v0 region must be a Uint8Array");
-  }
-
-  if (!(region.buffer instanceof SharedArrayBuffer)) {
-    throw new TypeError("hot-exchange-v0 region must be backed by SharedArrayBuffer");
-  }
-
-  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {
-    throw new RangeError(
-      `hot-exchange-v0 region must be at least ${TOTAL_REGION_BYTE_LENGTH} bytes`,
-    );
-  }
-
-  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;
-  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {
-    throw new RangeError("hot-exchange-v0 seqlock view is not u64-aligned");
-  }
-
-  const absolutePublicationSequenceOffset = region.byteOffset + PUBLICATION_SEQUENCE_OFFSET;
-  if (absolutePublicationSequenceOffset % U64_BYTE_ALIGNMENT !== 0) {
-    throw new RangeError("hot-exchange-v0 publicationSequence view is not u64-aligned");
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

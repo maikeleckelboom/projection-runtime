@@ -10,10 +10,11 @@ low-latency publication surfaces, but shared memory is not the whole system.
 - `schema`
 - `primitives` -> `base`
 - `hot-codec` -> `base`
+- `hot-binding` -> `base`
 - `hot-consumer` -> `base`
 - `hot-publisher` -> `base`
 - `compiler` -> `base`, `schema`, `hot-codec`
-- `conformance` -> `base`, `compiler`, `hot-codec`, `hot-publisher`
+- `conformance` -> `base`, `compiler`, `hot-codec`, `hot-binding`, `hot-publisher`
 
 ## Package ownership
 
@@ -23,6 +24,7 @@ low-latency publication surfaces, but shared memory is not the whole system.
 | `@exclave/schema`        | authored projection contract types and syntactic validation                 |
 | `@exclave/primitives`    | low-level atomic and layout helpers used by substrate packages              |
 | `@exclave/hot-codec`     | hot-lane layout planning, ABI constants, fixture encoding/decoding helpers  |
+| `@exclave/hot-binding`   | binding already-opened hot region bytes to validated ABI counter views      |
 | `@exclave/hot-consumer`  | bounded read-attempt kernel for already-opened hot sequence views           |
 | `@exclave/hot-publisher` | writer-side hot publication transition for already-opened hot Block B views |
 | `@exclave/compiler`      | canonicalization, semantic legality, lane planning, artifact derivation     |

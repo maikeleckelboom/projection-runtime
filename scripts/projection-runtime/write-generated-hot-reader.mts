@@ -124,11 +124,10 @@ function renderHotReader(input: {
   const readFunctionName = `read${input.symbolStem}SnapshotUnchecked`;
   const createFunctionName = `create${input.symbolStem}Reader`;
   const fieldsFunctionName = `read${input.symbolStem}Fields`;
-  const validateFunctionName = `validate${input.symbolStem}Region`;
   const constants = collectGeneratedConstants(fields);
   const helpers = collectGeneratedHelpers(
     fields,
-    new Set([readFunctionName, createFunctionName, fieldsFunctionName, validateFunctionName]),
+    new Set([readFunctionName, createFunctionName, fieldsFunctionName]),
   );
 
   return withFinalNewline([
@@ -143,7 +142,6 @@ function renderHotReader(input: {
     `const SEQLOCK_OFFSET = ${input.manifest.seqlockOffset};`,
     `const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};`,
     ...constants.map((constant) => constant.source),
-    "const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;",
     "",
     ...renderUncheckedReadFunction(readFunctionName, fieldsFunctionName, snapshotTypeName),
     "",
@@ -152,18 +150,17 @@ function renderHotReader(input: {
       readFunctionName,
       readerTypeName,
       snapshotTypeName,
-      validateFunctionName,
     }),
     "",
     ...renderFieldsFunction(fieldsFunctionName, snapshotTypeName, fields),
     "",
     ...renderHelperSources(helpers),
-    ...renderValidateFunction(input.fixtureName, validateFunctionName),
   ]);
 }
 
 function renderImports(): readonly string[] {
   return [
+    'import { bindHotReadRegion } from "@exclave/hot-binding";',
     "import {",
     "  createHotReadState,",
     "  type HotReadAttemptResult,",
@@ -211,26 +208,26 @@ function renderCreateReaderFunction({
   readFunctionName,
   readerTypeName,
   snapshotTypeName,
-  validateFunctionName,
 }: {
   readonly createFunctionName: string;
   readonly readFunctionName: string;
   readonly readerTypeName: string;
   readonly snapshotTypeName: string;
-  readonly validateFunctionName: string;
 }): readonly string[] {
   return [
     `export function ${createFunctionName}(region: Uint8Array): ${readerTypeName} {`,
-    `  ${validateFunctionName}(region);`,
-    "",
-    "  const sequence = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);",
+    "  const binding = bindHotReadRegion({",
+    "    region,",
+    "    seqlockOffset: SEQLOCK_OFFSET,",
+    "    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,",
+    "  });",
     `  const state: HotReadState<${snapshotTypeName}> = createHotReadState<${snapshotTypeName}>();`,
     "",
     "  return {",
     "    tryRead: (options?: HotReadOptions) =>",
     "      tryReadHotSnapshot({",
-    "        sequence,",
-    `        readCandidate: () => ${readFunctionName}(region),`,
+    "        sequence: binding.seqlock,",
+    `        readCandidate: () => ${readFunctionName}(binding.region),`,
     "        state,",
     "        options,",
     "      }),",
@@ -259,32 +256,6 @@ function renderHelperSources(helpers: readonly GeneratedHelper[]): readonly stri
   }
 
   return [...joinBlocks(helpers.map((helper) => helper.source.split("\n"))), ""];
-}
-
-function renderValidateFunction(
-  fixtureName: string,
-  validateFunctionName: string,
-): readonly string[] {
-  return [
-    `function ${validateFunctionName}(region: Uint8Array): void {`,
-    "  if (!(region instanceof Uint8Array)) {",
-    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be a Uint8Array`)});`,
-    "  }",
-    "",
-    "  if (!(region.buffer instanceof SharedArrayBuffer)) {",
-    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be backed by SharedArrayBuffer`)});`,
-    "  }",
-    "",
-    "  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {",
-    `    throw new RangeError(\`${fixtureName} region must be at least \${TOTAL_REGION_BYTE_LENGTH} bytes\`);`,
-    "  }",
-    "",
-    "  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;",
-    "  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {",
-    `    throw new RangeError(${stringLiteral(`${fixtureName} seqlock view is not u64-aligned`)});`,
-    "  }",
-    "}",
-  ];
 }
 
 function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): GeneratedField {
