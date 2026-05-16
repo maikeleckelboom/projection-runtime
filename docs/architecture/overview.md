@@ -11,20 +11,22 @@ low-latency publication surfaces, but shared memory is not the whole system.
 - `primitives` -> `base`
 - `hot-codec` -> `base`
 - `hot-consumer` -> `base`
+- `hot-publisher` -> `base`
 - `compiler` -> `base`, `schema`, `hot-codec`
-- `conformance` -> `base`, `compiler`, `hot-codec`
+- `conformance` -> `base`, `compiler`, `hot-codec`, `hot-publisher`
 
 ## Package ownership
 
-| Package                | Ownership                                                                  |
-|------------------------|----------------------------------------------------------------------------|
-| `@exclave/base`         | shared error, invariant, and JSON foundations only                         |
-| `@exclave/schema`       | authored projection contract types and syntactic validation                |
-| `@exclave/primitives`   | low-level atomic and layout helpers used by substrate packages             |
-| `@exclave/hot-codec`    | hot-lane layout planning, ABI constants, fixture encoding/decoding helpers |
-| `@exclave/hot-consumer` | bounded read-attempt kernel for already-opened hot sequence views          |
-| `@exclave/compiler`     | canonicalization, semantic legality, lane planning, artifact derivation    |
-| `@exclave/conformance`  | fixture verification and cross-implementation compatibility evidence       |
+| Package                  | Ownership                                                                   |
+|--------------------------|-----------------------------------------------------------------------------|
+| `@exclave/base`          | shared error, invariant, and JSON foundations only                          |
+| `@exclave/schema`        | authored projection contract types and syntactic validation                 |
+| `@exclave/primitives`    | low-level atomic and layout helpers used by substrate packages              |
+| `@exclave/hot-codec`     | hot-lane layout planning, ABI constants, fixture encoding/decoding helpers  |
+| `@exclave/hot-consumer`  | bounded read-attempt kernel for already-opened hot sequence views           |
+| `@exclave/hot-publisher` | writer-side hot publication transition for already-opened hot Block B views |
+| `@exclave/compiler`      | canonicalization, semantic legality, lane planning, artifact derivation     |
+| `@exclave/conformance`   | fixture verification and cross-implementation compatibility evidence        |
 
 ## Out of scope
 
@@ -39,6 +41,7 @@ Exclave does not define:
 
 ## `@exclave/core` warning
 
-No `@exclave/core` package is required for public v1. If it exists later, it must be either a tiny convenience aggregator
+No `@exclave/core` package is required for public v1. If it exists later, it must be either a tiny convenience
+aggregator
 or a narrow shared runtime contract layer. It must not own compiler, codecs, session lifecycle, resources, conformance,
 product authorities, or app integration.
