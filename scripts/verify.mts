@@ -129,6 +129,7 @@ const guardedRoots = [
   resolve(root, "packages/session/src"),
   resolve(root, "packages/control-plane/src"),
   resolve(root, "packages/resource/src"),
+  resolve(root, "packages/warm/src"),
 ];
 
 const allSourceFiles = guardedRoots.flatMap(readSourceFiles);
