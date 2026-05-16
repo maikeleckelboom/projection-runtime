@@ -850,11 +850,10 @@ describe("@exclave/conformance execution", () => {
     expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
     expect(readHotExchangeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
 
-    const DISPLAY_NAME_OFFSET = 96;
-    const DISPLAY_NAME_BYTE_LENGTH = 16;
+    const displayNameLayout = fixedStringFieldLayout(hotLayoutManifest, "displayName");
     const unusedBytes = region.slice(
-      DISPLAY_NAME_OFFSET + "deckB-hot".length,
-      DISPLAY_NAME_OFFSET + DISPLAY_NAME_BYTE_LENGTH,
+      displayNameLayout.absoluteOffset + "deckB-hot".length,
+      displayNameLayout.absoluteOffset + displayNameLayout.byteLength,
     );
     expect(unusedBytes).toEqual(new Uint8Array(7));
   }, 30_000);
@@ -2155,6 +2154,47 @@ function readUnusedStemGainSlotBytes(
   const unusedStart = elementsOffset + logicalValues.length * unitByteLength;
   const unusedEnd = elementsOffset + maxCount * unitByteLength;
   return region.slice(unusedStart, unusedEnd);
+}
+
+function fixedStringFieldLayout(
+  manifest: Record<string, unknown>,
+  dotPath: string,
+): { absoluteOffset: number; byteLength: number } {
+  const fields = manifest.fields;
+  if (!Array.isArray(fields)) {
+    throw new Error("hot layout manifest fields must be an array");
+  }
+  const field = fields.find(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      entry.dotPath === dotPath,
+  );
+  if (field === undefined) {
+    throw new Error(`hot layout manifest field "${dotPath}" not found`);
+  }
+  const absoluteOffset = field.absoluteOffset;
+  if (typeof absoluteOffset !== "number") {
+    throw new Error(`hot layout manifest field "${dotPath}" absoluteOffset must be a number`);
+  }
+  const shape = field.shape;
+  if (typeof shape !== "object" || shape === null || Array.isArray(shape)) {
+    throw new Error(`hot layout manifest field "${dotPath}" shape must be an object`);
+  }
+  if (shape.kind !== "FixedStringEncoded") {
+    throw new Error(
+      `hot layout manifest field "${dotPath}" shape.kind must be "FixedStringEncoded"`,
+    );
+  }
+  if (shape.encoding !== "ascii") {
+    throw new Error(`hot layout manifest field "${dotPath}" shape.encoding must be "ascii"`);
+  }
+  const byteLength = shape.byteLength;
+  if (typeof byteLength !== "number") {
+    throw new Error(`hot layout manifest field "${dotPath}" shape.byteLength must be a number`);
+  }
+  return { absoluteOffset, byteLength };
 }
 
 async function expectGeneratedReaderManifestRejected(
