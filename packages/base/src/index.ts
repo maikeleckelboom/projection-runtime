@@ -24,5 +24,7 @@ export {
 export type { InvariantErrorFactory } from "./invariant";
 export { invariant } from "./invariant";
 export type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from "./json";
+export type { JsonSafetyResult } from "./json-safety";
+export { checkJsonObjectRoot, checkJsonSafe, safeIsArray } from "./json-safety";
 export { panic } from "./panic";
 export type { AssertTrue, IsExact, IsExtends } from "./types";

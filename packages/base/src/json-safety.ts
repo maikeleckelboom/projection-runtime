@@ -1,4 +1,4 @@
-import type { JsonValue } from "@exclave/base";
+import type { JsonValue } from "./json";
 
 export type JsonSafetyResult =
   | { readonly ok: true; readonly value: JsonValue }
