@@ -74,6 +74,7 @@ export type HotLayoutManifest = {
   readonly totalRegionByteLength: number;
   readonly fields: readonly HotFieldEntry[];
   readonly reservations: readonly HotReservationEntry[];
+  readonly mutableRegionByteLength: number;
 };
 
 export async function readHotLayoutManifest(path: string): Promise<HotLayoutManifest> {
@@ -91,6 +92,7 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
   const hotLayoutVersion = parsed.hotLayoutVersion;
   const fields = parsed.fields;
   const reservations = parsed.reservations;
+  const mutableRegionByteLength = parsed.mutableRegionByteLength;
 
   if (
     typeof contractKey !== "string" ||
@@ -101,7 +103,9 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
     typeof publicationSeqOffset !== "number" ||
     typeof totalRegionByteLength !== "number" ||
     !Array.isArray(fields) ||
-    !Array.isArray(reservations)
+    !Array.isArray(reservations) ||
+    typeof mutableRegionByteLength !== "number" ||
+    !Number.isSafeInteger(mutableRegionByteLength)
   ) {
     throw new Error(`${path} is not a supported hot layout manifest`);
   }
@@ -113,6 +117,7 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
     seqlockOffset,
     publicationSeqOffset,
     totalRegionByteLength,
+    mutableRegionByteLength,
     fields: fields.map((field: unknown, index: number) => readHotField(field, path, index)),
     reservations: reservations.map((reservation: unknown, index: number) =>
       readHotReservation(reservation, path, index),

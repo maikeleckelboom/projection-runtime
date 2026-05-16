@@ -557,7 +557,7 @@ describe("@exclave/conformance execution", () => {
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes);
-    const reader = createHotExchangeReader(region);
+    const reader = createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" });
 
     const result = reader.tryRead({
       maxWriterActivePolls: 0,
@@ -578,7 +578,7 @@ describe("@exclave/conformance execution", () => {
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes);
-    const reader = createDeckRuntimeReader(region);
+    const reader = createDeckRuntimeReader(region, { instanceKey: "deck-runtime-v0.instance" });
 
     const result = reader.tryRead({
       maxWriterActivePolls: 0,
@@ -630,7 +630,7 @@ describe("@exclave/conformance execution", () => {
     ) as RustHotWriterOutput;
     const bytes = hexToBytes(rustOutput.hotRegionBytesHex);
     const region = copyIntoSharedRegion(bytes);
-    const reader = createDeckRuntimeReader(region);
+    const reader = createDeckRuntimeReader(region, { instanceKey: "deck-runtime-v0.instance" });
     const result = reader.tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
@@ -806,7 +806,7 @@ describe("@exclave/conformance execution", () => {
     const region = copyIntoSharedRegion(bytes);
     const previousSeqlockCounter = Atomics.load(blockBSeqlockView(region), 0);
     const previousPublicationSequence = Atomics.load(blockBPublicationSequenceView(region), 0);
-    const writer = createDeckRuntimeWriter(region);
+    const writer = createDeckRuntimeWriter(region, { instanceKey: "deck-runtime-v0.instance" });
     const snapshot = {
       beatPhase01: 0.375,
       level: 0.8125,
@@ -880,7 +880,7 @@ describe("@exclave/conformance execution", () => {
     const publicationSequence = blockBPublicationSequenceView(region);
     const previousSeqlockCounter = Atomics.load(seqlock, 0);
     const previousPublicationSequence = Atomics.load(publicationSequence, 0);
-    const writer = createHotExchangeWriter(region);
+    const writer = createHotExchangeWriter(region, { instanceKey: "hot-exchange-v0.instance" });
     const snapshot = {
       displayName: "deckB-hot",
       gain: 0.5,
@@ -890,7 +890,7 @@ describe("@exclave/conformance execution", () => {
     } satisfies HotExchangeSnapshot;
 
     const publishResult = writer.publish(snapshot);
-    const reader = createHotExchangeReader(region);
+    const reader = createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" });
     const readResult = reader.tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
@@ -922,7 +922,7 @@ describe("@exclave/conformance execution", () => {
     const publicationSequence = blockBPublicationSequenceView(region);
     const previousSeqlockCounter = Atomics.load(seqlock, 0);
     const previousPublicationSequence = Atomics.load(publicationSequence, 0);
-    const writer = createDeckRuntimeWriter(region);
+    const writer = createDeckRuntimeWriter(region, { instanceKey: "deck-runtime-v0.instance" });
     const snapshot = {
       beatPhase01: 0.5,
       level: 0.25,
@@ -935,7 +935,7 @@ describe("@exclave/conformance execution", () => {
     } satisfies DeckRuntimeSnapshot;
 
     const publishResult = writer.publish(snapshot);
-    const reader = createDeckRuntimeReader(region);
+    const reader = createDeckRuntimeReader(region, { instanceKey: "deck-runtime-v0.instance" });
     const readResult = reader.tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
@@ -967,7 +967,9 @@ describe("@exclave/conformance execution", () => {
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes, 8);
-    const result = createHotExchangeReader(region).tryRead({
+    const result = createHotExchangeReader(region, {
+      instanceKey: "hot-exchange-v0.instance",
+    }).tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
     });
@@ -985,7 +987,9 @@ describe("@exclave/conformance execution", () => {
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes, 8);
-    const result = createDeckRuntimeReader(region).tryRead({
+    const result = createDeckRuntimeReader(region, {
+      instanceKey: "deck-runtime-v0.instance",
+    }).tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
     });
@@ -1005,13 +1009,19 @@ describe("@exclave/conformance execution", () => {
     const region = new Uint8Array(bytes.byteLength);
     region.set(bytes);
 
-    expectHotBindingIssue(() => createHotExchangeReader(region), "input.regionBufferNotShared");
+    expectHotBindingIssue(
+      () => createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" }),
+      "input.regionBufferNotShared",
+    );
   });
 
   it("rejects generated hot-exchange reader regions shorter than the manifest length", () => {
     const region = new Uint8Array(new SharedArrayBuffer(151));
 
-    expectHotBindingIssue(() => createHotExchangeReader(region), "input.regionViewTooShort");
+    expectHotBindingIssue(
+      () => createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" }),
+      "input.regionViewTooShort",
+    );
   });
 
   it("rejects generated hot-exchange reader regions with a misaligned seqlock view", async () => {
@@ -1020,7 +1030,10 @@ describe("@exclave/conformance execution", () => {
     const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
     const region = copyIntoSharedRegion(bytes, 4);
 
-    expectHotBindingIssue(() => createHotExchangeReader(region), "input.seqlockOffsetMisaligned");
+    expectHotBindingIssue(
+      () => createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" }),
+      "input.seqlockOffsetMisaligned",
+    );
   });
 
   it("rejects invalid generated deck-runtime bounded-array counts", async () => {
@@ -1114,7 +1127,11 @@ describe("@exclave/conformance execution", () => {
         testCase.message,
       );
       expect(
-        () => createDeckRuntimeReader(region).tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }),
+        () =>
+          createDeckRuntimeReader(region, { instanceKey: "deck-runtime-v0.instance" }).tryRead({
+            maxWriterActivePolls: 0,
+            maxTornReads: 0,
+          }),
         testCase.name,
       ).toThrow(testCase.message);
     }
@@ -1127,7 +1144,9 @@ describe("@exclave/conformance execution", () => {
     const region = copyIntoSharedRegion(bytes);
     Atomics.store(blockBSeqlockView(region), 0, 3n);
 
-    const result = createDeckRuntimeReader(region).tryRead({
+    const result = createDeckRuntimeReader(region, {
+      instanceKey: "deck-runtime-v0.instance",
+    }).tryRead({
       maxWriterActivePolls: 0,
       maxTornReads: 0,
     });
@@ -1175,7 +1194,9 @@ describe("@exclave/conformance execution", () => {
     ] as const) {
       const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
       const region = copyIntoSharedRegion(bytes);
-      createDeckRuntimeWriter(region).publish(validDeckRuntimeSnapshot());
+      createDeckRuntimeWriter(region, { instanceKey: "deck-runtime-v0.instance" }).publish(
+        validDeckRuntimeSnapshot(),
+      );
       const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
       testCase.mutate(view, region);
       const result = spawnSync(
@@ -1270,6 +1291,178 @@ describe("@exclave/conformance execution", () => {
       } as unknown as DeckRuntimeSnapshot,
       "loopActive must be a boolean",
     );
+  });
+
+  it("rejects generated deck-runtime-v0 reader with wrong Block A headers before read", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+
+    for (const testCase of [
+      {
+        name: "magic",
+        mutate: (view: DataView) => view.setUint32(0, 0xefbe_adde, true),
+      },
+      {
+        name: "contractKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 8, 24),
+      },
+      {
+        name: "semanticVersion",
+        mutate: (view: DataView) => view.setBigUint64(40, 0n, true),
+      },
+      {
+        name: "hotLayoutVersion",
+        mutate: (view: DataView) => view.setBigUint64(48, 0n, true),
+      },
+      {
+        name: "fieldCount",
+        mutate: (view: DataView) => view.setUint32(56, 99, true),
+      },
+      {
+        name: "mutableRegionByteLength",
+        mutate: (view: DataView) => view.setUint32(60, 99, true),
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+
+      assertHotBindingBlockARejected(testCase.name, () =>
+        createDeckRuntimeReader(region, { instanceKey: "deck-runtime-v0.instance" }),
+      );
+    }
+  });
+
+  it("rejects generated deck-runtime-v0 writer with wrong Block A headers before publish", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+
+    for (const testCase of [
+      {
+        name: "magic",
+        mutate: (view: DataView) => view.setUint32(0, 0xefbe_adde, true),
+      },
+      {
+        name: "contractKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 8, 24),
+      },
+      {
+        name: "hotLayoutVersion",
+        mutate: (view: DataView) => view.setBigUint64(48, 0n, true),
+      },
+      {
+        name: "fieldCount",
+        mutate: (view: DataView) => view.setUint32(56, 99, true),
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+
+      assertHotBindingBlockARejected(testCase.name, () =>
+        createDeckRuntimeWriter(region, { instanceKey: "deck-runtime-v0.instance" }),
+      );
+    }
+  });
+
+  it("rejects generated deck-runtime-v0 reader with wrong instance key", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+
+    expectHotBindingIssue(
+      () => createDeckRuntimeReader(region, { instanceKey: "wrong.instance" }),
+      "input.blockAHeaderInvalid",
+    );
+  });
+
+  it("rejects generated deck-runtime-v0 writer with wrong instance key", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+
+    expectHotBindingIssue(
+      () => createDeckRuntimeWriter(region, { instanceKey: "wrong.instance" }),
+      "input.blockAHeaderInvalid",
+    );
+  });
+
+  it("rejects generated hot-exchange-v0 reader with wrong Block A headers before read", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+
+    for (const testCase of [
+      {
+        name: "magic",
+        mutate: (view: DataView) => view.setUint32(0, 0xefbe_adde, true),
+      },
+      {
+        name: "contractKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 8, 24),
+      },
+      {
+        name: "semanticVersion",
+        mutate: (view: DataView) => view.setBigUint64(40, 0n, true),
+      },
+      {
+        name: "hotLayoutVersion",
+        mutate: (view: DataView) => view.setBigUint64(48, 0n, true),
+      },
+      {
+        name: "fieldCount",
+        mutate: (view: DataView) => view.setUint32(56, 99, true),
+      },
+      {
+        name: "mutableRegionByteLength",
+        mutate: (view: DataView) => view.setUint32(60, 99, true),
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+
+      assertHotBindingBlockARejected(testCase.name, () =>
+        createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" }),
+      );
+    }
+  });
+
+  it("rejects generated hot-exchange-v0 writer with wrong Block A headers before publish", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+
+    for (const testCase of [
+      {
+        name: "magic",
+        mutate: (view: DataView) => view.setUint32(0, 0xefbe_adde, true),
+      },
+      {
+        name: "contractKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 8, 24),
+      },
+      {
+        name: "hotLayoutVersion",
+        mutate: (view: DataView) => view.setBigUint64(48, 0n, true),
+      },
+      {
+        name: "fieldCount",
+        mutate: (view: DataView) => view.setUint32(56, 99, true),
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+
+      assertHotBindingBlockARejected(testCase.name, () =>
+        createHotExchangeWriter(region, { instanceKey: "hot-exchange-v0.instance" }),
+      );
+    }
   });
 
   it("keeps generated hot reader sources zero-discovery", () => {
@@ -1763,6 +1956,7 @@ async function expectGeneratedReaderManifestRejected(
       writeGeneratedHotReader({
         fixtureName: "malformed-fixture",
         symbolStem: "MalformedFixture",
+        semanticVersion: "e3636f7cdffa73b2",
         manifestPath,
         outputPath,
         generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
@@ -1790,6 +1984,7 @@ async function expectGeneratedWriterManifestRejected(
       writeGeneratedHotWriter({
         fixtureName: "malformed-fixture",
         symbolStem: "MalformedFixture",
+        semanticVersion: "e3636f7cdffa73b2",
         manifestPath,
         outputPath,
         generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
@@ -1811,7 +2006,7 @@ async function expectHotExchangeWriterSnapshotRejected(
   const beforeSeqlockCounter = Atomics.load(seqlock, 0);
   const beforePublicationSequence = Atomics.load(publicationSequence, 0);
   const beforeSnapshot = readHotExchangeSnapshotUnchecked(region);
-  const writer = createHotExchangeWriter(region);
+  const writer = createHotExchangeWriter(region, { instanceKey: "hot-exchange-v0.instance" });
 
   expect(() => writer.publish(snapshot)).toThrow(expectedMessage);
   expect(Atomics.load(seqlock, 0)).toBe(beforeSeqlockCounter);
@@ -1832,7 +2027,7 @@ async function expectDeckRuntimeWriterSnapshotRejected(
   const beforeSeqlockCounter = Atomics.load(seqlock, 0);
   const beforePublicationSequence = Atomics.load(publicationSequence, 0);
   const beforeSnapshot = readDeckRuntimeSnapshotUnchecked(region);
-  const writer = createDeckRuntimeWriter(region);
+  const writer = createDeckRuntimeWriter(region, { instanceKey: "deck-runtime-v0.instance" });
 
   expect(() => writer.publish(snapshot)).toThrow(expectedMessage);
   expect(Atomics.load(seqlock, 0)).toBe(beforeSeqlockCounter);
@@ -1897,6 +2092,19 @@ function expectFailure(
   }
 
   return failure;
+}
+
+function assertHotBindingBlockARejected(caseName: string, action: () => unknown): void {
+  try {
+    action();
+    throw new Error(`${caseName}: expected hot binding failure`);
+  } catch (error) {
+    expect(isHotBindingError(error), caseName).toBe(true);
+    expect(
+      (error as HotBindingError).details.issues.map((issue) => issue.code),
+      caseName,
+    ).toContain("input.blockAHeaderInvalid");
+  }
 }
 
 function expectHotBindingIssue(action: () => unknown, expectedCode: string): HotBindingError {

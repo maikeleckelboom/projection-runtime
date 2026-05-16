@@ -11,6 +11,11 @@ export type DeckRuntimeWriter = {
 const SEQLOCK_OFFSET = 72;
 const PUBLICATION_SEQUENCE_OFFSET = 88;
 const TOTAL_REGION_BYTE_LENGTH = 160;
+const CONTRACT_KEY = "fixture.deckRuntime";
+const SEMANTIC_VERSION = 0xe3636f7cdffa73b2n;
+const HOT_LAYOUT_VERSION = 0xaddeef4f8ef66eadn;
+const FIELD_COUNT = 8;
+const MUTABLE_REGION_BYTE_LENGTH = 88;
 const BEAT_PHASE01_OFFSET = 96;
 const LEVEL_OFFSET = 100;
 const LOOP_ACTIVE_OFFSET = 104;
@@ -24,12 +29,23 @@ const TEMPO_RATIO_OFFSET = 148;
 const TRANSPORT_STATE_OFFSET = 152;
 const TRANSPORT_STATE_VARIANTS = ["stopped", "cueing", "playing", "paused"] as const;
 
-export function createDeckRuntimeWriter(region: Uint8Array): DeckRuntimeWriter {
+export function createDeckRuntimeWriter(
+  region: Uint8Array,
+  { instanceKey }: { instanceKey: string },
+): DeckRuntimeWriter {
   const binding = bindHotPublishRegion({
     region,
     seqlockOffset: SEQLOCK_OFFSET,
     publicationSequenceOffset: PUBLICATION_SEQUENCE_OFFSET,
     totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+    blockA: {
+      contractKey: CONTRACT_KEY,
+      instanceKey,
+      semanticVersion: SEMANTIC_VERSION,
+      hotLayoutVersion: HOT_LAYOUT_VERSION,
+      fieldCount: FIELD_COUNT,
+      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,
+    },
   });
 
   return {
