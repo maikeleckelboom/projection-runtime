@@ -70,6 +70,9 @@ importers:
       '@exclave/base':
         specifier: workspace:*
         version: link:../base
+      '@exclave/hot-codec':
+        specifier: workspace:*
+        version: link:../hot-codec
 
   packages/hot-codec:
     dependencies:

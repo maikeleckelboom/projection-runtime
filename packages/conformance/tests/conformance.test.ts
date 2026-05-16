@@ -678,6 +678,12 @@ describe("@exclave/conformance execution", () => {
     expect(rustOutput.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
     expect(rustOutput.hotRegionBytesHex).toMatch(/^[\da-f]+$/);
     expect(bytes.byteLength).toBe(hotLayoutManifest.totalRegionByteLength);
+    expect(
+      decodeHotCompleteFixtureRegion(decodeHotLayoutManifestFixture(hotLayoutManifest), bytes, {
+        expectedContractKey: "fixture.deckRuntime",
+        expectedInstanceKey: "deck-runtime-v0.instance",
+      }).fieldValues,
+    ).toEqual(expectedSnapshot);
     expect(rustOutput.hotRegionBytesHex).not.toBe(
       existingCompleteRegion.completeFixtureRegionBytesHex,
     );
@@ -699,6 +705,88 @@ describe("@exclave/conformance execution", () => {
     expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(3);
     expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
     expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
+  }, 30_000);
+
+  it("rejects malformed deck-runtime-v0 Block A bytes through the Rust reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
+
+    for (const testCase of [
+      {
+        name: "regionMagic",
+        mutate: (view: DataView) => view.setUint32(0, 0xefbe_adde, true),
+        stderr: "Block A regionMagic mismatch: expected 53514c4b",
+      },
+      {
+        name: "hotAbiVersion",
+        mutate: (view: DataView) => view.setUint32(4, 2, true),
+        stderr: "Block A hotAbiVersion mismatch: expected 1, got 2",
+      },
+      {
+        name: "contractKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 8, 24),
+        stderr: "Block A contractKeyHash mismatch",
+      },
+      {
+        name: "instanceKeyHash",
+        mutate: (_view: DataView, bytes: Uint8Array) => bytes.fill(0, 24, 40),
+        stderr: "Block A instanceKeyHash mismatch",
+      },
+      {
+        name: "semanticVersion",
+        mutate: (view: DataView) => view.setBigUint64(40, 0n, true),
+        stderr: "Block A semanticVersion mismatch",
+      },
+      {
+        name: "hotLayoutVersion",
+        mutate: (view: DataView) => view.setBigUint64(48, 0n, true),
+        stderr: "Block A hotLayoutVersion mismatch",
+      },
+      {
+        name: "fieldCount",
+        mutate: (view: DataView) => view.setUint32(56, 99, true),
+        stderr: "Block A fieldCount mismatch: expected 8, got 99",
+      },
+      {
+        name: "mutableRegionByteLength",
+        mutate: (view: DataView) => view.setUint32(60, 99, true),
+        stderr: "Block A mutableRegionByteLength mismatch: expected 88, got 99",
+      },
+      {
+        name: "reserved",
+        mutate: (_view: DataView, bytes: Uint8Array) => {
+          bytes[64] = 0xff;
+        },
+        stderr: "Block A reserved bytes must be zero",
+      },
+    ] as const) {
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      testCase.mutate(view, region);
+      const result = spawnSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "read-deck-runtime",
+          artifactManifestRelativePath,
+          bytesToHex(region),
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      );
+
+      expect(result.status, testCase.name).not.toBe(0);
+      expect(result.stderr, testCase.name).toContain(testCase.stderr);
+    }
   }, 30_000);
 
   it("decodes generated TypeScript-written deck-runtime-v0 hot region bytes through the Rust reader", async () => {
