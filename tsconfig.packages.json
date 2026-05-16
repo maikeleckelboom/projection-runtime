@@ -10,8 +10,7 @@
     { "path": "./packages/hot-consumer" },
     { "path": "./packages/hot-publisher" },
     { "path": "./packages/compiler" },
-    { "path": "./packages/conformance" },
-    { "path": "./packages/primitives" }
+    { "path": "./packages/conformance" }
   ],
   "files": []
 }

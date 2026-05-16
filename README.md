@@ -12,7 +12,6 @@ Currently landed:
 
 - `@exclave/base`
 - `@exclave/schema`
-- `@exclave/primitives`
 - `@exclave/hot-codec`
 - `@exclave/hot-binding`
 - `@exclave/hot-consumer`

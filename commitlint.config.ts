@@ -19,7 +19,6 @@ const config: UserConfig = {
       [
         "base",
         "schema",
-        "primitives",
         "compiler",
         "hot-codec",
         "hot-consumer",

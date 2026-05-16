@@ -96,12 +96,6 @@ importers:
         specifier: workspace:*
         version: link:../base
 
-  packages/primitives:
-    dependencies:
-      '@exclave/base':
-        specifier: workspace:*
-        version: link:../base
-
   packages/schema: {}
 
 packages:

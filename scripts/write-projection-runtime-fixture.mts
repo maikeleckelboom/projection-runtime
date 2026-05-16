@@ -178,7 +178,6 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const projectionRuntimeFixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const workspaceAliases = new Map<string, string>([
   ["@exclave/base", resolve(repoRoot, "packages/base/src/index.ts")],
-  ["@exclave/primitives", resolve(repoRoot, "packages/primitives/src/index.ts")],
   ["@exclave/schema", resolve(repoRoot, "packages/schema/src/index.ts")],
   ["@exclave/hot-codec", resolve(repoRoot, "packages/hot-codec/src/index.ts")],
   ["@exclave/compiler", resolve(repoRoot, "packages/compiler/src/index.ts")],
