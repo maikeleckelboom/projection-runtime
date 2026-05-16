@@ -18,6 +18,9 @@ const workspaceAliases = {
   "@exclave/hot-consumer": fileURLToPath(
     new URL("./packages/hot-consumer/src/index.ts", import.meta.url),
   ),
+  "@exclave/hot-publisher": fileURLToPath(
+    new URL("./packages/hot-publisher/src/index.ts", import.meta.url),
+  ),
 };
 
 export default defineConfig({
@@ -66,6 +69,19 @@ export default defineConfig({
           include: [
             "packages/conformance/tests/**/*.test.ts",
             "packages/conformance/src/**/*.test.ts",
+          ],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@exclave/hot-publisher",
+          environment: "node",
+          include: [
+            "packages/hot-publisher/tests/**/*.test.ts",
+            "packages/hot-publisher/src/**/*.test.ts",
           ],
         },
       },

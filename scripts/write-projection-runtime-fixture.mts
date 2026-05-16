@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
+import { writeGeneratedHotWriter } from "./projection-runtime/write-generated-hot-writer.mts";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -99,7 +100,7 @@ type FixtureProfile<TValues extends HotFieldValues> = {
   readonly values: TValues;
 };
 
-type GeneratedHotReaderProfile = {
+type GeneratedHotArtifactProfile = {
   readonly fixtureName: string;
   readonly symbolStem: string;
 };
@@ -245,7 +246,7 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
   },
 ] as const satisfies readonly FixtureProfile<HotFieldValues>[];
 
-const generatedHotReaderProfiles: readonly GeneratedHotReaderProfile[] = [
+const generatedHotArtifactProfiles: readonly GeneratedHotArtifactProfile[] = [
   {
     fixtureName: "deck-runtime-v0",
     symbolStem: "DeckRuntime",
@@ -274,6 +275,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const hotBlockBFixturePath = resolve(fixtureRoot, "hot-block-b-fixture.json");
   const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
   const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
+  const generatedHotWriterPath = resolve(fixtureRoot, "generated/hot-writer.ts");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
   const result = compileAuthoredProjectionContract(authoredContract);
@@ -305,17 +307,24 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   );
   await writeJson(resolvedContractPath, resolved);
 
-  const generatedHotReaderProfile = generatedHotReaderProfiles.find(
+  const generatedHotArtifactProfile = generatedHotArtifactProfiles.find(
     (entry) => entry.fixtureName === profile.fixtureName,
   );
 
-  if (generatedHotReaderProfile !== undefined) {
+  if (generatedHotArtifactProfile !== undefined) {
     await writeGeneratedHotReader({
-      fixtureName: generatedHotReaderProfile.fixtureName,
-      symbolStem: generatedHotReaderProfile.symbolStem,
+      fixtureName: generatedHotArtifactProfile.fixtureName,
+      symbolStem: generatedHotArtifactProfile.symbolStem,
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotReaderPath,
-      generatedFromPath: `fixtures/projection-runtime/${generatedHotReaderProfile.fixtureName}/hot-layout-manifest.json`,
+      generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
+    });
+    await writeGeneratedHotWriter({
+      fixtureName: generatedHotArtifactProfile.fixtureName,
+      symbolStem: generatedHotArtifactProfile.symbolStem,
+      manifestPath: hotLayoutManifestPath,
+      outputPath: generatedHotWriterPath,
+      generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
     });
   }
 }
@@ -601,9 +610,10 @@ function formatGeneratedArtifacts(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/hot-complete-fixture-region.json`,
     `fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json`,
   ]);
-  const generatedSourcePaths = generatedHotReaderProfiles.map(
-    (profile) => `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-reader.ts`,
-  );
+  const generatedSourcePaths = generatedHotArtifactProfiles.flatMap((profile) => [
+    `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-reader.ts`,
+    `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-writer.ts`,
+  ]);
 
   execFileSync(
     process.execPath,
