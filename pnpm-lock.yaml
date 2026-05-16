@@ -55,12 +55,21 @@ importers:
       '@exclave/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@exclave/hot-binding':
+        specifier: workspace:*
+        version: link:../hot-binding
       '@exclave/hot-codec':
         specifier: workspace:*
         version: link:../hot-codec
       '@exclave/hot-publisher':
         specifier: workspace:*
         version: link:../hot-publisher
+
+  packages/hot-binding:
+    dependencies:
+      '@exclave/base':
+        specifier: workspace:*
+        version: link:../base
 
   packages/hot-codec:
     dependencies:

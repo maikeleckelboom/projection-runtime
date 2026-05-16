@@ -15,6 +15,9 @@ const workspaceAliases = {
   "@exclave/hot-codec": fileURLToPath(
     new URL("./packages/hot-codec/src/index.ts", import.meta.url),
   ),
+  "@exclave/hot-binding": fileURLToPath(
+    new URL("./packages/hot-binding/src/index.ts", import.meta.url),
+  ),
   "@exclave/hot-consumer": fileURLToPath(
     new URL("./packages/hot-consumer/src/index.ts", import.meta.url),
   ),
@@ -69,6 +72,19 @@ export default defineConfig({
           include: [
             "packages/conformance/tests/**/*.test.ts",
             "packages/conformance/src/**/*.test.ts",
+          ],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@exclave/hot-binding",
+          environment: "node",
+          include: [
+            "packages/hot-binding/tests/**/*.test.ts",
+            "packages/hot-binding/src/**/*.test.ts",
           ],
         },
       },

@@ -1,5 +1,6 @@
 // Generated from fixtures/projection-runtime/deck-runtime-v0/hot-layout-manifest.json. Do not edit by hand.
 
+import { bindHotReadRegion } from "@exclave/hot-binding";
 import {
   createHotReadState,
   type HotReadAttemptResult,
@@ -37,7 +38,6 @@ const STEM_GAINS_UNIT_BYTE_LENGTH = 4;
 const TEMPO_RATIO_OFFSET = 148;
 const TRANSPORT_STATE_OFFSET = 152;
 const TRANSPORT_STATE_VARIANTS = ["stopped", "cueing", "playing", "paused"] as const;
-const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;
 
 export function readDeckRuntimeSnapshotUnchecked(region: Uint8Array): DeckRuntimeSnapshot {
   const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
@@ -45,16 +45,18 @@ export function readDeckRuntimeSnapshotUnchecked(region: Uint8Array): DeckRuntim
 }
 
 export function createDeckRuntimeReader(region: Uint8Array): DeckRuntimeReader {
-  validateDeckRuntimeRegion(region);
-
-  const sequence = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);
+  const binding = bindHotReadRegion({
+    region,
+    seqlockOffset: SEQLOCK_OFFSET,
+    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+  });
   const state: HotReadState<DeckRuntimeSnapshot> = createHotReadState<DeckRuntimeSnapshot>();
 
   return {
     tryRead: (options?: HotReadOptions) =>
       tryReadHotSnapshot({
-        sequence,
-        readCandidate: () => readDeckRuntimeSnapshotUnchecked(region),
+        sequence: binding.seqlock,
+        readCandidate: () => readDeckRuntimeSnapshotUnchecked(binding.region),
         state,
         options,
       }),
@@ -107,25 +109,4 @@ function readTransportState(view: DataView): "stopped" | "cueing" | "playing" | 
     throw new RangeError("transportState enum discriminant is outside variants");
   }
   return value;
-}
-
-function validateDeckRuntimeRegion(region: Uint8Array): void {
-  if (!(region instanceof Uint8Array)) {
-    throw new TypeError("deck-runtime-v0 region must be a Uint8Array");
-  }
-
-  if (!(region.buffer instanceof SharedArrayBuffer)) {
-    throw new TypeError("deck-runtime-v0 region must be backed by SharedArrayBuffer");
-  }
-
-  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {
-    throw new RangeError(
-      `deck-runtime-v0 region must be at least ${TOTAL_REGION_BYTE_LENGTH} bytes`,
-    );
-  }
-
-  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;
-  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {
-    throw new RangeError("deck-runtime-v0 seqlock view is not u64-aligned");
-  }
 }

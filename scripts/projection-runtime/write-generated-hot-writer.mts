@@ -137,7 +137,6 @@ function renderHotWriter(input: {
   const createFunctionName = `create${input.symbolStem}Writer`;
   const validateSnapshotFunctionName = `validate${input.symbolStem}Snapshot`;
   const writeFunctionName = `write${input.symbolStem}SnapshotUnchecked`;
-  const validateRegionFunctionName = `validate${input.symbolStem}Region`;
   const constants = collectGeneratedConstants(fields);
   const helpers = collectGeneratedHelpers(fields);
 
@@ -152,13 +151,11 @@ function renderHotWriter(input: {
     `const PUBLICATION_SEQUENCE_OFFSET = ${input.manifest.publicationSeqOffset};`,
     `const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};`,
     ...constants.map((constant) => constant.source),
-    "const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;",
     "",
     ...renderCreateWriterFunction({
       createFunctionName,
       writerTypeName,
       snapshotTypeName,
-      validateRegionFunctionName,
       validateSnapshotFunctionName,
       writeFunctionName,
     }),
@@ -168,14 +165,13 @@ function renderHotWriter(input: {
     ...renderUncheckedWriteFunction(writeFunctionName, snapshotTypeName, fields),
     "",
     ...renderHelperSources(helpers),
-    ...renderValidateRegionFunction(input.fixtureName, validateRegionFunctionName),
-    "",
     ...renderCommonHelpers(helpers),
   ]);
 }
 
 function renderImports(snapshotTypeName: string): readonly string[] {
   return [
+    'import { bindHotPublishRegion } from "@exclave/hot-binding";',
     'import { type HotPublishResult, publishHotRegion } from "@exclave/hot-publisher";',
     `import type { ${snapshotTypeName} } from "./hot-reader.ts";`,
   ];
@@ -193,35 +189,31 @@ function renderCreateWriterFunction({
   createFunctionName,
   writerTypeName,
   snapshotTypeName,
-  validateRegionFunctionName,
   validateSnapshotFunctionName,
   writeFunctionName,
 }: {
   readonly createFunctionName: string;
   readonly writerTypeName: string;
   readonly snapshotTypeName: string;
-  readonly validateRegionFunctionName: string;
   readonly validateSnapshotFunctionName: string;
   readonly writeFunctionName: string;
 }): readonly string[] {
   return [
     `export function ${createFunctionName}(region: Uint8Array): ${writerTypeName} {`,
-    `  ${validateRegionFunctionName}(region);`,
-    "",
-    "  const seqlock = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);",
-    "  const publicationSequence = new BigUint64Array(",
-    "    region.buffer,",
-    "    region.byteOffset + PUBLICATION_SEQUENCE_OFFSET,",
-    "    1,",
-    "  );",
+    "  const binding = bindHotPublishRegion({",
+    "    region,",
+    "    seqlockOffset: SEQLOCK_OFFSET,",
+    "    publicationSequenceOffset: PUBLICATION_SEQUENCE_OFFSET,",
+    "    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,",
+    "  });",
     "",
     "  return {",
     `    publish: (snapshot: ${snapshotTypeName}) => {`,
     `      ${validateSnapshotFunctionName}(snapshot);`,
     "      return publishHotRegion({",
-    "        seqlock,",
-    "        publicationSequence,",
-    `        writeRegion: () => ${writeFunctionName}(region, snapshot),`,
+    "        seqlock: binding.seqlock,",
+    "        publicationSequence: binding.publicationSequence,",
+    `        writeRegion: () => ${writeFunctionName}(binding.region, snapshot),`,
     "      });",
     "    },",
     "  };",
@@ -269,39 +261,6 @@ function renderHelperSources(helpers: readonly GeneratedHelper[]): readonly stri
   }
 
   return [...joinBlocks(sourcedHelpers.map((helper) => helper.source.split("\n"))), ""];
-}
-
-function renderValidateRegionFunction(
-  fixtureName: string,
-  validateRegionFunctionName: string,
-): readonly string[] {
-  return [
-    `function ${validateRegionFunctionName}(region: Uint8Array): void {`,
-    "  if (!(region instanceof Uint8Array)) {",
-    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be a Uint8Array`)});`,
-    "  }",
-    "",
-    "  if (!(region.buffer instanceof SharedArrayBuffer)) {",
-    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be backed by SharedArrayBuffer`)});`,
-    "  }",
-    "",
-    "  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {",
-    `    throw new RangeError(\`${fixtureName} region must be at least \${TOTAL_REGION_BYTE_LENGTH} bytes\`);`,
-    "  }",
-    "",
-    "  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;",
-    "  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {",
-    `    throw new RangeError(${stringLiteral(`${fixtureName} seqlock view is not u64-aligned`)});`,
-    "  }",
-    "",
-    "  const absolutePublicationSequenceOffset = region.byteOffset + PUBLICATION_SEQUENCE_OFFSET;",
-    "  if (absolutePublicationSequenceOffset % U64_BYTE_ALIGNMENT !== 0) {",
-    `    throw new RangeError(${stringLiteral(
-      `${fixtureName} publicationSequence view is not u64-aligned`,
-    )});`,
-    "  }",
-    "}",
-  ];
 }
 
 function renderCommonHelpers(helpers: readonly GeneratedHelper[]): readonly string[] {

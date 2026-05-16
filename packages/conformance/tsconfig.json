@@ -7,7 +7,11 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "../../.cache/tsbuildinfo/packages/conformance.tsbuildinfo"
   },
-  "references": [{ "path": "../compiler" }, { "path": "../hot-codec" }],
+  "references": [
+    { "path": "../compiler" },
+    { "path": "../hot-codec" },
+    { "path": "../hot-binding" }
+  ],
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "tests"]
 }
