@@ -1,0 +1,15 @@
+{
+  "artifactManifestVersion": 1,
+  "fixtureName": "deck-runtime-v0",
+  "contractKey": "fixture.deckRuntime",
+  "symbolStem": "DeckRuntime",
+  "hotAbiVersion": 1,
+  "hotLayoutVersion": "addeef4f8ef66ead",
+  "source": {
+    "hotLayoutManifest": "../hot-layout-manifest.json"
+  },
+  "artifacts": {
+    "reader": "hot-reader.ts",
+    "writer": "hot-writer.ts"
+  }
+}

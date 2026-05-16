@@ -6,7 +6,7 @@ import { writeFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
+import { writeGeneratedHotArtifactManifest } from "./projection-runtime/write-generated-hot-artifact-manifest.mts";
 import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "./projection-runtime/write-generated-hot-writer.mts";
 
@@ -276,6 +276,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const hotCompleteFixtureRegionPath = resolve(fixtureRoot, "hot-complete-fixture-region.json");
   const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
   const generatedHotWriterPath = resolve(fixtureRoot, "generated/hot-writer.ts");
+  const generatedHotArtifactManifestPath = resolve(fixtureRoot, "generated/artifacts.json");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
   const result = compileAuthoredProjectionContract(authoredContract);
@@ -324,6 +325,13 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       symbolStem: generatedHotArtifactProfile.symbolStem,
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotWriterPath,
+      generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
+    });
+    await writeGeneratedHotArtifactManifest({
+      fixtureName: generatedHotArtifactProfile.fixtureName,
+      symbolStem: generatedHotArtifactProfile.symbolStem,
+      manifestPath: hotLayoutManifestPath,
+      outputPath: generatedHotArtifactManifestPath,
       generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
     });
   }
@@ -613,6 +621,7 @@ function formatGeneratedArtifacts(): void {
   const generatedSourcePaths = generatedHotArtifactProfiles.flatMap((profile) => [
     `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-reader.ts`,
     `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-writer.ts`,
+    `fixtures/projection-runtime/${profile.fixtureName}/generated/artifacts.json`,
   ]);
 
   execFileSync(

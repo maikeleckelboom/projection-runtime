@@ -66,6 +66,9 @@ export type HotReservationEntry = {
 };
 
 export type HotLayoutManifest = {
+  readonly contractKey: string;
+  readonly hotAbiVersion: number;
+  readonly hotLayoutVersion: string;
   readonly seqlockOffset: number;
   readonly publicationSeqOffset: number;
   readonly totalRegionByteLength: number;
@@ -83,10 +86,17 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
   const seqlockOffset = parsed.seqlockOffset;
   const publicationSeqOffset = parsed.publicationSeqOffset;
   const totalRegionByteLength = parsed.totalRegionByteLength;
+  const contractKey = parsed.contractKey;
+  const hotAbiVersion = parsed.hotAbiVersion;
+  const hotLayoutVersion = parsed.hotLayoutVersion;
   const fields = parsed.fields;
   const reservations = parsed.reservations;
 
   if (
+    typeof contractKey !== "string" ||
+    typeof hotAbiVersion !== "number" ||
+    !Number.isSafeInteger(hotAbiVersion) ||
+    typeof hotLayoutVersion !== "string" ||
     typeof seqlockOffset !== "number" ||
     typeof publicationSeqOffset !== "number" ||
     typeof totalRegionByteLength !== "number" ||
@@ -97,6 +107,9 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
   }
 
   return {
+    contractKey,
+    hotAbiVersion,
+    hotLayoutVersion,
     seqlockOffset,
     publicationSeqOffset,
     totalRegionByteLength,
