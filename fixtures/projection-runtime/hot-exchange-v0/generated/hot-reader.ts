@@ -53,7 +53,7 @@ export function createHotExchangeReader(region: Uint8Array): HotExchangeReader {
         sequence: binding.seqlock,
         readCandidate: () => readHotExchangeSnapshotUnchecked(binding.region),
         state,
-        options,
+        ...(options !== undefined && { options }),
       }),
   };
 }
