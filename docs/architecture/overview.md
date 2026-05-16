@@ -14,6 +14,7 @@ low-latency publication surfaces, but shared memory is not the whole system.
 - `hot-publisher` -> `base`
 - `compiler` -> `base`, `schema`, `hot-codec`
 - `conformance` -> `base`, `compiler`, `hot-codec`, `hot-binding`, `hot-publisher`
+- `session` — (no deps; pure binding validity only)
 
 ## Package ownership
 
@@ -27,6 +28,7 @@ low-latency publication surfaces, but shared memory is not the whole system.
 | `@exclave/hot-publisher` | writer-side hot publication transition for already-opened hot Block B views |
 | `@exclave/compiler`      | canonicalization, semantic legality, lane planning, artifact derivation     |
 | `@exclave/conformance`   | fixture verification and cross-implementation compatibility evidence        |
+| `@exclave/session`       | minimal product-neutral binding validity fence; answers whether a caller may use an already-opened binding for the expected authorityKey, surfaceKey, and authorityEpoch; does not open bindings, allocate regions, publish bytes, transport messages, or manage app lifecycle |
 
 ## Out of scope
 

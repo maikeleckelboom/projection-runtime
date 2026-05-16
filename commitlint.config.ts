@@ -26,6 +26,7 @@ const config: UserConfig = {
         "hot-binding",
         "hot-publication",
         "conformance",
+        "session",
         "fixtures",
         "docs",
         "tooling",
