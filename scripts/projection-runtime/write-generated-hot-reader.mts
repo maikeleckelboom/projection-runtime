@@ -97,8 +97,11 @@ export async function writeGeneratedHotReader({
   outputPath,
   generatedFromPath,
 }: WriteGeneratedHotReaderInput): Promise<void> {
+  validateGeneratedReaderProfile({ fixtureName, symbolStem, generatedFromPath });
+
   const manifest = await readHotLayoutManifest(manifestPath);
   validateHotLayoutManifest(manifest, manifestPath);
+
   const source = renderHotReader({
     fixtureName,
     symbolStem,
@@ -152,7 +155,7 @@ function readHotField(value: unknown, path: string, index: number): HotFieldEntr
   const shape = value.shape;
 
   if (!isFieldName(dotPath)) {
-    throw new Error(`${path}.fields.${index}.dotPath is not supported by this proof generator`);
+    throw new Error(`${path}.fields.${index}.dotPath is not supported by generated reader v0`);
   }
 
   if (typeof absoluteOffset !== "number" || typeof byteSpan !== "number") {
@@ -205,7 +208,7 @@ function readSupportedShape(value: unknown, path: string): SupportedFieldShape {
   switch (value.kind) {
     case "FixedScalar":
       if (!isGeneratedReaderScalarTypeV0(value.type)) {
-        throw new Error(`${path}.type is not supported by this proof generator`);
+        throw new Error(`${path}.type is not supported by generated reader v0`);
       }
       return { kind: "FixedScalar", type: value.type };
 
@@ -253,16 +256,44 @@ function readSupportedShape(value: unknown, path: string): SupportedFieldShape {
       };
 
     default:
-      throw new Error(`${path} is not supported by this proof generator`);
+      throw new Error(`${path} is not supported by generated reader v0`);
+  }
+}
+
+function validateGeneratedReaderProfile({
+  fixtureName,
+  symbolStem,
+  generatedFromPath,
+}: {
+  readonly fixtureName: string;
+  readonly symbolStem: string;
+  readonly generatedFromPath: string;
+}): void {
+  if (!isSafeFixtureName(fixtureName)) {
+    throw new Error(`${fixtureName} is not a safe generated reader fixture name`);
+  }
+
+  if (!isSafeSymbolStem(symbolStem)) {
+    throw new Error(`${fixtureName} symbolStem is not a safe generated TS symbol stem`);
+  }
+
+  if (generatedFromPath.includes("\n") || generatedFromPath.includes("\r")) {
+    throw new Error(`${fixtureName} generatedFromPath must fit on one generated comment line`);
   }
 }
 
 function validateHotLayoutManifest(manifest: HotLayoutManifest, path: string): void {
   requireSafePositiveInteger(manifest.totalRegionByteLength, `${path}.totalRegionByteLength`);
   requireSafeNonNegativeInteger(manifest.seqlockOffset, `${path}.seqlockOffset`);
+  requireRangeEnd(
+    manifest.seqlockOffset,
+    8,
+    manifest.totalRegionByteLength,
+    `${path}.seqlockOffset`,
+  );
 
   const fieldNames = new Set<string>();
-  const boundedArrayNames = new Set<string>();
+  const boundedArrayFields = new Map<string, HotFieldEntry>();
   const generatedPropertyNames = new Set<string>();
   const generatedConstantNames = new Set<string>([
     "SEQLOCK_OFFSET",
@@ -272,6 +303,7 @@ function validateHotLayoutManifest(manifest: HotLayoutManifest, path: string): v
 
   for (const [index, field] of manifest.fields.entries()) {
     const fieldPath = `${path}.fields.${index}`;
+
     requireSafeNonNegativeInteger(field.absoluteOffset, `${fieldPath}.absoluteOffset`);
     requireSafeNonNegativeInteger(field.byteSpan, `${fieldPath}.byteSpan`);
     requireRangeEnd(
@@ -304,28 +336,31 @@ function validateHotLayoutManifest(manifest: HotLayoutManifest, path: string): v
     }
 
     if (field.shape.kind === "BoundedArray") {
-      boundedArrayNames.add(field.dotPath);
+      boundedArrayFields.set(field.dotPath, field);
     }
   }
 
   for (const [index, reservation] of manifest.reservations.entries()) {
     const reservationPath = `${path}.reservations.${index}`;
+
     validateReservation(reservation, manifest.totalRegionByteLength, reservationPath);
 
-    if (!boundedArrayNames.has(reservation.dotPath)) {
+    const field = boundedArrayFields.get(reservation.dotPath);
+    if (field === undefined) {
       throw new Error(`${reservationPath}.dotPath does not belong to a BoundedArray field`);
     }
+
+    validateBoundedArrayReservation(field, reservation, reservationPath);
   }
 
-  for (const boundedArrayName of boundedArrayNames) {
-    const count = manifest.reservations.filter(
-      (reservation) => reservation.dotPath === boundedArrayName,
-    ).length;
-    if (count !== 1) {
-      throw new Error(
-        `${path}.reservations must contain exactly one ${boundedArrayName} reservation`,
-      );
+  for (const [dotPath, field] of boundedArrayFields) {
+    const matches = manifest.reservations.filter((reservation) => reservation.dotPath === dotPath);
+
+    if (matches.length !== 1 || matches[0] === undefined) {
+      throw new Error(`${path}.reservations must contain exactly one ${dotPath} reservation`);
     }
+
+    validateBoundedArrayReservation(field, matches[0], `${path}.reservations.${dotPath}`);
   }
 }
 
@@ -339,6 +374,12 @@ function validateFieldShape(field: HotFieldEntry, path: string): void {
       requireByteSpan(field, 1);
       if (field.shape.variants.length === 0) {
         throw new Error(`${path}.shape.variants must not be empty`);
+      }
+      if (field.shape.variants.length > 256) {
+        throw new Error(`${path}.shape.variants must fit in u8 storage`);
+      }
+      if (new Set(field.shape.variants).size !== field.shape.variants.length) {
+        throw new Error(`${path}.shape.variants must be unique`);
       }
       return;
 
@@ -368,7 +409,7 @@ function validateReservation(
 ): void {
   requireSafeNonNegativeInteger(reservation.countFieldOffset, `${path}.countFieldOffset`);
   requireSafeNonNegativeInteger(reservation.elementsOffset, `${path}.elementsOffset`);
-  requireSafeNonNegativeInteger(reservation.maxCount, `${path}.maxCount`);
+  requireSafePositiveInteger(reservation.maxCount, `${path}.maxCount`);
   requireSafePositiveInteger(reservation.unitByteLength, `${path}.unitByteLength`);
   requireRangeEnd(reservation.countFieldOffset, 4, totalRegionByteLength, path);
 
@@ -377,6 +418,55 @@ function validateReservation(
     throw new Error(`${path} reservation element byte span must be a safe integer`);
   }
   requireRangeEnd(reservation.elementsOffset, byteSpan, totalRegionByteLength, path);
+}
+
+function validateBoundedArrayReservation(
+  field: HotFieldEntry,
+  reservation: HotReservationEntry,
+  path: string,
+): void {
+  if (field.shape.kind !== "BoundedArray") {
+    throw new Error(`${path}.dotPath does not belong to a BoundedArray field`);
+  }
+
+  const unitByteLength = scalarByteWidth(field.shape.elementType);
+
+  if (reservation.countFieldOffset !== field.absoluteOffset) {
+    throw new Error(`${path}.countFieldOffset must match ${field.dotPath} field absoluteOffset`);
+  }
+
+  if (reservation.maxCount !== field.shape.maxLength) {
+    throw new Error(`${path}.maxCount must match ${field.dotPath} maxLength`);
+  }
+
+  if (reservation.unitByteLength !== unitByteLength) {
+    throw new Error(`${path}.unitByteLength must match ${field.dotPath} element byte width`);
+  }
+
+  const fieldStart = field.absoluteOffset;
+  const fieldEnd = field.absoluteOffset + field.byteSpan;
+  const countEnd = reservation.countFieldOffset + 4;
+  const elementsEnd =
+    reservation.elementsOffset + reservation.maxCount * reservation.unitByteLength;
+
+  if (
+    !Number.isSafeInteger(fieldEnd) ||
+    !Number.isSafeInteger(countEnd) ||
+    !Number.isSafeInteger(elementsEnd)
+  ) {
+    throw new Error(`${path} bounded array byte windows must be safe integers`);
+  }
+
+  if (
+    reservation.countFieldOffset < fieldStart ||
+    countEnd > fieldEnd ||
+    reservation.elementsOffset < fieldStart ||
+    elementsEnd > fieldEnd
+  ) {
+    throw new Error(
+      `${path} reservation byte window must stay inside ${field.dotPath} field window`,
+    );
+  }
 }
 
 function generatedConstantNamesFor(field: HotFieldEntry): readonly string[] {
@@ -426,81 +516,168 @@ function renderHotReader(input: {
   const readerTypeName = `${input.symbolStem}Reader`;
   const readFunctionName = `read${input.symbolStem}SnapshotUnchecked`;
   const createFunctionName = `create${input.symbolStem}Reader`;
+  const fieldsFunctionName = `read${input.symbolStem}Fields`;
   const validateFunctionName = `validate${input.symbolStem}Region`;
-  const objectLines = fields.map((field) => `    ${field.name}: ${field.readSource},`);
   const constants = collectGeneratedConstants(fields);
-  const helpers = collectGeneratedHelpers(fields);
+  const helpers = collectGeneratedHelpers(
+    fields,
+    new Set([readFunctionName, createFunctionName, fieldsFunctionName, validateFunctionName]),
+  );
 
-  return `// Generated from ${input.generatedFromPath}. Do not edit by hand.
-
-import {
-  createHotReadState,
-  type HotReadAttemptResult,
-  type HotReadOptions,
-  type HotReadState,
-  tryReadHotSnapshot,
-} from "@exclave/hot-consumer";
-
-export type ${snapshotTypeName} = {
-${fields.map((field) => `  readonly ${field.name}: ${field.typeSource};`).join("\n")}
-};
-
-export type ${readerTypeName} = {
-  readonly tryRead: (options?: HotReadOptions) => HotReadAttemptResult<${snapshotTypeName}>;
-};
-
-const SEQLOCK_OFFSET = ${input.manifest.seqlockOffset};
-const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};
-${constants.map((constant) => constant.source).join("\n")}
-const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;
-
-export function ${readFunctionName}(region: Uint8Array): ${snapshotTypeName} {
-  const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
-  return read${input.symbolStem}Fields(view);
+  return withFinalNewline([
+    `// Generated from ${input.generatedFromPath}. Do not edit by hand.`,
+    "",
+    ...renderImports(),
+    "",
+    ...renderSnapshotType(snapshotTypeName, fields),
+    "",
+    ...renderReaderType(readerTypeName, snapshotTypeName),
+    "",
+    `const SEQLOCK_OFFSET = ${input.manifest.seqlockOffset};`,
+    `const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};`,
+    ...constants.map((constant) => constant.source),
+    "const U64_BYTE_ALIGNMENT = BigUint64Array.BYTES_PER_ELEMENT;",
+    "",
+    ...renderUncheckedReadFunction(readFunctionName, fieldsFunctionName, snapshotTypeName),
+    "",
+    ...renderCreateReaderFunction({
+      createFunctionName,
+      readFunctionName,
+      readerTypeName,
+      snapshotTypeName,
+      validateFunctionName,
+    }),
+    "",
+    ...renderFieldsFunction(fieldsFunctionName, snapshotTypeName, fields),
+    "",
+    ...renderHelperSources(helpers),
+    ...renderValidateFunction(input.fixtureName, validateFunctionName),
+  ]);
 }
 
-export function ${createFunctionName}(region: Uint8Array): ${readerTypeName} {
-  ${validateFunctionName}(region);
-
-  const sequence = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);
-  const state: HotReadState<${snapshotTypeName}> = createHotReadState<${snapshotTypeName}>();
-
-  return {
-    tryRead: (options?: HotReadOptions) =>
-      tryReadHotSnapshot({
-        sequence,
-        readCandidate: () => ${readFunctionName}(region),
-        state,
-        options,
-      }),
-  };
+function renderImports(): readonly string[] {
+  return [
+    "import {",
+    "  createHotReadState,",
+    "  type HotReadAttemptResult,",
+    "  type HotReadOptions,",
+    "  type HotReadState,",
+    "  tryReadHotSnapshot,",
+    '} from "@exclave/hot-consumer";',
+  ];
 }
 
-function read${input.symbolStem}Fields(view: DataView): ${snapshotTypeName} {
-  return {
-${objectLines.join("\n")}
-  };
+function renderSnapshotType(
+  snapshotTypeName: string,
+  fields: readonly GeneratedField[],
+): readonly string[] {
+  return [
+    `export type ${snapshotTypeName} = {`,
+    ...fields.map((field) => `  readonly ${field.name}: ${field.typeSource};`),
+    "};",
+  ];
 }
-${helpers.length > 0 ? `\n${helpers.map((helper) => helper.source).join("\n\n")}\n` : ""}
-function ${validateFunctionName}(region: Uint8Array): void {
-  if (!(region instanceof Uint8Array)) {
-    throw new TypeError("${input.fixtureName} region must be a Uint8Array");
-  }
 
-  if (!(region.buffer instanceof SharedArrayBuffer)) {
-    throw new TypeError("${input.fixtureName} region must be backed by SharedArrayBuffer");
-  }
-
-  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {
-    throw new RangeError(\`${input.fixtureName} region must be at least \${TOTAL_REGION_BYTE_LENGTH} bytes\`);
-  }
-
-  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;
-  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {
-    throw new RangeError("${input.fixtureName} seqlock view is not u64-aligned");
-  }
+function renderReaderType(readerTypeName: string, snapshotTypeName: string): readonly string[] {
+  return [
+    `export type ${readerTypeName} = {`,
+    `  readonly tryRead: (options?: HotReadOptions) => HotReadAttemptResult<${snapshotTypeName}>;`,
+    "};",
+  ];
 }
-`;
+
+function renderUncheckedReadFunction(
+  readFunctionName: string,
+  fieldsFunctionName: string,
+  snapshotTypeName: string,
+): readonly string[] {
+  return [
+    `export function ${readFunctionName}(region: Uint8Array): ${snapshotTypeName} {`,
+    "  const view = new DataView(region.buffer, region.byteOffset, region.byteLength);",
+    `  return ${fieldsFunctionName}(view);`,
+    "}",
+  ];
+}
+
+function renderCreateReaderFunction({
+  createFunctionName,
+  readFunctionName,
+  readerTypeName,
+  snapshotTypeName,
+  validateFunctionName,
+}: {
+  readonly createFunctionName: string;
+  readonly readFunctionName: string;
+  readonly readerTypeName: string;
+  readonly snapshotTypeName: string;
+  readonly validateFunctionName: string;
+}): readonly string[] {
+  return [
+    `export function ${createFunctionName}(region: Uint8Array): ${readerTypeName} {`,
+    `  ${validateFunctionName}(region);`,
+    "",
+    "  const sequence = new BigUint64Array(region.buffer, region.byteOffset + SEQLOCK_OFFSET, 1);",
+    `  const state: HotReadState<${snapshotTypeName}> = createHotReadState<${snapshotTypeName}>();`,
+    "",
+    "  return {",
+    "    tryRead: (options?: HotReadOptions) =>",
+    "      tryReadHotSnapshot({",
+    "        sequence,",
+    `        readCandidate: () => ${readFunctionName}(region),`,
+    "        state,",
+    "        options,",
+    "      }),",
+    "  };",
+    "}",
+  ];
+}
+
+function renderFieldsFunction(
+  fieldsFunctionName: string,
+  snapshotTypeName: string,
+  fields: readonly GeneratedField[],
+): readonly string[] {
+  return [
+    `function ${fieldsFunctionName}(view: DataView): ${snapshotTypeName} {`,
+    "  return {",
+    ...fields.map((field) => `    ${field.name}: ${field.readSource},`),
+    "  };",
+    "}",
+  ];
+}
+
+function renderHelperSources(helpers: readonly GeneratedHelper[]): readonly string[] {
+  if (helpers.length === 0) {
+    return [];
+  }
+
+  return [...joinBlocks(helpers.map((helper) => helper.source.split("\n"))), ""];
+}
+
+function renderValidateFunction(
+  fixtureName: string,
+  validateFunctionName: string,
+): readonly string[] {
+  return [
+    `function ${validateFunctionName}(region: Uint8Array): void {`,
+    "  if (!(region instanceof Uint8Array)) {",
+    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be a Uint8Array`)});`,
+    "  }",
+    "",
+    "  if (!(region.buffer instanceof SharedArrayBuffer)) {",
+    `    throw new TypeError(${stringLiteral(`${fixtureName} region must be backed by SharedArrayBuffer`)});`,
+    "  }",
+    "",
+    "  if (region.byteLength < TOTAL_REGION_BYTE_LENGTH) {",
+    `    throw new RangeError(\`${fixtureName} region must be at least \${TOTAL_REGION_BYTE_LENGTH} bytes\`);`,
+    "  }",
+    "",
+    "  const absoluteSeqlockOffset = region.byteOffset + SEQLOCK_OFFSET;",
+    "  if (absoluteSeqlockOffset % U64_BYTE_ALIGNMENT !== 0) {",
+    `    throw new RangeError(${stringLiteral(`${fixtureName} seqlock view is not u64-aligned`)});`,
+    "  }",
+    "}",
+  ];
 }
 
 function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): GeneratedField {
@@ -528,11 +705,17 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
         helpers: scalarHelpers(field.shape.type),
       };
 
-    case "FixedEnum":
+    case "FixedEnum": {
+      const variantsSource = field.shape.variants
+        .map((variant) => stringLiteral(variant))
+        .join(", ");
+      const typeSource = field.shape.variants.map((variant) => stringLiteral(variant)).join(" | ");
+      const variantsConstant = `${toConstantStem(field.dotPath)}_VARIANTS`;
+
       requireByteSpan(field, 1);
       return {
         ...base,
-        typeSource: field.shape.variants.map((variant) => JSON.stringify(variant)).join(" | "),
+        typeSource,
         readSource: `read${symbol}(view)`,
         constants: [
           {
@@ -540,26 +723,28 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
             source: `const ${offsetConstant} = ${field.absoluteOffset};`,
           },
           {
-            name: `${toConstantStem(field.dotPath)}_VARIANTS`,
-            source: `const ${toConstantStem(field.dotPath)}_VARIANTS = [${field.shape.variants.map((variant) => JSON.stringify(variant)).join(", ")}] as const;`,
+            name: variantsConstant,
+            source: `const ${variantsConstant} = [${variantsSource}] as const;`,
           },
         ],
         helpers: [
           {
             key: `read${symbol}`,
-            source: `function read${symbol}(view: DataView): ${field.shape.variants.map((variant) => JSON.stringify(variant)).join(" | ")} {
-  const discriminant = view.getUint8(${offsetConstant});
-  const value = ${toConstantStem(field.dotPath)}_VARIANTS[discriminant];
-  if (value === undefined) {
-    throw new RangeError("${field.dotPath} enum discriminant is outside variants");
-  }
-  return value;
-}`,
+            source: renderFixedEnumHelper({
+              discriminantOffsetConstant: offsetConstant,
+              dotPath: field.dotPath,
+              functionName: `read${symbol}`,
+              typeSource,
+              variantsConstant,
+            }),
           },
         ],
       };
+    }
 
-    case "FixedStringEncoded":
+    case "FixedStringEncoded": {
+      const byteLengthConstant = `${toConstantStem(field.dotPath)}_BYTE_LENGTH`;
+
       requireByteSpan(field, field.shape.byteLength);
       return {
         ...base,
@@ -571,39 +756,27 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
             source: `const ${offsetConstant} = ${field.absoluteOffset};`,
           },
           {
-            name: `${toConstantStem(field.dotPath)}_BYTE_LENGTH`,
-            source: `const ${toConstantStem(field.dotPath)}_BYTE_LENGTH = ${field.shape.byteLength};`,
+            name: byteLengthConstant,
+            source: `const ${byteLengthConstant} = ${field.shape.byteLength};`,
           },
         ],
         helpers: [
           {
             key: `read${symbol}`,
-            source: `function read${symbol}(view: DataView): string {
-  let value = "";
-  for (
-    let offset = ${offsetConstant};
-    offset < ${offsetConstant} + ${toConstantStem(field.dotPath)}_BYTE_LENGTH;
-    offset += 1
-  ) {
-    const byte = view.getUint8(offset);
-    if (byte === 0) {
-      break;
-    }
-    if (byte > 0x7f) {
-      throw new RangeError("${field.dotPath} contains a non-ascii byte");
-    }
-    value += String.fromCharCode(byte);
-  }
-  return value;
-}`,
+            source: renderFixedStringHelper({
+              byteLengthConstant,
+              dotPath: field.dotPath,
+              functionName: `read${symbol}`,
+              offsetConstant,
+            }),
           },
         ],
       };
+    }
 
     case "FixedVector": {
       const shape = field.shape;
       const unitByteLength = scalarByteWidth(shape.elementType);
-      requireByteSpan(field, shape.length * unitByteLength);
       const constantStem = toConstantStem(field.dotPath);
       const elementConstants = Array.from({ length: shape.length }, (_, index) => {
         const name = `${constantStem}_${index}_OFFSET`;
@@ -615,9 +788,13 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
               : `const ${name} = ${field.absoluteOffset + index * unitByteLength};`,
         };
       });
+
+      requireByteSpan(field, shape.length * unitByteLength);
       return {
         ...base,
-        typeSource: `readonly [${Array.from({ length: shape.length }, () => scalarTypeSource(shape.elementType)).join(", ")}]`,
+        typeSource: `readonly [${Array.from({ length: shape.length }, () =>
+          scalarTypeSource(shape.elementType),
+        ).join(", ")}]`,
         readSource: `[
       ${Array.from({ length: shape.length }, (_, index) =>
         scalarReadSource(shape.elementType, `${constantStem}_${index}_OFFSET`, field.dotPath),
@@ -638,53 +815,53 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
       const shape = field.shape;
       const reservation = reservationFor(manifest, field);
       const unitByteLength = scalarByteWidth(shape.elementType);
+      const constantStem = toConstantStem(field.dotPath);
+      const countOffsetConstant = `${constantStem}_COUNT_OFFSET`;
+      const elementsOffsetConstant = `${constantStem}_ELEMENTS_OFFSET`;
+      const maxCountConstant = `${constantStem}_MAX_COUNT`;
+      const unitByteLengthConstant = `${constantStem}_UNIT_BYTE_LENGTH`;
+
       if (reservation.maxCount !== shape.maxLength) {
         throw new Error(`${field.dotPath} reservation maxCount does not match maxLength`);
       }
       if (reservation.unitByteLength !== unitByteLength) {
         throw new Error(`${field.dotPath} reservation unitByteLength does not match element type`);
       }
+
       return {
         ...base,
         typeSource: `readonly ${scalarTypeSource(shape.elementType)}[]`,
         readSource: `read${symbol}(view)`,
         constants: [
           {
-            name: `${toConstantStem(field.dotPath)}_COUNT_OFFSET`,
-            source: `const ${toConstantStem(field.dotPath)}_COUNT_OFFSET = ${reservation.countFieldOffset};`,
+            name: countOffsetConstant,
+            source: `const ${countOffsetConstant} = ${reservation.countFieldOffset};`,
           },
           {
-            name: `${toConstantStem(field.dotPath)}_ELEMENTS_OFFSET`,
-            source: `const ${toConstantStem(field.dotPath)}_ELEMENTS_OFFSET = ${reservation.elementsOffset};`,
+            name: elementsOffsetConstant,
+            source: `const ${elementsOffsetConstant} = ${reservation.elementsOffset};`,
           },
           {
-            name: `${toConstantStem(field.dotPath)}_MAX_COUNT`,
-            source: `const ${toConstantStem(field.dotPath)}_MAX_COUNT = ${reservation.maxCount};`,
+            name: maxCountConstant,
+            source: `const ${maxCountConstant} = ${reservation.maxCount};`,
           },
           {
-            name: `${toConstantStem(field.dotPath)}_UNIT_BYTE_LENGTH`,
-            source: `const ${toConstantStem(field.dotPath)}_UNIT_BYTE_LENGTH = ${reservation.unitByteLength};`,
+            name: unitByteLengthConstant,
+            source: `const ${unitByteLengthConstant} = ${reservation.unitByteLength};`,
           },
         ],
         helpers: [
           {
             key: `read${symbol}`,
-            source: `function read${symbol}(view: DataView): readonly ${scalarTypeSource(shape.elementType)}[] {
-  const count = view.getUint32(${toConstantStem(field.dotPath)}_COUNT_OFFSET, true);
-  if (count > ${toConstantStem(field.dotPath)}_MAX_COUNT) {
-    throw new RangeError("${field.dotPath} bounded array count exceeds maxCount");
-  }
-
-  const values: ${scalarTypeSource(shape.elementType)}[] = [];
-  for (let index = 0; index < count; index += 1) {
-    values.push(${scalarReadSource(
-      shape.elementType,
-      `${toConstantStem(field.dotPath)}_ELEMENTS_OFFSET + index * ${toConstantStem(field.dotPath)}_UNIT_BYTE_LENGTH`,
-      field.dotPath,
-    )});
-  }
-  return values;
-}`,
+            source: renderBoundedArrayHelper({
+              dotPath: field.dotPath,
+              elementType: shape.elementType,
+              elementsOffsetConstant,
+              functionName: `read${symbol}`,
+              maxCountConstant,
+              unitByteLengthConstant,
+              countOffsetConstant,
+            }),
           },
           ...scalarHelpers(shape.elementType),
         ],
@@ -694,6 +871,96 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
     default:
       return assertNever(field.shape, `${field.dotPath} shape is not supported`);
   }
+}
+
+function renderFixedEnumHelper({
+  discriminantOffsetConstant,
+  dotPath,
+  functionName,
+  typeSource,
+  variantsConstant,
+}: {
+  readonly discriminantOffsetConstant: string;
+  readonly dotPath: string;
+  readonly functionName: string;
+  readonly typeSource: string;
+  readonly variantsConstant: string;
+}): string {
+  return joinLines([
+    `function ${functionName}(view: DataView): ${typeSource} {`,
+    `  const discriminant = view.getUint8(${discriminantOffsetConstant});`,
+    `  const value = ${variantsConstant}[discriminant];`,
+    "  if (value === undefined) {",
+    `    throw new RangeError(${stringLiteral(`${dotPath} enum discriminant is outside variants`)});`,
+    "  }",
+    "  return value;",
+    "}",
+  ]);
+}
+
+function renderFixedStringHelper({
+  byteLengthConstant,
+  dotPath,
+  functionName,
+  offsetConstant,
+}: {
+  readonly byteLengthConstant: string;
+  readonly dotPath: string;
+  readonly functionName: string;
+  readonly offsetConstant: string;
+}): string {
+  return joinLines([
+    `function ${functionName}(view: DataView): string {`,
+    '  let value = "";',
+    `  for (let offset = ${offsetConstant}; offset < ${offsetConstant} + ${byteLengthConstant}; offset += 1) {`,
+    "    const byte = view.getUint8(offset);",
+    "    if (byte === 0) {",
+    "      break;",
+    "    }",
+    "    if (byte > 0x7f) {",
+    `      throw new RangeError(${stringLiteral(`${dotPath} contains a non-ascii byte`)});`,
+    "    }",
+    "    value += String.fromCharCode(byte);",
+    "  }",
+    "  return value;",
+    "}",
+  ]);
+}
+
+function renderBoundedArrayHelper({
+  countOffsetConstant,
+  dotPath,
+  elementType,
+  elementsOffsetConstant,
+  functionName,
+  maxCountConstant,
+  unitByteLengthConstant,
+}: {
+  readonly countOffsetConstant: string;
+  readonly dotPath: string;
+  readonly elementType: GeneratedReaderScalarTypeV0;
+  readonly elementsOffsetConstant: string;
+  readonly functionName: string;
+  readonly maxCountConstant: string;
+  readonly unitByteLengthConstant: string;
+}): string {
+  const elementTsType = scalarTypeSource(elementType);
+  const elementOffset = `${elementsOffsetConstant} + index * ${unitByteLengthConstant}`;
+
+  return joinLines([
+    `function ${functionName}(view: DataView): readonly ${elementTsType}[] {`,
+    `  const count = view.getUint32(${countOffsetConstant}, true);`,
+    `  if (count > ${maxCountConstant}) {`,
+    `    throw new RangeError(${stringLiteral(`${dotPath} bounded array count exceeds maxCount`)});`,
+    "  }",
+    "",
+    `  const values: ${elementTsType}[] = [];`,
+    "  for (let index = 0; index < count; index += 1) {",
+    `    values.push(${scalarReadSource(elementType, elementOffset, dotPath)});`,
+    "  }",
+    "  return values;",
+    "}",
+  ]);
 }
 
 function collectGeneratedConstants(
@@ -715,11 +982,18 @@ function collectGeneratedConstants(
   return constants;
 }
 
-function collectGeneratedHelpers(fields: readonly GeneratedField[]): readonly GeneratedHelper[] {
+function collectGeneratedHelpers(
+  fields: readonly GeneratedField[],
+  reservedFunctionNames: ReadonlySet<string>,
+): readonly GeneratedHelper[] {
   const helpers = new Map<string, GeneratedHelper>();
 
   for (const field of fields) {
     for (const helper of field.helpers) {
+      if (reservedFunctionNames.has(helper.key)) {
+        throw new Error(`generated reader helper ${helper.key} collides with an internal function`);
+      }
+
       const existing = helpers.get(helper.key);
       if (existing !== undefined) {
         if (existing.source !== helper.source) {
@@ -742,7 +1016,7 @@ function scalarReadSource(
 ): string {
   switch (type) {
     case "bool":
-      return `readBoolean(view, ${offsetSource}, ${JSON.stringify(fieldName)})`;
+      return `readBoolean(view, ${offsetSource}, ${stringLiteral(fieldName)})`;
     case "f32":
       return `view.getFloat32(${offsetSource}, true)`;
     case "f64":
@@ -762,16 +1036,7 @@ function scalarHelpers(type: GeneratedReaderScalarTypeV0): readonly GeneratedHel
       return [
         {
           key: "readBoolean",
-          source: `function readBoolean(view: DataView, offset: number, fieldName: string): boolean {
-  const value = view.getUint8(offset);
-  if (value === 0) {
-    return false;
-  }
-  if (value === 1) {
-    return true;
-  }
-  throw new RangeError(\`\${fieldName} bool byte must be 0 or 1\`);
-}`,
+          source: renderBooleanHelper(),
         },
       ];
 
@@ -784,6 +1049,21 @@ function scalarHelpers(type: GeneratedReaderScalarTypeV0): readonly GeneratedHel
     default:
       return assertNever(type, "generated reader scalar type is not supported");
   }
+}
+
+function renderBooleanHelper(): string {
+  return joinLines([
+    "function readBoolean(view: DataView, offset: number, fieldName: string): boolean {",
+    "  const value = view.getUint8(offset);",
+    "  if (value === 0) {",
+    "    return false;",
+    "  }",
+    "  if (value === 1) {",
+    "    return true;",
+    "  }",
+    `  throw new RangeError(\`\${fieldName} bool byte must be 0 or 1\`);`,
+    "}",
+  ]);
 }
 
 function scalarTypeSource(type: GeneratedReaderScalarTypeV0): string {
@@ -869,7 +1149,19 @@ function isFieldName(value: unknown): value is string {
 }
 
 function isSafeGeneratedPropertyName(value: string): boolean {
-  return isFieldName(value) && !typescriptReservedWords.has(value);
+  return (
+    isFieldName(value) &&
+    !typescriptReservedWords.has(value) &&
+    !unsafeGeneratedPropertyNames.has(value)
+  );
+}
+
+function isSafeFixtureName(value: string): boolean {
+  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value);
+}
+
+function isSafeSymbolStem(value: string): boolean {
+  return /^[A-Z][a-zA-Z0-9]*$/.test(value) && !typescriptReservedWords.has(value);
 }
 
 function toPascalCase(value: string): string {
@@ -880,6 +1172,31 @@ function toConstantStem(value: string): string {
   return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
 }
 
+function stringLiteral(value: string): string {
+  return JSON.stringify(value);
+}
+
+function joinLines(lines: readonly string[]): string {
+  return lines.join("\n");
+}
+
+function withFinalNewline(lines: readonly string[]): string {
+  return `${joinLines(lines)}\n`;
+}
+
+function joinBlocks(blocks: readonly (readonly string[])[]): readonly string[] {
+  const lines: string[] = [];
+
+  for (const [index, block] of blocks.entries()) {
+    if (index > 0) {
+      lines.push("");
+    }
+    lines.push(...block);
+  }
+
+  return lines;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -887,6 +1204,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function assertNever(value: never, message: string): never {
   throw new Error(`${message}: ${JSON.stringify(value)}`);
 }
+
+const unsafeGeneratedPropertyNames = new Set([
+  "__proto__",
+  "constructor",
+  "hasOwnProperty",
+  "prototype",
+  "toString",
+  "valueOf",
+]);
 
 const typescriptReservedWords = new Set([
   "any",
