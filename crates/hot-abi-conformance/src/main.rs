@@ -246,6 +246,37 @@ struct HotExchangeRustWriterOutput {
     block_b: BlockBOutput,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LivePublishResultFrame {
+    previous_publication_sequence: String,
+    publication_sequence: String,
+    previous_seqlock_counter: String,
+    seqlock_counter: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LiveDeckRuntimeFrame {
+    frame_index: u64,
+    hot_region_bytes_hex: String,
+    publish_result: LivePublishResultFrame,
+    snapshot: SnapshotOutput,
+    block_b: BlockBOutput,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LiveDeckRuntimeOutput {
+    fixture_kind: &'static str,
+    fixture_name: String,
+    contract_key: String,
+    hot_abi_version: u64,
+    hot_layout_version: String,
+    total_region_byte_length: usize,
+    frames: Vec<LiveDeckRuntimeFrame>,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("{error}");
@@ -259,6 +290,7 @@ fn run() -> Result<(), String> {
         Some("write-deck-runtime") => run_writer(&args[1..]),
         Some("read-deck-runtime") => run_reader(&args[1..]),
         Some("write-hot-exchange") => run_hot_exchange_writer(&args[1..]),
+        Some("live-deck-runtime") => run_live_deck_runtime(&args[1..]),
         _ => Err(usage().to_string()),
     }
 }
@@ -525,8 +557,108 @@ fn assert_hot_exchange_manifest_agreement(
     Ok(())
 }
 
+fn run_live_deck_runtime(args: &[String]) -> Result<(), String> {
+    let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
+    let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
+    let inputs = load_conformance_inputs(&artifact_manifest_path)?;
+    let artifact_manifest = &inputs.artifact_manifest;
+
+    const BASELINE_EPOCH: u32 = 7;
+    const CONTINUITY_GENERATION: u32 = 3;
+
+    // One mutable region reused for all publishes
+    let mut region = vec![0_u8; inputs.total_region_byte_length];
+
+    let publication = deck_runtime_hot_writer::DeckRuntimePublication {
+        baseline_epoch: BASELINE_EPOCH,
+        continuity_generation: CONTINUITY_GENERATION,
+    };
+
+    let stem_gains_1 = [0.25_f32, 0.5];
+    let snapshot_1 = deck_runtime_hot_writer::DeckRuntimeSnapshot {
+        beat_phase01: 0.5,
+        level: 0.25,
+        loop_active: false,
+        media_time_seconds: 128.5,
+        sample_position: 0x0020_0000_0000_0000,
+        stem_gains: &stem_gains_1,
+        tempo_ratio: 1.25,
+        transport_state: deck_runtime_hot_writer::DeckRuntimeTransportState::Paused,
+    };
+
+    let stem_gains_2 = [0.5_f32, 0.75];
+    let snapshot_2 = deck_runtime_hot_writer::DeckRuntimeSnapshot {
+        beat_phase01: 0.75,
+        level: 0.5,
+        loop_active: true,
+        media_time_seconds: 256.0,
+        sample_position: 0x0040_0000_0000_0000,
+        stem_gains: &stem_gains_2,
+        tempo_ratio: 1.5,
+        transport_state: deck_runtime_hot_writer::DeckRuntimeTransportState::Playing,
+    };
+
+    let stem_gains_3 = [0.75_f32, 1.0];
+    let snapshot_3 = deck_runtime_hot_writer::DeckRuntimeSnapshot {
+        beat_phase01: 0.125,
+        level: 0.875,
+        loop_active: false,
+        media_time_seconds: 512.5,
+        sample_position: 0x0080_0000_0000_0000,
+        stem_gains: &stem_gains_3,
+        tempo_ratio: 0.75,
+        transport_state: deck_runtime_hot_writer::DeckRuntimeTransportState::Cueing,
+    };
+
+    let snapshots = [(1_u64, &snapshot_1), (2, &snapshot_2), (3, &snapshot_3)];
+    let mut frames = Vec::with_capacity(3);
+
+    for (frame_index, snapshot) in &snapshots {
+        let publish_result = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &inputs.block_a.block_a_bytes,
+            publication,
+            snapshot,
+        )
+        .map_err(|error| format!("generated Rust hot writer failed: {error:?}"))?;
+
+        let hot_region_bytes_hex = bytes_to_hex(&region);
+        let snapshot_output = read_snapshot(&region)?;
+        let block_b = read_block_b(&region);
+
+        frames.push(LiveDeckRuntimeFrame {
+            frame_index: *frame_index,
+            hot_region_bytes_hex,
+            publish_result: LivePublishResultFrame {
+                previous_publication_sequence: format_u64_hex_prefixed(publish_result.previous_publication_sequence),
+                publication_sequence: format_u64_hex_prefixed(publish_result.publication_sequence),
+                previous_seqlock_counter: format_u64_hex_prefixed(publish_result.previous_seqlock_counter),
+                seqlock_counter: format_u64_hex_prefixed(publish_result.seqlock_counter),
+            },
+            snapshot: snapshot_output,
+            block_b,
+        });
+    }
+
+    let output = LiveDeckRuntimeOutput {
+        fixture_kind: "rust-live-hot-publication-output",
+        fixture_name: artifact_manifest.fixture_name.clone(),
+        contract_key: artifact_manifest.contract_key.clone(),
+        hot_abi_version: artifact_manifest.hot_abi_version,
+        hot_layout_version: artifact_manifest.hot_layout_version.clone(),
+        total_region_byte_length: inputs.total_region_byte_length,
+        frames,
+    };
+
+    let json = serde_json::to_string_pretty(&output)
+        .map_err(|error| format!("failed to serialize live deck runtime output: {error}"))?;
+    println!("{json}");
+
+    Ok(())
+}
+
 fn usage() -> &'static str {
-    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>\n       hot-abi-conformance write-hot-exchange <generated/artifacts.json>"
+    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>\n       hot-abi-conformance write-hot-exchange <generated/artifacts.json>\n       hot-abi-conformance live-deck-runtime <generated/artifacts.json>"
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
@@ -1734,5 +1866,133 @@ mod tests {
             reject_writer_active_seqlock(&region).unwrap_err(),
             "seqlockCounter indicates writer-active state: expected even counter, got 0x0000000000000003"
         );
+    }
+
+    #[test]
+    fn repeated_generated_writer_publish_increments_publication_sequence() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
+
+        let r1 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r1.publication_sequence, 1);
+
+        let r2 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r2.publication_sequence, 2);
+
+        let r3 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r3.publication_sequence, 3);
+    }
+
+    #[test]
+    fn repeated_generated_writer_publish_increments_seqlock() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
+
+        let r1 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r1.seqlock_counter, 2);
+
+        let r2 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r2.seqlock_counter, 4);
+
+        let r3 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r3.seqlock_counter, 6);
+    }
+
+    #[test]
+    fn repeated_generated_writer_publish_preserves_prior_block_b_state() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
+        let publication = sample_deck_runtime_publication();
+        let snapshot = sample_deck_runtime_snapshot();
+
+        for _ in 0..3 {
+            deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+                &mut region,
+                &block_a,
+                publication,
+                &snapshot,
+            )
+            .unwrap();
+            assert_eq!(
+                read_u32_le(&region, BASELINE_EPOCH_OFFSET),
+                BASELINE_EPOCH
+            );
+            assert_eq!(
+                read_u32_le(&region, CONTINUITY_GEN_OFFSET),
+                CONTINUITY_GENERATION
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_generated_writer_publish_returns_accumulated_previous_values() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
+
+        let r1 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r1.previous_publication_sequence, 0);
+        assert_eq!(r1.previous_seqlock_counter, 0);
+
+        let r2 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r2.previous_publication_sequence, 1);
+        assert_eq!(r2.previous_seqlock_counter, 2);
+
+        let r3 = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
+        assert_eq!(r3.previous_publication_sequence, 2);
+        assert_eq!(r3.previous_seqlock_counter, 4);
     }
 }

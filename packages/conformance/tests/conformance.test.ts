@@ -136,6 +136,43 @@ type HotExchangeRustWriterOutput = {
   };
 };
 
+type LiveDeckRuntimeFrame = {
+  readonly frameIndex: number;
+  readonly hotRegionBytesHex: string;
+  readonly publishResult: {
+    readonly previousPublicationSequence: string;
+    readonly publicationSequence: string;
+    readonly previousSeqlockCounter: string;
+    readonly seqlockCounter: string;
+  };
+  readonly snapshot: {
+    readonly beatPhase01: number;
+    readonly level: number;
+    readonly loopActive: boolean;
+    readonly mediaTimeSeconds: number;
+    readonly samplePosition: string;
+    readonly stemGains: readonly number[];
+    readonly tempoRatio: number;
+    readonly transportState: string;
+  };
+  readonly blockB: {
+    readonly seqlockCounter: string;
+    readonly baselineEpoch: number;
+    readonly continuityGeneration: number;
+    readonly publicationSequence: string;
+  };
+};
+
+type LiveDeckRuntimeOutput = {
+  readonly fixtureKind: "rust-live-hot-publication-output";
+  readonly fixtureName: string;
+  readonly contractKey: string;
+  readonly hotAbiVersion: number;
+  readonly hotLayoutVersion: string;
+  readonly totalRegionByteLength: number;
+  readonly frames: readonly LiveDeckRuntimeFrame[];
+};
+
 describe("@exclave/conformance fixture discovery", () => {
   it("discovers all checked-in projection-runtime fixtures", async () => {
     await expect(listProjectionRuntimeFixtures()).resolves.toEqual(
@@ -1987,6 +2024,219 @@ describe("@exclave/conformance execution", () => {
     expect(failure.expected).toMatchObject({ family: "changed" });
     expect(failure.actual).toMatchObject({ family: "replaceable-snapshot" });
   });
+
+  it("live Rust hot publication proves repeated publication across one region", () => {
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
+    const artifactManifestPath = resolve(fixtureRoot, "deck-runtime-v0/generated/artifacts.json");
+    const artifactManifest = JSON.parse(readFileSync(artifactManifestPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const hotLayoutManifest = JSON.parse(
+      readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+    ) as Record<string, unknown>;
+
+    const output = JSON.parse(
+      execFileSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "live-deck-runtime",
+          artifactManifestRelativePath,
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      ),
+    ) as LiveDeckRuntimeOutput;
+
+    expect(output.fixtureKind).toBe("rust-live-hot-publication-output");
+    expect(output.fixtureName).toBe(artifactManifest.fixtureName);
+    expect(output.contractKey).toBe(artifactManifest.contractKey);
+    expect(output.hotAbiVersion).toBe(artifactManifest.hotAbiVersion);
+    expect(output.hotLayoutVersion).toBe(artifactManifest.hotLayoutVersion);
+    expect(output.totalRegionByteLength).toBe(hotLayoutManifest.totalRegionByteLength);
+    expect(output.frames).toHaveLength(3);
+
+    const expectedFrames = [
+      {
+        frameIndex: 1,
+        publishResult: {
+          previousPublicationSequence: "0x0000000000000000",
+          publicationSequence: "0x0000000000000001",
+          previousSeqlockCounter: "0x0000000000000000",
+          seqlockCounter: "0x0000000000000002",
+        },
+        snapshot: {
+          beatPhase01: 0.5,
+          level: 0.25,
+          loopActive: false,
+          mediaTimeSeconds: 128.5,
+          samplePosition: "0x0020000000000000",
+          stemGains: [0.25, 0.5],
+          tempoRatio: 1.25,
+          transportState: "paused",
+        },
+        blockB: {
+          seqlockCounter: "0x0000000000000002",
+          baselineEpoch: 7,
+          continuityGeneration: 3,
+          publicationSequence: "0x0000000000000001",
+        },
+        readerSequence: 0x0000_0000_0000_0002n,
+        readerBlockBPubSeq: 0x0000_0000_0000_0001n,
+      },
+      {
+        frameIndex: 2,
+        publishResult: {
+          previousPublicationSequence: "0x0000000000000001",
+          publicationSequence: "0x0000000000000002",
+          previousSeqlockCounter: "0x0000000000000002",
+          seqlockCounter: "0x0000000000000004",
+        },
+        snapshot: {
+          beatPhase01: 0.75,
+          level: 0.5,
+          loopActive: true,
+          mediaTimeSeconds: 256.0,
+          samplePosition: "0x0040000000000000",
+          stemGains: [0.5, 0.75],
+          tempoRatio: 1.5,
+          transportState: "playing",
+        },
+        blockB: {
+          seqlockCounter: "0x0000000000000004",
+          baselineEpoch: 7,
+          continuityGeneration: 3,
+          publicationSequence: "0x0000000000000002",
+        },
+        readerSequence: 0x0000_0000_0000_0004n,
+        readerBlockBPubSeq: 0x0000_0000_0000_0002n,
+      },
+      {
+        frameIndex: 3,
+        publishResult: {
+          previousPublicationSequence: "0x0000000000000002",
+          publicationSequence: "0x0000000000000003",
+          previousSeqlockCounter: "0x0000000000000004",
+          seqlockCounter: "0x0000000000000006",
+        },
+        snapshot: {
+          beatPhase01: 0.125,
+          level: 0.875,
+          loopActive: false,
+          mediaTimeSeconds: 512.5,
+          samplePosition: "0x0080000000000000",
+          stemGains: [0.75, 1.0],
+          tempoRatio: 0.75,
+          transportState: "cueing",
+        },
+        blockB: {
+          seqlockCounter: "0x0000000000000006",
+          baselineEpoch: 7,
+          continuityGeneration: 3,
+          publicationSequence: "0x0000000000000003",
+        },
+        readerSequence: 0x0000_0000_0000_0006n,
+        readerBlockBPubSeq: 0x0000_0000_0000_0003n,
+      },
+    ] as const;
+
+    for (let i = 0; i < 3; i++) {
+      const frame = output.frames[i];
+      const expected = expectedFrames[i];
+
+      expect(frame.frameIndex).toBe(expected.frameIndex);
+      expect(frame.publishResult).toEqual(expected.publishResult);
+      expect(frame.snapshot).toEqual(expected.snapshot);
+      expect(frame.blockB).toEqual(expected.blockB);
+
+      // Assert publishResult agrees with encoded region Block B metadata
+      expect(frame.publishResult.publicationSequence).toBe(frame.blockB.publicationSequence);
+      expect(frame.publishResult.seqlockCounter).toBe(frame.blockB.seqlockCounter);
+
+      // Assert previous values prove accumulation (not one-shot regions)
+      if (i === 0) {
+        expect(frame.publishResult.previousPublicationSequence).toBe("0x0000000000000000");
+        expect(frame.publishResult.previousSeqlockCounter).toBe("0x0000000000000000");
+      } else {
+        const prev = output.frames[i - 1];
+        expect(frame.publishResult.previousPublicationSequence).toBe(
+          prev.publishResult.publicationSequence,
+        );
+        expect(frame.publishResult.previousSeqlockCounter).toBe(prev.publishResult.seqlockCounter);
+      }
+
+      // Decode region bytes and validate through generated TypeScript reader
+      const bytes = hexToBytes(frame.hotRegionBytesHex);
+      expect(bytes.byteLength).toBe(output.totalRegionByteLength);
+
+      const region = copyIntoSharedRegion(bytes);
+      const reader = createDeckRuntimeReader(region, {
+        instanceKey: "deck-runtime-v0.instance",
+      });
+      const result = reader.tryRead({
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error(
+          `frame ${expected.frameIndex}: expected generated deck-runtime reader to succeed`,
+        );
+      }
+
+      // Assert reader result matches expected seqlock sequence
+      expect(result.sequence).toBe(expected.readerSequence);
+      expect(result.sequence % 2n).toBe(0n);
+
+      // Assert snapshot values match expected frame values
+      expect(result.snapshot.beatPhase01).toBeCloseTo(expected.snapshot.beatPhase01);
+      expect(result.snapshot.level).toBeCloseTo(expected.snapshot.level);
+      expect(result.snapshot.loopActive).toBe(expected.snapshot.loopActive);
+      expect(result.snapshot.mediaTimeSeconds).toBe(expected.snapshot.mediaTimeSeconds);
+      expect(result.snapshot.samplePosition).toBe(BigInt(expected.snapshot.samplePosition));
+      expect(result.snapshot.stemGains).toEqual(expected.snapshot.stemGains);
+      expect(result.snapshot.tempoRatio).toBeCloseTo(expected.snapshot.tempoRatio);
+      expect(result.snapshot.transportState).toBe(expected.snapshot.transportState);
+      expect(typeof result.snapshot.samplePosition).toBe("bigint");
+      expect(typeof result.snapshot.loopActive).toBe("boolean");
+
+      // Assert Block B metadata through raw region views
+      const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+      expect(Atomics.load(blockBSeqlockView(region), 0)).toBe(expected.readerSequence);
+      expect(view.getUint32(HOT_BASELINE_EPOCH_U32_OFFSET, true)).toBe(
+        expected.blockB.baselineEpoch,
+      );
+      expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(
+        expected.blockB.continuityGeneration,
+      );
+      expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(
+        expected.readerBlockBPubSeq,
+      );
+      expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(result.snapshot);
+    }
+
+    // Assert monotonic publication over time
+    for (let i = 1; i < 3; i++) {
+      const prev = output.frames[i - 1];
+      const current = output.frames[i];
+      expect(
+        BigInt(current.publishResult.publicationSequence) >
+          BigInt(prev.publishResult.publicationSequence),
+      ).toBe(true);
+      expect(
+        BigInt(current.publishResult.seqlockCounter) > BigInt(prev.publishResult.seqlockCounter),
+      ).toBe(true);
+    }
+  }, 30_000);
 });
 
 describe("@exclave/conformance error model", () => {
