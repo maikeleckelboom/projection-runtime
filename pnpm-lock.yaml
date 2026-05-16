@@ -98,6 +98,12 @@ importers:
 
   packages/schema: {}
 
+  packages/session:
+    devDependencies:
+      '@exclave/hot-codec':
+        specifier: workspace:*
+        version: link:../hot-codec
+
 packages:
 
   '@babel/code-frame@7.29.0':

@@ -1,0 +1,18 @@
+export {
+  type AuthorityBinding,
+  type AuthorityEpoch,
+  type AuthorityKey,
+  type BindingExpectation,
+  type BindingState,
+  type BindingValidity,
+  type BindingValidityFailure,
+  closeAuthorityBinding,
+  createAuthorityBinding,
+  type GuardResult,
+  guardAuthorityBinding,
+  type InvalidationReason,
+  invalidateAuthorityBinding,
+  markAuthorityBindingReady,
+  type SurfaceKey,
+  validateAuthorityBinding,
+} from "./validity";
