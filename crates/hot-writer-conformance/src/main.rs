@@ -9,6 +9,7 @@ const CONTRACT_KEY: &str = "fixture.deckRuntime";
 const SYMBOL_STEM: &str = "DeckRuntime";
 const HOT_ABI_VERSION: u64 = 1;
 const TOTAL_REGION_BYTE_LENGTH: usize = 160;
+const BLOCK_A_SIZE: usize = 72;
 const BLOCK_B_START_OFFSET: usize = 72;
 const SEQLOCK_OFFSET: usize = 72;
 const BASELINE_EPOCH_OFFSET: usize = 80;
@@ -72,6 +73,25 @@ struct RustHotWriterOutput {
     block_b: BlockBOutput,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HotRegionBytesInput {
+    hot_region_bytes_hex: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RustHotReaderOutput {
+    fixture_kind: &'static str,
+    fixture_name: &'static str,
+    contract_key: &'static str,
+    hot_abi_version: u64,
+    hot_layout_version: String,
+    hot_region_bytes_hex: String,
+    snapshot: SnapshotOutput,
+    block_b: BlockBOutput,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotOutput {
@@ -102,9 +122,16 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let artifact_manifest_path = env::args()
-        .nth(1)
-        .ok_or_else(|| "usage: hot-writer-conformance <generated/artifacts.json>".to_string())?;
+    let args: Vec<String> = env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("read") {
+        return run_reader(&args);
+    }
+
+    run_writer(&args)
+}
+
+fn run_writer(args: &[String]) -> Result<(), String> {
+    let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
     let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
     let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
 
@@ -153,6 +180,55 @@ fn run() -> Result<(), String> {
     println!("{json}");
 
     Ok(())
+}
+
+fn run_reader(args: &[String]) -> Result<(), String> {
+    let artifact_manifest_path = args.get(1).ok_or_else(|| usage().to_string())?;
+    let hot_region_bytes_source = args.get(2).ok_or_else(|| usage().to_string())?;
+    let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
+    let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
+
+    assert_artifact_manifest(&artifact_manifest)?;
+
+    let hot_layout_manifest_path = resolve_manifest_relative_path(
+        &artifact_manifest_path,
+        &artifact_manifest.source.hot_layout_manifest,
+    )?;
+    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
+
+    assert_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
+    assert_hot_layout_manifest(&hot_layout_manifest)?;
+
+    let hot_region_bytes_hex = read_hot_region_bytes_hex(hot_region_bytes_source)?;
+    let hot_region_bytes = hex_to_bytes(&hot_region_bytes_hex)?;
+    if hot_region_bytes.len() != TOTAL_REGION_BYTE_LENGTH {
+        return Err(format!(
+            "hotRegionBytesHex length mismatch: expected {} bytes, got {} bytes",
+            TOTAL_REGION_BYTE_LENGTH,
+            hot_region_bytes.len()
+        ));
+    }
+
+    let output = RustHotReaderOutput {
+        fixture_kind: "rust-hot-reader-output",
+        fixture_name: FIXTURE_NAME,
+        contract_key: CONTRACT_KEY,
+        hot_abi_version: HOT_ABI_VERSION,
+        hot_layout_version: artifact_manifest.hot_layout_version,
+        hot_region_bytes_hex: bytes_to_hex(&hot_region_bytes),
+        snapshot: read_snapshot(&hot_region_bytes)?,
+        block_b: read_block_b(&hot_region_bytes),
+    };
+
+    let json = serde_json::to_string_pretty(&output)
+        .map_err(|error| format!("failed to serialize Rust hot reader output: {error}"))?;
+    println!("{json}");
+
+    Ok(())
+}
+
+fn usage() -> &'static str {
+    "usage: hot-writer-conformance <generated/artifacts.json>\n       hot-writer-conformance read <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>"
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
@@ -232,6 +308,7 @@ fn assert_manifest_agreement(
 fn assert_hot_layout_manifest(manifest: &Value) -> Result<(), String> {
     assert_json_str(manifest, "contractKey", CONTRACT_KEY)?;
     assert_json_u64(manifest, "hotAbiVersion", HOT_ABI_VERSION)?;
+    assert_json_u64(manifest, "blockASize", BLOCK_A_SIZE as u64)?;
     assert_json_u64(
         manifest,
         "totalRegionByteLength",
@@ -478,12 +555,152 @@ fn write_f64_le(region: &mut [u8], offset: usize, value: f64) {
     region[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
 }
 
+fn read_hot_region_bytes_hex(source: &str) -> Result<String, String> {
+    let path = Path::new(source);
+    if path.exists() {
+        let text = fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let input = serde_json::from_str::<HotRegionBytesInput>(&text).map_err(|error| {
+            format!(
+                "failed to parse {} as hot region bytes JSON: {error}",
+                path.display()
+            )
+        })?;
+        return Ok(input.hot_region_bytes_hex);
+    }
+
+    Ok(source.to_string())
+}
+
+fn read_snapshot(region: &[u8]) -> Result<SnapshotOutput, String> {
+    Ok(SnapshotOutput {
+        beat_phase01: read_f32_le(region, BEAT_PHASE01_OFFSET),
+        level: read_f32_le(region, LEVEL_OFFSET),
+        loop_active: read_bool(region, LOOP_ACTIVE_OFFSET, "loopActive")?,
+        media_time_seconds: read_f64_le(region, MEDIA_TIME_SECONDS_OFFSET),
+        sample_position: format_u64_hex_prefixed(read_u64_le(region, SAMPLE_POSITION_OFFSET)),
+        stem_gains: read_stem_gains(region)?,
+        tempo_ratio: read_f32_le(region, TEMPO_RATIO_OFFSET),
+        transport_state: read_transport_state(region)?,
+    })
+}
+
+fn read_block_b(region: &[u8]) -> BlockBOutput {
+    BlockBOutput {
+        seqlock_counter: format_u64_hex_prefixed(read_u64_le(region, SEQLOCK_OFFSET)),
+        baseline_epoch: read_u32_le(region, BASELINE_EPOCH_OFFSET),
+        continuity_generation: read_u32_le(region, CONTINUITY_GEN_OFFSET),
+        publication_sequence: format_u64_hex_prefixed(read_u64_le(region, PUBLICATION_SEQ_OFFSET)),
+    }
+}
+
+fn read_stem_gains(region: &[u8]) -> Result<Vec<f32>, String> {
+    let count = read_u32_le(region, STEM_GAINS_COUNT_OFFSET);
+    if count > STEM_GAINS_MAX_COUNT as u32 {
+        return Err(format!(
+            "stemGains bounded array count exceeds maxCount: expected <= {}, got {}",
+            STEM_GAINS_MAX_COUNT, count
+        ));
+    }
+
+    let mut values = Vec::with_capacity(count as usize);
+    for index in 0..count as usize {
+        values.push(read_f32_le(
+            region,
+            STEM_GAINS_ELEMENTS_OFFSET + index * STEM_GAINS_UNIT_BYTE_LENGTH as usize,
+        ));
+    }
+
+    Ok(values)
+}
+
+fn read_bool(region: &[u8], offset: usize, field_name: &str) -> Result<bool, String> {
+    match region[offset] {
+        0 => Ok(false),
+        1 => Ok(true),
+        value => Err(format!(
+            "{field_name} bool byte must be 0 or 1, got {value}"
+        )),
+    }
+}
+
+fn read_transport_state(region: &[u8]) -> Result<&'static str, String> {
+    match region[TRANSPORT_STATE_OFFSET] {
+        0 => Ok("stopped"),
+        1 => Ok("cueing"),
+        2 => Ok("playing"),
+        3 => Ok("paused"),
+        value => Err(format!(
+            "transportState enum discriminant is outside variants: {value}"
+        )),
+    }
+}
+
+fn read_u32_le(region: &[u8], offset: usize) -> u32 {
+    let mut bytes = [0_u8; 4];
+    bytes.copy_from_slice(&region[offset..offset + 4]);
+    u32::from_le_bytes(bytes)
+}
+
+fn read_u64_le(region: &[u8], offset: usize) -> u64 {
+    let mut bytes = [0_u8; 8];
+    bytes.copy_from_slice(&region[offset..offset + 8]);
+    u64::from_le_bytes(bytes)
+}
+
+fn read_f32_le(region: &[u8], offset: usize) -> f32 {
+    let mut bytes = [0_u8; 4];
+    bytes.copy_from_slice(&region[offset..offset + 4]);
+    f32::from_le_bytes(bytes)
+}
+
+fn read_f64_le(region: &[u8], offset: usize) -> f64 {
+    let mut bytes = [0_u8; 8];
+    bytes.copy_from_slice(&region[offset..offset + 8]);
+    f64::from_le_bytes(bytes)
+}
+
 fn bytes_to_hex(bytes: &[u8]) -> String {
     let mut output = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
         output.push_str(&format!("{byte:02x}"));
     }
     output
+}
+
+fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
+    if hex.len() % 2 != 0 {
+        return Err("hotRegionBytesHex must have an even number of hex digits".to_string());
+    }
+
+    let mut bytes = Vec::with_capacity(hex.len() / 2);
+    let chars: Vec<u8> = hex.bytes().collect();
+    for index in (0..chars.len()).step_by(2) {
+        let high = hex_nibble(chars[index]).ok_or_else(|| {
+            format!(
+                "hotRegionBytesHex contains a non-hex digit at character {}",
+                index
+            )
+        })?;
+        let low = hex_nibble(chars[index + 1]).ok_or_else(|| {
+            format!(
+                "hotRegionBytesHex contains a non-hex digit at character {}",
+                index + 1
+            )
+        })?;
+        bytes.push((high << 4) | low);
+    }
+
+    Ok(bytes)
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn format_u64_hex_prefixed(value: u64) -> String {
@@ -537,5 +754,34 @@ mod tests {
             format_u64_hex_prefixed(SAMPLE_POSITION),
             "0x0020000000000000"
         );
+    }
+
+    #[test]
+    fn reads_only_bounded_array_logical_values() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        write_u32_le(&mut region, STEM_GAINS_COUNT_OFFSET, 2);
+        write_f32_le(&mut region, STEM_GAINS_ELEMENTS_OFFSET, 0.25);
+        write_f32_le(
+            &mut region,
+            STEM_GAINS_ELEMENTS_OFFSET + STEM_GAINS_UNIT_BYTE_LENGTH as usize,
+            0.5,
+        );
+        write_f32_le(
+            &mut region,
+            STEM_GAINS_ELEMENTS_OFFSET + 2 * STEM_GAINS_UNIT_BYTE_LENGTH as usize,
+            0.75,
+        );
+
+        assert_eq!(read_stem_gains(&region).unwrap(), vec![0.25, 0.5]);
+    }
+
+    #[test]
+    fn rejects_bounded_array_count_overflow() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        write_u32_le(&mut region, STEM_GAINS_COUNT_OFFSET, 5);
+
+        assert!(read_stem_gains(&region)
+            .unwrap_err()
+            .contains("stemGains bounded array count exceeds maxCount"));
     }
 }
