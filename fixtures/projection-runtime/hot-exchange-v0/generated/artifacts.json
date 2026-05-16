@@ -1,0 +1,15 @@
+{
+  "artifactManifestVersion": 1,
+  "fixtureName": "hot-exchange-v0",
+  "contractKey": "fixture.hotExchange.v0",
+  "symbolStem": "HotExchange",
+  "hotAbiVersion": 1,
+  "hotLayoutVersion": "a601a5b9fe7fc79e",
+  "source": {
+    "hotLayoutManifest": "../hot-layout-manifest.json"
+  },
+  "artifacts": {
+    "reader": "hot-reader.ts",
+    "writer": "hot-writer.ts"
+  }
+}

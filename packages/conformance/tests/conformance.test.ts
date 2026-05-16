@@ -56,6 +56,7 @@ const GENERATED_HOT_ARTIFACT_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
   "generated/hot-reader.ts",
   "generated/hot-writer.ts",
+  "generated/artifacts.json",
 ] as const;
 
 describe("@exclave/conformance fixture discovery", () => {
@@ -187,6 +188,48 @@ describe("@exclave/conformance fixture loading", () => {
       revision: 57_005,
     });
     expect(expected.decodedValues).toEqual(hotByteFixture.values);
+  });
+
+  it("keeps generated hot artifact manifests consistent with their layout manifests", () => {
+    const profiles = [
+      {
+        fixtureName: "hot-exchange-v0",
+        symbolStem: "HotExchange",
+      },
+      {
+        fixtureName: "deck-runtime-v0",
+        symbolStem: "DeckRuntime",
+      },
+    ] as const;
+
+    for (const profile of profiles) {
+      const generatedRoot = resolve(fixtureRoot, profile.fixtureName, "generated");
+      const artifactManifest = JSON.parse(
+        readFileSync(resolve(generatedRoot, "artifacts.json"), "utf8"),
+      ) as Record<string, unknown>;
+      const hotLayoutManifest = JSON.parse(
+        readFileSync(resolve(generatedRoot, "../hot-layout-manifest.json"), "utf8"),
+      ) as Record<string, unknown>;
+      const artifacts = cloneRecord(artifactManifest.artifacts);
+
+      expect(artifactManifest).toMatchObject({
+        artifactManifestVersion: 1,
+        fixtureName: profile.fixtureName,
+        symbolStem: profile.symbolStem,
+        source: {
+          hotLayoutManifest: "../hot-layout-manifest.json",
+        },
+        artifacts: {
+          reader: "hot-reader.ts",
+          writer: "hot-writer.ts",
+        },
+      });
+      expect(readFileSync(resolve(generatedRoot, artifacts.reader as string)));
+      expect(readFileSync(resolve(generatedRoot, artifacts.writer as string)));
+      expect(artifactManifest.contractKey).toBe(hotLayoutManifest.contractKey);
+      expect(artifactManifest.hotAbiVersion).toBe(hotLayoutManifest.hotAbiVersion);
+      expect(artifactManifest.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
+    }
   });
 
   it("reports missing required fixture files explicitly", async () => {
