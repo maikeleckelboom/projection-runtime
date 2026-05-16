@@ -76,6 +76,7 @@ Preferred scopes:
 - `session`
 - `control-plane`
 - `resource`
+- `warm`
 - `fixtures`
 - `docs`
 - `tooling`

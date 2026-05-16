@@ -13,7 +13,8 @@
     { "path": "./packages/conformance" },
     { "path": "./packages/session" },
     { "path": "./packages/control-plane" },
-    { "path": "./packages/resource" }
+    { "path": "./packages/resource" },
+    { "path": "./packages/warm" }
   ],
   "files": []
 }
