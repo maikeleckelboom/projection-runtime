@@ -27,6 +27,7 @@ const config: UserConfig = {
         "hot-publication",
         "conformance",
         "session",
+        "control-plane",
         "fixtures",
         "docs",
         "tooling",
