@@ -26,6 +26,7 @@ export const HOT_PUBLISHER_ISSUE_DEFS = {
     "publicationSequence view must contain at least one u64 counter",
   "input.publicationSequenceOverflow":
     "publicationSequence cannot be incremented by one within u64",
+  "input.counterViewsOverlap": "seqlock and publicationSequence counter views must not overlap",
   "input.writeRegionInvalid": "writeRegion must be a function",
 } as const;
 

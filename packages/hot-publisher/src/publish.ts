@@ -120,6 +120,18 @@ function validateHotPublishInput(input: HotPublishInput): ValidatedHotPublishInp
     issues.push(createHotPublisherIssue("input.writeRegionInvalid", "input.writeRegion"));
   }
 
+  if (
+    seqlock instanceof BigUint64Array &&
+    publicationSequence instanceof BigUint64Array &&
+    seqlock.buffer instanceof SharedArrayBuffer &&
+    publicationSequence.buffer instanceof SharedArrayBuffer &&
+    seqlock.length >= 1 &&
+    publicationSequence.length >= 1 &&
+    counterViewsOverlap(seqlock, publicationSequence)
+  ) {
+    issues.push(createHotPublisherIssue("input.counterViewsOverlap", "input.publicationSequence"));
+  }
+
   if (issues.length > 0) {
     throw createHotPublisherInputRejectedError(issues);
   }
@@ -132,5 +144,30 @@ function validateHotPublishInput(input: HotPublishInput): ValidatedHotPublishInp
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function counterViewsOverlap(
+  seqlock: BigUint64Array,
+  publicationSequence: BigUint64Array,
+): boolean {
+  if (seqlock.buffer !== publicationSequence.buffer) {
+    return false;
+  }
+
+  const seqlockStart = seqlock.byteOffset;
+  const seqlockEnd = seqlockStart + BigUint64Array.BYTES_PER_ELEMENT;
+  const publicationSequenceStart = publicationSequence.byteOffset;
+  const publicationSequenceEnd = publicationSequenceStart + BigUint64Array.BYTES_PER_ELEMENT;
+
+  return byteRangesOverlap(
+    seqlockStart,
+    seqlockEnd,
+    publicationSequenceStart,
+    publicationSequenceEnd,
+  );
+}
+
+function byteRangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+  return startA < endB && startB < endA;
 }

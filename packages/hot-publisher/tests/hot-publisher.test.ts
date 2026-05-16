@@ -278,7 +278,69 @@ describe("@exclave/hot-publisher input errors and public error surface", () => {
       | "input.publicationSequenceBufferNotShared"
       | "input.publicationSequenceViewTooShort"
       | "input.publicationSequenceOverflow"
+      | "input.counterViewsOverlap"
       | "input.writeRegionInvalid"
     >();
+  });
+
+  it("rejects array input with input.requestInvalid", () => {
+    const error = expectHotPublisherError(() => publishHotRegion([] as unknown as HotPublishInput));
+
+    expect(error.details.issues.map((issue) => issue.code)).toEqual(["input.requestInvalid"]);
+  });
+
+  it("rejects the same BigUint64Array as both seqlock and publicationSequence with input.counterViewsOverlap", () => {
+    const shared = new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT);
+    const view = new BigUint64Array(shared);
+    view[0] = 2n;
+
+    const error = expectHotPublisherError(() =>
+      publishHotRegion({
+        seqlock: view,
+        publicationSequence: view,
+        writeRegion: () => undefined,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toEqual(["input.counterViewsOverlap"]);
+  });
+
+  it("rejects separate views with the same byteOffset over the same SharedArrayBuffer with input.counterViewsOverlap", () => {
+    const shared = new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT);
+    const seqlock = new BigUint64Array(shared, 0, 1);
+    const publicationSequence = new BigUint64Array(shared, 0, 1);
+    seqlock[0] = 2n;
+    publicationSequence[0] = 42n;
+
+    const error = expectHotPublisherError(() =>
+      publishHotRegion({
+        seqlock,
+        publicationSequence,
+        writeRegion: () => undefined,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toEqual(["input.counterViewsOverlap"]);
+  });
+
+  it("accepts non-overlapping views over the same SharedArrayBuffer", () => {
+    const shared = new SharedArrayBuffer(BigUint64Array.BYTES_PER_ELEMENT * 2);
+    const seqlock = new BigUint64Array(shared, 0, 1);
+    const publicationSequence = new BigUint64Array(shared, BigUint64Array.BYTES_PER_ELEMENT, 1);
+    seqlock[0] = 2n;
+    publicationSequence[0] = 42n;
+
+    const result = publishHotRegion({
+      seqlock,
+      publicationSequence,
+      writeRegion: () => undefined,
+    });
+
+    expect(result).toEqual({
+      previousSeqlockCounter: 2n,
+      seqlockCounter: 4n,
+      previousPublicationSequence: 42n,
+      publicationSequence: 43n,
+    });
   });
 });
