@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 #[allow(dead_code)]
 mod deck_runtime_hot_writer;
 
-#[cfg(test)]
 #[path = "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot_writer.rs"]
 #[allow(dead_code)]
 mod hot_exchange_hot_writer;
@@ -17,6 +16,10 @@ mod hot_exchange_hot_writer;
 const FIXTURE_NAME: &str = "deck-runtime-v0";
 const CONTRACT_KEY: &str = "fixture.deckRuntime";
 const SYMBOL_STEM: &str = "DeckRuntime";
+
+const HOT_EXCHANGE_FIXTURE_NAME: &str = "hot-exchange-v0";
+const HOT_EXCHANGE_CONTRACT_KEY: &str = "fixture.hotExchange.v0";
+const HOT_EXCHANGE_SYMBOL_STEM: &str = "HotExchange";
 const HOT_ABI_VERSION: u64 = 1;
 const TOTAL_REGION_BYTE_LENGTH: usize = deck_runtime_hot_writer::TOTAL_REGION_BYTE_LENGTH;
 const BLOCK_A_SIZE: usize = deck_runtime_hot_writer::BLOCK_A_SIZE;
@@ -220,6 +223,29 @@ struct BlockBOutput {
     publication_sequence: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotExchangeSnapshotOutput {
+    display_name: String,
+    gain: f32,
+    level_vector: Vec<f32>,
+    phase: f64,
+    revision: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotExchangeRustWriterOutput {
+    fixture_kind: &'static str,
+    fixture_name: String,
+    contract_key: String,
+    hot_abi_version: u64,
+    hot_layout_version: String,
+    hot_region_bytes_hex: String,
+    snapshot: HotExchangeSnapshotOutput,
+    block_b: BlockBOutput,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("{error}");
@@ -232,6 +258,7 @@ fn run() -> Result<(), String> {
     match args.first().map(String::as_str) {
         Some("write-deck-runtime") => run_writer(&args[1..]),
         Some("read-deck-runtime") => run_reader(&args[1..]),
+        Some("write-hot-exchange") => run_hot_exchange_writer(&args[1..]),
         _ => Err(usage().to_string()),
     }
 }
@@ -335,8 +362,171 @@ fn run_reader(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn run_hot_exchange_writer(args: &[String]) -> Result<(), String> {
+    let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
+    let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
+    let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
+    assert_hot_exchange_artifact_manifest(&artifact_manifest)?;
+
+    let hot_layout_manifest_path = resolve_manifest_relative_path(
+        &artifact_manifest_path,
+        &artifact_manifest.source.hot_layout_manifest,
+    )?;
+    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
+    assert_hot_exchange_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
+    let total_region_byte_length = total_region_byte_length(&hot_layout_manifest)?;
+
+    let hot_block_a_fixture_path = resolve_manifest_relative_path(
+        &artifact_manifest_path,
+        &artifact_manifest.source.hot_block_a_fixture,
+    )?;
+    let hot_block_a_fixture = read_json::<HotBlockAFixture>(&hot_block_a_fixture_path)?;
+
+    if hot_block_a_fixture.expected.block_a_bytes_hex.len() != hot_exchange_hot_writer::BLOCK_A_SIZE * 2
+    {
+        return Err(format!(
+            "hot-block-a-fixture expected blockABytesHex length mismatch: expected {} hex chars, got {}",
+            hot_exchange_hot_writer::BLOCK_A_SIZE * 2,
+            hot_block_a_fixture.expected.block_a_bytes_hex.len()
+        ));
+    }
+    let block_a = parse_hex_bytes_exact::<{ hot_exchange_hot_writer::BLOCK_A_SIZE }>(
+        &hot_block_a_fixture.expected.block_a_bytes_hex,
+        "hot-block-a-fixture.expected.blockABytesHex",
+    )?;
+
+    let mut region = vec![0_u8; total_region_byte_length];
+    let level_vector = [0.0_f32, 0.25, 0.75, 1.0];
+    let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+        display_name: "deckB-hot",
+        gain: 0.5,
+        level_vector,
+        phase: 256.25,
+        revision: 57_006,
+    };
+    let publication = hot_exchange_hot_writer::HotExchangePublication {
+        baseline_epoch: 7,
+        continuity_generation: 3,
+    };
+    let publish_result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+        &mut region,
+        &block_a,
+        publication,
+        &snapshot,
+    )
+    .map_err(|error| format!("generated Rust hot exchange writer failed: {error:?}"))?;
+
+    let output = HotExchangeRustWriterOutput {
+        fixture_kind: "rust-hot-writer-output",
+        fixture_name: artifact_manifest.fixture_name.clone(),
+        contract_key: artifact_manifest.contract_key.clone(),
+        hot_abi_version: artifact_manifest.hot_abi_version,
+        hot_layout_version: artifact_manifest.hot_layout_version.clone(),
+        hot_region_bytes_hex: bytes_to_hex(&region),
+        snapshot: HotExchangeSnapshotOutput {
+            display_name: "deckB-hot".to_string(),
+            gain: 0.5,
+            level_vector: level_vector.to_vec(),
+            phase: 256.25,
+            revision: 57_006,
+        },
+        block_b: BlockBOutput {
+            seqlock_counter: format_u64_hex_prefixed(publish_result.seqlock_counter),
+            baseline_epoch: 7,
+            continuity_generation: 3,
+            publication_sequence: format_u64_hex_prefixed(publish_result.publication_sequence),
+        },
+    };
+
+    let json = serde_json::to_string_pretty(&output)
+        .map_err(|error| format!("failed to serialize Rust hot exchange writer output: {error}"))?;
+    println!("{json}");
+
+    Ok(())
+}
+
+fn assert_hot_exchange_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
+    assert_eq_u64(
+        "artifactManifestVersion",
+        manifest.artifact_manifest_version,
+        1,
+    )?;
+    assert_eq_str(
+        "fixtureName",
+        &manifest.fixture_name,
+        HOT_EXCHANGE_FIXTURE_NAME,
+    )?;
+    assert_eq_str(
+        "contractKey",
+        &manifest.contract_key,
+        HOT_EXCHANGE_CONTRACT_KEY,
+    )?;
+    assert_eq_str(
+        "symbolStem",
+        &manifest.symbol_stem,
+        HOT_EXCHANGE_SYMBOL_STEM,
+    )?;
+    assert_eq_u64("hotAbiVersion", manifest.hot_abi_version, HOT_ABI_VERSION)?;
+    assert_manifest_source_path(
+        "source.hotLayoutManifest",
+        &manifest.source.hot_layout_manifest,
+    )?;
+    assert_manifest_source_path(
+        "source.hotBlockAFixture",
+        &manifest.source.hot_block_a_fixture,
+    )?;
+    assert_manifest_source_path(
+        "source.hotCompleteFixtureRegion",
+        &manifest.source.hot_complete_fixture_region,
+    )?;
+    assert_manifest_source_path(
+        "source.resolvedContract",
+        &manifest.source.resolved_contract,
+    )?;
+    assert_eq_str(
+        "artifacts.reader",
+        &manifest.artifacts.reader,
+        "hot-reader.ts",
+    )?;
+    assert_eq_str(
+        "artifacts.writer",
+        &manifest.artifacts.writer,
+        "hot-writer.ts",
+    )?;
+    assert_eq_str(
+        "artifacts.rustWriter",
+        &manifest.artifacts.rust_writer,
+        "hot_writer.rs",
+    )?;
+
+    Ok(())
+}
+
+fn assert_hot_exchange_manifest_agreement(
+    artifact_manifest: &ArtifactManifest,
+    hot_layout_manifest: &Value,
+) -> Result<(), String> {
+    assert_json_str(
+        hot_layout_manifest,
+        "contractKey",
+        &artifact_manifest.contract_key,
+    )?;
+    assert_json_u64(
+        hot_layout_manifest,
+        "hotAbiVersion",
+        artifact_manifest.hot_abi_version,
+    )?;
+    assert_json_str(
+        hot_layout_manifest,
+        "hotLayoutVersion",
+        &artifact_manifest.hot_layout_version,
+    )?;
+
+    Ok(())
+}
+
 fn usage() -> &'static str {
-    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>"
+    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>\n       hot-abi-conformance write-hot-exchange <generated/artifacts.json>"
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
@@ -1460,6 +1650,78 @@ mod tests {
                 ..hot_exchange_hot_writer::DISPLAY_NAME_OFFSET
                     + hot_exchange_hot_writer::DISPLAY_NAME_BYTE_LENGTH],
             &[0; 7]
+        );
+    }
+
+    #[test]
+    fn generated_hot_exchange_writer_rejects_fixed_string_too_long_before_publishing() {
+        let mut region = vec![0_u8; hot_exchange_hot_writer::TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; hot_exchange_hot_writer::BLOCK_A_SIZE];
+        let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+            display_name: "deckB-hot-123456789",
+            gain: 0.5,
+            level_vector: [0.0, 0.25, 0.75, 1.0],
+            phase: 256.25,
+            revision: 57_006,
+        };
+
+        let result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+            &mut region,
+            &block_a,
+            hot_exchange_hot_writer::HotExchangePublication {
+                baseline_epoch: BASELINE_EPOCH,
+                continuity_generation: CONTINUITY_GENERATION,
+            },
+            &snapshot,
+        );
+
+        assert_eq!(
+            result,
+            Err(hot_exchange_hot_writer::HotExchangeWriteError::FixedStringTooLong {
+                field: "displayName",
+                max_bytes: 16,
+                actual_bytes: 19,
+            })
+        );
+        assert_eq!(
+            &region[hot_exchange_hot_writer::SEQLOCK_OFFSET
+                ..hot_exchange_hot_writer::SEQLOCK_OFFSET + 8],
+            &[0; 8]
+        );
+    }
+
+    #[test]
+    fn generated_hot_exchange_writer_rejects_fixed_string_non_ascii_before_publishing() {
+        let mut region = vec![0_u8; hot_exchange_hot_writer::TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; hot_exchange_hot_writer::BLOCK_A_SIZE];
+        let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+            display_name: "deckB-\u{e1}",
+            gain: 0.5,
+            level_vector: [0.0, 0.25, 0.75, 1.0],
+            phase: 256.25,
+            revision: 57_006,
+        };
+
+        let result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+            &mut region,
+            &block_a,
+            hot_exchange_hot_writer::HotExchangePublication {
+                baseline_epoch: BASELINE_EPOCH,
+                continuity_generation: CONTINUITY_GENERATION,
+            },
+            &snapshot,
+        );
+
+        assert_eq!(
+            result,
+            Err(hot_exchange_hot_writer::HotExchangeWriteError::FixedStringNonAscii {
+                field: "displayName",
+            })
+        );
+        assert_eq!(
+            &region[hot_exchange_hot_writer::SEQLOCK_OFFSET
+                ..hot_exchange_hot_writer::SEQLOCK_OFFSET + 8],
+            &[0; 8]
         );
     }
 
