@@ -263,6 +263,7 @@ describe("@exclave/conformance fixture loading", () => {
       const hotLayoutManifest = JSON.parse(
         readFileSync(resolve(generatedRoot, "../hot-layout-manifest.json"), "utf8"),
       ) as Record<string, unknown>;
+      const source = cloneRecord(artifactManifest.source);
       const artifacts = cloneRecord(artifactManifest.artifacts);
 
       expect(artifactManifest).toMatchObject({
@@ -271,12 +272,19 @@ describe("@exclave/conformance fixture loading", () => {
         symbolStem: profile.symbolStem,
         source: {
           hotLayoutManifest: "../hot-layout-manifest.json",
+          hotBlockAFixture: "../hot-block-a-fixture.json",
+          hotCompleteFixtureRegion: "../hot-complete-fixture-region.json",
+          resolvedContract: "../resolved-contract.json",
         },
         artifacts: {
           reader: "hot-reader.ts",
           writer: "hot-writer.ts",
         },
       });
+      expect(readFileSync(resolve(generatedRoot, source.hotLayoutManifest as string)));
+      expect(readFileSync(resolve(generatedRoot, source.hotBlockAFixture as string)));
+      expect(readFileSync(resolve(generatedRoot, source.hotCompleteFixtureRegion as string)));
+      expect(readFileSync(resolve(generatedRoot, source.resolvedContract as string)));
       expect(readFileSync(resolve(generatedRoot, artifacts.reader as string)));
       expect(readFileSync(resolve(generatedRoot, artifacts.writer as string)));
       expect(artifactManifest.contractKey).toBe(hotLayoutManifest.contractKey);

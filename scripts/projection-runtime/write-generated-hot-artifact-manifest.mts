@@ -12,6 +12,9 @@ type GeneratedHotArtifactManifest = {
   readonly hotLayoutVersion: string;
   readonly source: {
     readonly hotLayoutManifest: "../hot-layout-manifest.json";
+    readonly hotBlockAFixture: "../hot-block-a-fixture.json";
+    readonly hotCompleteFixtureRegion: "../hot-complete-fixture-region.json";
+    readonly resolvedContract: "../resolved-contract.json";
   };
   readonly artifacts: {
     readonly reader: "hot-reader.ts";
@@ -53,6 +56,9 @@ export async function writeGeneratedHotArtifactManifest({
     hotLayoutVersion: hotLayoutManifest.hotLayoutVersion,
     source: {
       hotLayoutManifest: "../hot-layout-manifest.json",
+      hotBlockAFixture: "../hot-block-a-fixture.json",
+      hotCompleteFixtureRegion: "../hot-complete-fixture-region.json",
+      resolvedContract: "../resolved-contract.json",
     },
     artifacts: {
       reader: "hot-reader.ts",
