@@ -1,7 +1,6 @@
 import type { JsonObject } from "@exclave/base";
+import { checkJsonObjectRoot, type JsonSafetyResult, safeIsArray } from "@exclave/base";
 import { throwInputRejected } from "./errors";
-import type { JsonSafetyResult } from "./json-safety";
-import { checkJsonObjectRoot, safeIsArray } from "./json-safety";
 
 export const CONTROL_ENVELOPE_VERSION = 1 as const;
 

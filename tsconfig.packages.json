@@ -12,7 +12,8 @@
     { "path": "./packages/compiler" },
     { "path": "./packages/conformance" },
     { "path": "./packages/session" },
-    { "path": "./packages/control-plane" }
+    { "path": "./packages/control-plane" },
+    { "path": "./packages/resource" }
   ],
   "files": []
 }
