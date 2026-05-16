@@ -28,6 +28,7 @@
     "test:watch": "vitest --root ../.. --project @exclave/hot-binding"
   },
   "dependencies": {
-    "@exclave/base": "workspace:*"
+    "@exclave/base": "workspace:*",
+    "@exclave/hot-codec": "workspace:*"
   }
 }

@@ -1,4 +1,5 @@
 import { ExclaveError } from "@exclave/base";
+import { encodeHotBlockAHeader, type HotBlockAHeaderInput } from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import * as hotBinding from "../src/index";
@@ -26,6 +27,21 @@ function expectHotBindingError(action: () => unknown): HotBindingError {
   throw new Error("expected hot binding failure");
 }
 
+const VALID_BLOCK_A: HotBlockAHeaderInput = {
+  contractKey: "fixture.hotBinding",
+  instanceKey: "fixture.hotBinding.instance",
+  semanticVersion: 0x0102_0304_0506_0708n,
+  hotLayoutVersion: 0x1112_1314_1516_1718n,
+  fieldCount: 3,
+  mutableRegionByteLength: 40,
+};
+
+function sharedRegionWithBlockA(input: HotBlockAHeaderInput = VALID_BLOCK_A): Uint8Array {
+  const region = new Uint8Array(new SharedArrayBuffer(112));
+  region.set(encodeHotBlockAHeader(input), 0);
+  return region;
+}
+
 describe("@exclave/hot-binding read bindings", () => {
   it("binds a SharedArrayBuffer-backed Uint8Array region to the seqlock view", () => {
     const region = new Uint8Array(new SharedArrayBuffer(32));
@@ -40,6 +56,19 @@ describe("@exclave/hot-binding read bindings", () => {
     expect(binding.seqlock.buffer).toBe(region.buffer);
     expect(binding.seqlock.byteOffset).toBe(region.byteOffset + 8);
     expect(binding.seqlock.length).toBe(1);
+  });
+
+  it("validates matching Block A bytes before binding read counters", () => {
+    const region = sharedRegionWithBlockA();
+    const binding = bindHotReadRegion({
+      region,
+      seqlockOffset: 72,
+      totalRegionByteLength: 112,
+      blockA: VALID_BLOCK_A,
+    });
+
+    expect(binding.region).toBe(region);
+    expect(binding.seqlock.byteOffset).toBe(region.byteOffset + 72);
   });
 
   it("binds read counters with a non-zero region byteOffset", () => {
@@ -72,6 +101,21 @@ describe("@exclave/hot-binding publish bindings", () => {
     expect(binding.publicationSequence.buffer).toBe(region.buffer);
     expect(binding.publicationSequence.byteOffset).toBe(region.byteOffset + 16);
     expect(binding.publicationSequence.length).toBe(1);
+  });
+
+  it("validates matching Block A bytes before binding publish counters", () => {
+    const region = sharedRegionWithBlockA();
+    const binding = bindHotPublishRegion({
+      region,
+      seqlockOffset: 72,
+      publicationSequenceOffset: 88,
+      totalRegionByteLength: 112,
+      blockA: VALID_BLOCK_A,
+    });
+
+    expect(binding.region).toBe(region);
+    expect(binding.seqlock.byteOffset).toBe(region.byteOffset + 72);
+    expect(binding.publicationSequence.byteOffset).toBe(region.byteOffset + 88);
   });
 
   it("binds publish counters with a non-zero region byteOffset", () => {
@@ -277,6 +321,75 @@ describe("@exclave/hot-binding input errors", () => {
       ["input.totalRegionByteLengthInvalid", "input.totalRegionByteLength"],
     ]);
   });
+
+  it.each([
+    {
+      name: "wrong magic",
+      mutate: (region: Uint8Array) => region.set([0xde, 0xad, 0xbe, 0xef], 0),
+      expectedDetail: "header.magicInvalid",
+    },
+    {
+      name: "wrong hotAbiVersion",
+      mutate: (region: Uint8Array) => new DataView(region.buffer).setUint32(4, 2, true),
+      expectedDetail: "header.hotAbiVersionUnsupported",
+    },
+    {
+      name: "wrong contractKeyHash",
+      mutate: (region: Uint8Array) => region.fill(0, 8, 24),
+      expectedDetail: "header.contractKeyHashMismatch",
+    },
+    {
+      name: "wrong instanceKeyHash",
+      mutate: (region: Uint8Array) => region.fill(0, 24, 40),
+      expectedDetail: "header.instanceKeyHashMismatch",
+    },
+    {
+      name: "wrong semanticVersion",
+      mutate: (region: Uint8Array) => new DataView(region.buffer).setBigUint64(40, 0n, true),
+      expectedDetail: "header.semanticVersionMismatch",
+    },
+    {
+      name: "wrong hotLayoutVersion",
+      mutate: (region: Uint8Array) => new DataView(region.buffer).setBigUint64(48, 0n, true),
+      expectedDetail: "header.hotLayoutVersionMismatch",
+    },
+    {
+      name: "wrong fieldCount",
+      mutate: (region: Uint8Array) => new DataView(region.buffer).setUint32(56, 99, true),
+      expectedDetail: "header.fieldCountMismatch",
+    },
+    {
+      name: "wrong mutable length",
+      mutate: (region: Uint8Array) => new DataView(region.buffer).setUint32(60, 99, true),
+      expectedDetail: "header.mutableRegionByteLengthMismatch",
+    },
+    {
+      name: "non-zero reserved bytes",
+      mutate: (region: Uint8Array) => {
+        region[64] = 0xff;
+      },
+      expectedDetail: "header.reservedNonZero",
+    },
+  ])("rejects Block A with $name", ({ mutate, expectedDetail }) => {
+    const region = sharedRegionWithBlockA();
+    mutate(region);
+
+    const error = expectHotBindingError(() =>
+      bindHotReadRegion({
+        region,
+        seqlockOffset: 72,
+        totalRegionByteLength: 112,
+        blockA: VALID_BLOCK_A,
+      }),
+    );
+
+    expect(error.details.issues).toEqual([
+      expect.objectContaining({
+        code: "input.blockAHeaderInvalid",
+        detail: expect.stringContaining(expectedDetail),
+      }),
+    ]);
+  });
 });
 
 describe("@exclave/hot-binding public error surface", () => {
@@ -307,6 +420,7 @@ describe("@exclave/hot-binding public error surface", () => {
       | "input.publicationSequenceOffsetOutOfRange"
       | "input.publicationSequenceOffsetMisaligned"
       | "input.counterViewsOverlap"
+      | "input.blockAHeaderInvalid"
     >();
   });
 });
