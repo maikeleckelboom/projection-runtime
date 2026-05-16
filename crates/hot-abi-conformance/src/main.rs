@@ -5,41 +5,57 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[path = "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot_writer.rs"]
+#[allow(dead_code)]
+mod deck_runtime_hot_writer;
+
+#[path = "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot_writer.rs"]
+#[allow(dead_code)]
+mod hot_exchange_hot_writer;
+
 const FIXTURE_NAME: &str = "deck-runtime-v0";
 const CONTRACT_KEY: &str = "fixture.deckRuntime";
 const SYMBOL_STEM: &str = "DeckRuntime";
-const HOT_ABI_VERSION: u64 = 1;
-const TOTAL_REGION_BYTE_LENGTH: usize = 160;
-const BLOCK_A_SIZE: usize = 72;
-const BLOCK_B_START_OFFSET: usize = 72;
-const SEQLOCK_OFFSET: usize = 72;
-const BASELINE_EPOCH_OFFSET: usize = 80;
-const CONTINUITY_GEN_OFFSET: usize = 84;
-const PUBLICATION_SEQ_OFFSET: usize = 88;
-const FIELD_DATA_ORIGIN: usize = 96;
 
-const BEAT_PHASE01_OFFSET: usize = 96;
-const LEVEL_OFFSET: usize = 100;
-const LOOP_ACTIVE_OFFSET: usize = 104;
-const MEDIA_TIME_SECONDS_OFFSET: usize = 112;
-const SAMPLE_POSITION_OFFSET: usize = 120;
-const STEM_GAINS_COUNT_OFFSET: usize = 128;
-const STEM_GAINS_ELEMENTS_OFFSET: usize = 132;
-const STEM_GAINS_MAX_COUNT: u64 = 4;
-const STEM_GAINS_UNIT_BYTE_LENGTH: u64 = 4;
-const TEMPO_RATIO_OFFSET: usize = 148;
-const TRANSPORT_STATE_OFFSET: usize = 152;
+const HOT_EXCHANGE_FIXTURE_NAME: &str = "hot-exchange-v0";
+const HOT_EXCHANGE_CONTRACT_KEY: &str = "fixture.hotExchange.v0";
+const HOT_EXCHANGE_SYMBOL_STEM: &str = "HotExchange";
+const HOT_ABI_VERSION: u64 = 1;
+const TOTAL_REGION_BYTE_LENGTH: usize = deck_runtime_hot_writer::TOTAL_REGION_BYTE_LENGTH;
+const BLOCK_A_SIZE: usize = deck_runtime_hot_writer::BLOCK_A_SIZE;
+const BLOCK_B_START_OFFSET: usize = deck_runtime_hot_writer::BLOCK_B_START_OFFSET;
+const SEQLOCK_OFFSET: usize = deck_runtime_hot_writer::SEQLOCK_OFFSET;
+const BASELINE_EPOCH_OFFSET: usize = deck_runtime_hot_writer::BASELINE_EPOCH_OFFSET;
+const CONTINUITY_GEN_OFFSET: usize = deck_runtime_hot_writer::CONTINUITY_GENERATION_OFFSET;
+const PUBLICATION_SEQ_OFFSET: usize = deck_runtime_hot_writer::PUBLICATION_SEQUENCE_OFFSET;
+const FIELD_DATA_ORIGIN: usize = deck_runtime_hot_writer::FIELD_DATA_ORIGIN;
+
+const BEAT_PHASE01_OFFSET: usize = deck_runtime_hot_writer::BEAT_PHASE01_OFFSET;
+const LEVEL_OFFSET: usize = deck_runtime_hot_writer::LEVEL_OFFSET;
+const LOOP_ACTIVE_OFFSET: usize = deck_runtime_hot_writer::LOOP_ACTIVE_OFFSET;
+const MEDIA_TIME_SECONDS_OFFSET: usize = deck_runtime_hot_writer::MEDIA_TIME_SECONDS_OFFSET;
+const SAMPLE_POSITION_OFFSET: usize = deck_runtime_hot_writer::SAMPLE_POSITION_OFFSET;
+const STEM_GAINS_COUNT_OFFSET: usize = deck_runtime_hot_writer::STEM_GAINS_COUNT_OFFSET;
+const STEM_GAINS_ELEMENTS_OFFSET: usize = deck_runtime_hot_writer::STEM_GAINS_ELEMENTS_OFFSET;
+const STEM_GAINS_MAX_COUNT: u64 = deck_runtime_hot_writer::STEM_GAINS_MAX_COUNT as u64;
+const STEM_GAINS_UNIT_BYTE_LENGTH: u64 =
+    deck_runtime_hot_writer::STEM_GAINS_UNIT_BYTE_LENGTH as u64;
+const TEMPO_RATIO_OFFSET: usize = deck_runtime_hot_writer::TEMPO_RATIO_OFFSET;
+const TRANSPORT_STATE_OFFSET: usize = deck_runtime_hot_writer::TRANSPORT_STATE_OFFSET;
 
 const REGION_MAGIC: [u8; 4] = [0x53, 0x51, 0x4c, 0x4b];
 const REGION_MAGIC_HEX: &str = "53514c4b";
 const BLOCK_A_RESERVED_ZERO: [u8; 8] = [0; 8];
 const BLOCK_A_RESERVED_ZERO_HEX: &str = "0000000000000000";
 
-const SEQLOCK_COUNTER: u64 = 0x0000_0000_0000_0002;
 const BASELINE_EPOCH: u32 = 7;
 const CONTINUITY_GENERATION: u32 = 3;
-const PUBLICATION_SEQUENCE: u64 = 0x0000_0000_0000_0001;
 const SAMPLE_POSITION: u64 = 0x0020_0000_0000_0000;
+
+#[cfg(test)]
+const SEQLOCK_COUNTER: u64 = 0x0000_0000_0000_0002;
+#[cfg(test)]
+const PUBLICATION_SEQUENCE: u64 = 0x0000_0000_0000_0001;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,8 +80,10 @@ struct ArtifactManifestSource {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ArtifactManifestArtifacts {
     reader: String,
+    rust_writer: String,
     writer: String,
 }
 
@@ -205,6 +223,29 @@ struct BlockBOutput {
     publication_sequence: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotExchangeSnapshotOutput {
+    display_name: String,
+    gain: f32,
+    level_vector: Vec<f32>,
+    phase: f64,
+    revision: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotExchangeRustWriterOutput {
+    fixture_kind: &'static str,
+    fixture_name: String,
+    contract_key: String,
+    hot_abi_version: u64,
+    hot_layout_version: String,
+    hot_region_bytes_hex: String,
+    snapshot: HotExchangeSnapshotOutput,
+    block_b: BlockBOutput,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("{error}");
@@ -217,6 +258,7 @@ fn run() -> Result<(), String> {
     match args.first().map(String::as_str) {
         Some("write-deck-runtime") => run_writer(&args[1..]),
         Some("read-deck-runtime") => run_reader(&args[1..]),
+        Some("write-hot-exchange") => run_hot_exchange_writer(&args[1..]),
         _ => Err(usage().to_string()),
     }
 }
@@ -228,9 +270,28 @@ fn run_writer(args: &[String]) -> Result<(), String> {
     let artifact_manifest = &inputs.artifact_manifest;
 
     let mut region = vec![0_u8; inputs.total_region_byte_length];
-    write_block_a(&mut region, &inputs.block_a)?;
-    write_block_b(&mut region);
-    write_field_data(&mut region);
+    let stem_gains = [0.25, 0.5];
+    let snapshot = deck_runtime_hot_writer::DeckRuntimeSnapshot {
+        beat_phase01: 0.5,
+        level: 0.25,
+        loop_active: false,
+        media_time_seconds: 128.5,
+        sample_position: SAMPLE_POSITION,
+        stem_gains: &stem_gains,
+        tempo_ratio: 1.25,
+        transport_state: deck_runtime_hot_writer::DeckRuntimeTransportState::Paused,
+    };
+    let publication = deck_runtime_hot_writer::DeckRuntimePublication {
+        baseline_epoch: BASELINE_EPOCH,
+        continuity_generation: CONTINUITY_GENERATION,
+    };
+    let publish_result = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+        &mut region,
+        &inputs.block_a.block_a_bytes,
+        publication,
+        &snapshot,
+    )
+    .map_err(|error| format!("generated Rust hot writer failed: {error:?}"))?;
 
     let output = RustHotWriterOutput {
         fixture_kind: "rust-hot-writer-output",
@@ -250,10 +311,10 @@ fn run_writer(args: &[String]) -> Result<(), String> {
             transport_state: "paused",
         },
         block_b: BlockBOutput {
-            seqlock_counter: format_u64_hex_prefixed(SEQLOCK_COUNTER),
+            seqlock_counter: format_u64_hex_prefixed(publish_result.seqlock_counter),
             baseline_epoch: BASELINE_EPOCH,
             continuity_generation: CONTINUITY_GENERATION,
-            publication_sequence: format_u64_hex_prefixed(PUBLICATION_SEQUENCE),
+            publication_sequence: format_u64_hex_prefixed(publish_result.publication_sequence),
         },
     };
 
@@ -301,8 +362,171 @@ fn run_reader(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn run_hot_exchange_writer(args: &[String]) -> Result<(), String> {
+    let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
+    let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
+    let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
+    assert_hot_exchange_artifact_manifest(&artifact_manifest)?;
+
+    let hot_layout_manifest_path = resolve_manifest_relative_path(
+        &artifact_manifest_path,
+        &artifact_manifest.source.hot_layout_manifest,
+    )?;
+    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
+    assert_hot_exchange_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
+    let total_region_byte_length = total_region_byte_length(&hot_layout_manifest)?;
+
+    let hot_block_a_fixture_path = resolve_manifest_relative_path(
+        &artifact_manifest_path,
+        &artifact_manifest.source.hot_block_a_fixture,
+    )?;
+    let hot_block_a_fixture = read_json::<HotBlockAFixture>(&hot_block_a_fixture_path)?;
+
+    if hot_block_a_fixture.expected.block_a_bytes_hex.len() != hot_exchange_hot_writer::BLOCK_A_SIZE * 2
+    {
+        return Err(format!(
+            "hot-block-a-fixture expected blockABytesHex length mismatch: expected {} hex chars, got {}",
+            hot_exchange_hot_writer::BLOCK_A_SIZE * 2,
+            hot_block_a_fixture.expected.block_a_bytes_hex.len()
+        ));
+    }
+    let block_a = parse_hex_bytes_exact::<{ hot_exchange_hot_writer::BLOCK_A_SIZE }>(
+        &hot_block_a_fixture.expected.block_a_bytes_hex,
+        "hot-block-a-fixture.expected.blockABytesHex",
+    )?;
+
+    let mut region = vec![0_u8; total_region_byte_length];
+    let level_vector = [0.0_f32, 0.25, 0.75, 1.0];
+    let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+        display_name: "deckB-hot",
+        gain: 0.5,
+        level_vector,
+        phase: 256.25,
+        revision: 57_006,
+    };
+    let publication = hot_exchange_hot_writer::HotExchangePublication {
+        baseline_epoch: 7,
+        continuity_generation: 3,
+    };
+    let publish_result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+        &mut region,
+        &block_a,
+        publication,
+        &snapshot,
+    )
+    .map_err(|error| format!("generated Rust hot exchange writer failed: {error:?}"))?;
+
+    let output = HotExchangeRustWriterOutput {
+        fixture_kind: "rust-hot-writer-output",
+        fixture_name: artifact_manifest.fixture_name.clone(),
+        contract_key: artifact_manifest.contract_key.clone(),
+        hot_abi_version: artifact_manifest.hot_abi_version,
+        hot_layout_version: artifact_manifest.hot_layout_version.clone(),
+        hot_region_bytes_hex: bytes_to_hex(&region),
+        snapshot: HotExchangeSnapshotOutput {
+            display_name: "deckB-hot".to_string(),
+            gain: 0.5,
+            level_vector: level_vector.to_vec(),
+            phase: 256.25,
+            revision: 57_006,
+        },
+        block_b: BlockBOutput {
+            seqlock_counter: format_u64_hex_prefixed(publish_result.seqlock_counter),
+            baseline_epoch: 7,
+            continuity_generation: 3,
+            publication_sequence: format_u64_hex_prefixed(publish_result.publication_sequence),
+        },
+    };
+
+    let json = serde_json::to_string_pretty(&output)
+        .map_err(|error| format!("failed to serialize Rust hot exchange writer output: {error}"))?;
+    println!("{json}");
+
+    Ok(())
+}
+
+fn assert_hot_exchange_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
+    assert_eq_u64(
+        "artifactManifestVersion",
+        manifest.artifact_manifest_version,
+        1,
+    )?;
+    assert_eq_str(
+        "fixtureName",
+        &manifest.fixture_name,
+        HOT_EXCHANGE_FIXTURE_NAME,
+    )?;
+    assert_eq_str(
+        "contractKey",
+        &manifest.contract_key,
+        HOT_EXCHANGE_CONTRACT_KEY,
+    )?;
+    assert_eq_str(
+        "symbolStem",
+        &manifest.symbol_stem,
+        HOT_EXCHANGE_SYMBOL_STEM,
+    )?;
+    assert_eq_u64("hotAbiVersion", manifest.hot_abi_version, HOT_ABI_VERSION)?;
+    assert_manifest_source_path(
+        "source.hotLayoutManifest",
+        &manifest.source.hot_layout_manifest,
+    )?;
+    assert_manifest_source_path(
+        "source.hotBlockAFixture",
+        &manifest.source.hot_block_a_fixture,
+    )?;
+    assert_manifest_source_path(
+        "source.hotCompleteFixtureRegion",
+        &manifest.source.hot_complete_fixture_region,
+    )?;
+    assert_manifest_source_path(
+        "source.resolvedContract",
+        &manifest.source.resolved_contract,
+    )?;
+    assert_eq_str(
+        "artifacts.reader",
+        &manifest.artifacts.reader,
+        "hot-reader.ts",
+    )?;
+    assert_eq_str(
+        "artifacts.writer",
+        &manifest.artifacts.writer,
+        "hot-writer.ts",
+    )?;
+    assert_eq_str(
+        "artifacts.rustWriter",
+        &manifest.artifacts.rust_writer,
+        "hot_writer.rs",
+    )?;
+
+    Ok(())
+}
+
+fn assert_hot_exchange_manifest_agreement(
+    artifact_manifest: &ArtifactManifest,
+    hot_layout_manifest: &Value,
+) -> Result<(), String> {
+    assert_json_str(
+        hot_layout_manifest,
+        "contractKey",
+        &artifact_manifest.contract_key,
+    )?;
+    assert_json_u64(
+        hot_layout_manifest,
+        "hotAbiVersion",
+        artifact_manifest.hot_abi_version,
+    )?;
+    assert_json_str(
+        hot_layout_manifest,
+        "hotLayoutVersion",
+        &artifact_manifest.hot_layout_version,
+    )?;
+
+    Ok(())
+}
+
 fn usage() -> &'static str {
-    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>"
+    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>\n       hot-abi-conformance write-hot-exchange <generated/artifacts.json>"
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
@@ -419,6 +643,11 @@ fn assert_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
         "artifacts.writer",
         &manifest.artifacts.writer,
         "hot-writer.ts",
+    )?;
+    assert_eq_str(
+        "artifacts.rustWriter",
+        &manifest.artifacts.rust_writer,
+        "hot_writer.rs",
     )?;
 
     Ok(())
@@ -887,13 +1116,7 @@ fn assert_eq_u64(label: &str, actual: u64, expected: u64) -> Result<(), String> 
     Ok(())
 }
 
-fn write_block_b(region: &mut [u8]) {
-    write_u64_le(region, SEQLOCK_OFFSET, SEQLOCK_COUNTER);
-    write_u32_le(region, BASELINE_EPOCH_OFFSET, BASELINE_EPOCH);
-    write_u32_le(region, CONTINUITY_GEN_OFFSET, CONTINUITY_GENERATION);
-    write_u64_le(region, PUBLICATION_SEQ_OFFSET, PUBLICATION_SEQUENCE);
-}
-
+#[cfg(test)]
 fn write_block_a(region: &mut [u8], block_a: &BlockAExpectation) -> Result<(), String> {
     region[0..4].copy_from_slice(&block_a.region_magic);
     write_u32_le(region, 4, block_a.hot_abi_version);
@@ -981,38 +1204,19 @@ fn validate_block_a(region: &[u8], block_a: &BlockAExpectation) -> Result<(), St
     Ok(())
 }
 
-fn write_field_data(region: &mut [u8]) {
-    write_f32_le(region, BEAT_PHASE01_OFFSET, 0.5);
-    write_f32_le(region, LEVEL_OFFSET, 0.25);
-    region[LOOP_ACTIVE_OFFSET] = 0;
-    write_f64_le(region, MEDIA_TIME_SECONDS_OFFSET, 128.5);
-    write_u64_le(region, SAMPLE_POSITION_OFFSET, SAMPLE_POSITION);
-    write_u32_le(region, STEM_GAINS_COUNT_OFFSET, 2);
-    write_f32_le(region, STEM_GAINS_ELEMENTS_OFFSET, 0.25);
-    write_f32_le(
-        region,
-        STEM_GAINS_ELEMENTS_OFFSET + STEM_GAINS_UNIT_BYTE_LENGTH as usize,
-        0.5,
-    );
-    region[STEM_GAINS_ELEMENTS_OFFSET + 8..STEM_GAINS_ELEMENTS_OFFSET + 16].fill(0);
-    write_f32_le(region, TEMPO_RATIO_OFFSET, 1.25);
-    region[TRANSPORT_STATE_OFFSET] = 3;
-}
-
+#[cfg(test)]
 fn write_u32_le(region: &mut [u8], offset: usize, value: u32) {
     region[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
 }
 
+#[cfg(test)]
 fn write_u64_le(region: &mut [u8], offset: usize, value: u64) {
     region[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
 }
 
+#[cfg(test)]
 fn write_f32_le(region: &mut [u8], offset: usize, value: f32) {
     region[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
-}
-
-fn write_f64_le(region: &mut [u8], offset: usize, value: f64) {
-    region[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
 }
 
 fn read_hot_region_bytes_hex(source: &str) -> Result<String, String> {
@@ -1213,6 +1417,28 @@ fn format_u64_hex_prefixed(value: u64) -> String {
 mod tests {
     use super::*;
 
+    static SAMPLE_STEM_GAINS: [f32; 2] = [0.25, 0.5];
+
+    fn sample_deck_runtime_snapshot() -> deck_runtime_hot_writer::DeckRuntimeSnapshot<'static> {
+        deck_runtime_hot_writer::DeckRuntimeSnapshot {
+            beat_phase01: 0.5,
+            level: 0.25,
+            loop_active: false,
+            media_time_seconds: 128.5,
+            sample_position: SAMPLE_POSITION,
+            stem_gains: &SAMPLE_STEM_GAINS,
+            tempo_ratio: 1.25,
+            transport_state: deck_runtime_hot_writer::DeckRuntimeTransportState::Paused,
+        }
+    }
+
+    fn sample_deck_runtime_publication() -> deck_runtime_hot_writer::DeckRuntimePublication {
+        deck_runtime_hot_writer::DeckRuntimePublication {
+            baseline_epoch: BASELINE_EPOCH,
+            continuity_generation: CONTINUITY_GENERATION,
+        }
+    }
+
     fn test_block_a_expectation() -> BlockAExpectation {
         let mut block_a_bytes = [0_u8; BLOCK_A_SIZE];
         let semantic_version = 0xe363_6f7c_dffa_73b2;
@@ -1244,11 +1470,27 @@ mod tests {
     }
 
     #[test]
-    fn writes_little_endian_block_b_values() {
+    fn generated_writer_publishes_little_endian_block_b_values() {
         let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
 
-        write_block_b(&mut region);
+        let result = deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
 
+        assert_eq!(
+            result,
+            deck_runtime_hot_writer::DeckRuntimePublishResult {
+                previous_seqlock_counter: 0,
+                seqlock_counter: SEQLOCK_COUNTER,
+                previous_publication_sequence: 0,
+                publication_sequence: PUBLICATION_SEQUENCE,
+            }
+        );
         assert_eq!(
             &region[SEQLOCK_OFFSET..SEQLOCK_OFFSET + 8],
             &[2, 0, 0, 0, 0, 0, 0, 0]
@@ -1290,11 +1532,18 @@ mod tests {
     }
 
     #[test]
-    fn zeroes_unused_bounded_array_slots() {
+    fn generated_writer_zeroes_unused_bounded_array_slots() {
         let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
         region[STEM_GAINS_ELEMENTS_OFFSET + 8..STEM_GAINS_ELEMENTS_OFFSET + 16].fill(0xff);
 
-        write_field_data(&mut region);
+        deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+            &mut region,
+            &block_a,
+            sample_deck_runtime_publication(),
+            &sample_deck_runtime_snapshot(),
+        )
+        .unwrap();
 
         assert_eq!(
             &region[STEM_GAINS_ELEMENTS_OFFSET + 8..STEM_GAINS_ELEMENTS_OFFSET + 16],
@@ -1337,6 +1586,143 @@ mod tests {
         assert!(read_stem_gains(&region)
             .unwrap_err()
             .contains("stemGains bounded array count exceeds maxCount"));
+    }
+
+    #[test]
+    fn generated_writer_rejects_bounded_array_overflow_before_writing() {
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; BLOCK_A_SIZE];
+        let gains = [0.0, 0.25, 0.5, 0.75, 1.0];
+        let snapshot = deck_runtime_hot_writer::DeckRuntimeSnapshot {
+            stem_gains: &gains,
+            ..sample_deck_runtime_snapshot()
+        };
+
+        assert_eq!(
+            deck_runtime_hot_writer::publish_deck_runtime_snapshot(
+                &mut region,
+                &block_a,
+                sample_deck_runtime_publication(),
+                &snapshot,
+            )
+            .unwrap_err(),
+            deck_runtime_hot_writer::DeckRuntimeWriteError::BoundedArrayOverflow {
+                field: "stemGains",
+                max_count: 4,
+                actual: 5,
+            }
+        );
+        assert_eq!(&region[SEQLOCK_OFFSET..SEQLOCK_OFFSET + 8], &[0; 8]);
+    }
+
+    #[test]
+    fn generated_hot_exchange_writer_handles_fixed_strings_and_vectors() {
+        let mut region = vec![0_u8; hot_exchange_hot_writer::TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; hot_exchange_hot_writer::BLOCK_A_SIZE];
+        let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+            display_name: "deckB-hot",
+            gain: 0.5,
+            level_vector: [0.0, 0.25, 0.75, 1.0],
+            phase: 256.25,
+            revision: 57_006,
+        };
+
+        let result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+            &mut region,
+            &block_a,
+            hot_exchange_hot_writer::HotExchangePublication {
+                baseline_epoch: BASELINE_EPOCH,
+                continuity_generation: CONTINUITY_GENERATION,
+            },
+            &snapshot,
+        )
+        .unwrap();
+
+        assert_eq!(result.seqlock_counter, SEQLOCK_COUNTER);
+        assert_eq!(result.publication_sequence, PUBLICATION_SEQUENCE);
+        assert_eq!(
+            &region[hot_exchange_hot_writer::DISPLAY_NAME_OFFSET
+                ..hot_exchange_hot_writer::DISPLAY_NAME_OFFSET + 9],
+            b"deckB-hot"
+        );
+        assert_eq!(
+            &region[hot_exchange_hot_writer::DISPLAY_NAME_OFFSET + 9
+                ..hot_exchange_hot_writer::DISPLAY_NAME_OFFSET
+                    + hot_exchange_hot_writer::DISPLAY_NAME_BYTE_LENGTH],
+            &[0; 7]
+        );
+    }
+
+    #[test]
+    fn generated_hot_exchange_writer_rejects_fixed_string_too_long_before_publishing() {
+        let mut region = vec![0_u8; hot_exchange_hot_writer::TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; hot_exchange_hot_writer::BLOCK_A_SIZE];
+        let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+            display_name: "deckB-hot-123456789",
+            gain: 0.5,
+            level_vector: [0.0, 0.25, 0.75, 1.0],
+            phase: 256.25,
+            revision: 57_006,
+        };
+
+        let result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+            &mut region,
+            &block_a,
+            hot_exchange_hot_writer::HotExchangePublication {
+                baseline_epoch: BASELINE_EPOCH,
+                continuity_generation: CONTINUITY_GENERATION,
+            },
+            &snapshot,
+        );
+
+        assert_eq!(
+            result,
+            Err(hot_exchange_hot_writer::HotExchangeWriteError::FixedStringTooLong {
+                field: "displayName",
+                max_bytes: 16,
+                actual_bytes: 19,
+            })
+        );
+        assert_eq!(
+            &region[hot_exchange_hot_writer::SEQLOCK_OFFSET
+                ..hot_exchange_hot_writer::SEQLOCK_OFFSET + 8],
+            &[0; 8]
+        );
+    }
+
+    #[test]
+    fn generated_hot_exchange_writer_rejects_fixed_string_non_ascii_before_publishing() {
+        let mut region = vec![0_u8; hot_exchange_hot_writer::TOTAL_REGION_BYTE_LENGTH];
+        let block_a = [0_u8; hot_exchange_hot_writer::BLOCK_A_SIZE];
+        let snapshot = hot_exchange_hot_writer::HotExchangeSnapshot {
+            display_name: "deckB-\u{e1}",
+            gain: 0.5,
+            level_vector: [0.0, 0.25, 0.75, 1.0],
+            phase: 256.25,
+            revision: 57_006,
+        };
+
+        let result = hot_exchange_hot_writer::publish_hot_exchange_snapshot(
+            &mut region,
+            &block_a,
+            hot_exchange_hot_writer::HotExchangePublication {
+                baseline_epoch: BASELINE_EPOCH,
+                continuity_generation: CONTINUITY_GENERATION,
+            },
+            &snapshot,
+        );
+
+        assert_eq!(
+            result,
+            Err(hot_exchange_hot_writer::HotExchangeWriteError::FixedStringNonAscii {
+                field: "displayName",
+            })
+        );
+        assert_eq!(
+            &region[hot_exchange_hot_writer::SEQLOCK_OFFSET
+                ..hot_exchange_hot_writer::SEQLOCK_OFFSET + 8],
+            &[0; 8]
+        );
     }
 
     #[test]

@@ -66,7 +66,12 @@ export type HotReservationEntry = {
 };
 
 export type HotLayoutManifest = {
+  readonly blockASize: number;
+  readonly blockBStartOffset: number;
+  readonly baselineEpochOffset: number;
+  readonly continuityGenOffset: number;
   readonly contractKey: string;
+  readonly fieldDataOrigin: number;
   readonly hotAbiVersion: number;
   readonly hotLayoutVersion: string;
   readonly seqlockOffset: number;
@@ -87,7 +92,12 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
   const seqlockOffset = parsed.seqlockOffset;
   const publicationSeqOffset = parsed.publicationSeqOffset;
   const totalRegionByteLength = parsed.totalRegionByteLength;
+  const blockASize = parsed.blockASize;
+  const blockBStartOffset = parsed.blockBStartOffset;
+  const baselineEpochOffset = parsed.baselineEpochOffset;
+  const continuityGenOffset = parsed.continuityGenOffset;
   const contractKey = parsed.contractKey;
+  const fieldDataOrigin = parsed.fieldDataOrigin;
   const hotAbiVersion = parsed.hotAbiVersion;
   const hotLayoutVersion = parsed.hotLayoutVersion;
   const fields = parsed.fields;
@@ -102,6 +112,11 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
     typeof seqlockOffset !== "number" ||
     typeof publicationSeqOffset !== "number" ||
     typeof totalRegionByteLength !== "number" ||
+    typeof blockASize !== "number" ||
+    typeof blockBStartOffset !== "number" ||
+    typeof baselineEpochOffset !== "number" ||
+    typeof continuityGenOffset !== "number" ||
+    typeof fieldDataOrigin !== "number" ||
     !Array.isArray(fields) ||
     !Array.isArray(reservations) ||
     typeof mutableRegionByteLength !== "number" ||
@@ -111,7 +126,12 @@ export async function readHotLayoutManifest(path: string): Promise<HotLayoutMani
   }
 
   return {
+    blockASize,
+    blockBStartOffset,
+    baselineEpochOffset,
+    continuityGenOffset,
     contractKey,
+    fieldDataOrigin,
     hotAbiVersion,
     hotLayoutVersion,
     seqlockOffset,

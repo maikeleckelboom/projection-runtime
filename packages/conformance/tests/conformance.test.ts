@@ -31,6 +31,7 @@ import {
 import { createHotExchangeWriter } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-writer.ts";
 import { writeGeneratedHotReader } from "../../../scripts/projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "../../../scripts/projection-runtime/write-generated-hot-writer.mts";
+import { writeGeneratedRustHotWriter } from "../../../scripts/projection-runtime/write-generated-rust-hot-writer.mts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -59,6 +60,7 @@ const GENERATED_HOT_ARTIFACT_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
   "generated/hot-reader.ts",
   "generated/hot-writer.ts",
+  "generated/hot_writer.rs",
   "generated/artifacts.json",
 ] as const;
 
@@ -103,6 +105,28 @@ type RustHotReaderOutput = {
     readonly stemGains: readonly number[];
     readonly tempoRatio: number;
     readonly transportState: string;
+  };
+  readonly blockB: {
+    readonly seqlockCounter: string;
+    readonly baselineEpoch: number;
+    readonly continuityGeneration: number;
+    readonly publicationSequence: string;
+  };
+};
+
+type HotExchangeRustWriterOutput = {
+  readonly fixtureKind: "rust-hot-writer-output";
+  readonly fixtureName: string;
+  readonly contractKey: string;
+  readonly hotAbiVersion: number;
+  readonly hotLayoutVersion: string;
+  readonly hotRegionBytesHex: string;
+  readonly snapshot: {
+    readonly displayName: string;
+    readonly gain: number;
+    readonly levelVector: readonly number[];
+    readonly phase: number;
+    readonly revision: number;
   };
   readonly blockB: {
     readonly seqlockCounter: string;
@@ -278,6 +302,7 @@ describe("@exclave/conformance fixture loading", () => {
         },
         artifacts: {
           reader: "hot-reader.ts",
+          rustWriter: "hot_writer.rs",
           writer: "hot-writer.ts",
         },
       });
@@ -286,6 +311,7 @@ describe("@exclave/conformance fixture loading", () => {
       expect(readFileSync(resolve(generatedRoot, source.hotCompleteFixtureRegion as string)));
       expect(readFileSync(resolve(generatedRoot, source.resolvedContract as string)));
       expect(readFileSync(resolve(generatedRoot, artifacts.reader as string)));
+      expect(readFileSync(resolve(generatedRoot, artifacts.rustWriter as string)));
       expect(readFileSync(resolve(generatedRoot, artifacts.writer as string)));
       expect(artifactManifest.contractKey).toBe(hotLayoutManifest.contractKey);
       expect(artifactManifest.hotAbiVersion).toBe(hotLayoutManifest.hotAbiVersion);
@@ -607,7 +633,7 @@ describe("@exclave/conformance execution", () => {
     expect(result.snapshot.stemGains).toEqual([1, 0.875, 0.5, 0.25]);
   });
 
-  it("reads Rust-written deck-runtime-v0 hot region bytes through the generated reader", async () => {
+  it("reads generated Rust-written deck-runtime-v0 hot region bytes through the generated reader", async () => {
     const artifactManifestRelativePath =
       "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
     const artifactManifestPath = resolve(fixtureRoot, "deck-runtime-v0/generated/artifacts.json");
@@ -644,9 +670,14 @@ describe("@exclave/conformance execution", () => {
       maxTornReads: 0,
     });
     const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
-    const existingCompleteRegion = cloneRecord(
-      (await loadProjectionRuntimeFixture("deck-runtime-v0")).artifacts.hotCompleteFixtureRegion,
-    );
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const existingCompleteRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
+    const expectedBlockA = cloneRecord(cloneRecord(hotBlockAFixture.expected).decoded);
+    const hotLayoutFields = hotLayoutManifest.fields;
+    if (!Array.isArray(hotLayoutFields)) {
+      throw new Error("deck-runtime hot layout manifest fields must be an array");
+    }
     const expectedSnapshot = {
       beatPhase01: 0.5,
       level: 0.25,
@@ -657,6 +688,14 @@ describe("@exclave/conformance execution", () => {
       tempoRatio: 1.25,
       transportState: "paused",
     } satisfies DeckRuntimeSnapshot;
+    const decoded = decodeHotCompleteFixtureRegion(
+      decodeHotLayoutManifestFixture(hotLayoutManifest),
+      bytes,
+      {
+        expectedContractKey: "fixture.deckRuntime",
+        expectedInstanceKey: "deck-runtime-v0.instance",
+      },
+    );
 
     expect(rustOutput).toMatchObject({
       fixtureKind: "rust-hot-writer-output",
@@ -686,12 +725,26 @@ describe("@exclave/conformance execution", () => {
     expect(rustOutput.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
     expect(rustOutput.hotRegionBytesHex).toMatch(/^[\da-f]+$/);
     expect(bytes.byteLength).toBe(hotLayoutManifest.totalRegionByteLength);
-    expect(
-      decodeHotCompleteFixtureRegion(decodeHotLayoutManifestFixture(hotLayoutManifest), bytes, {
-        expectedContractKey: "fixture.deckRuntime",
-        expectedInstanceKey: "deck-runtime-v0.instance",
-      }).fieldValues,
-    ).toEqual(expectedSnapshot);
+    expect(decoded.blockA.regionMagicHex).toBe(expectedBlockA.regionMagicHex);
+    expect(decoded.blockA.hotAbiVersion).toBe(expectedBlockA.hotAbiVersion);
+    expect(decoded.blockA.contractKeyHashHex).toBe(expectedBlockA.contractKeyHashHex);
+    expect(decoded.blockA.instanceKeyHashHex).toBe(expectedBlockA.instanceKeyHashHex);
+    expect(decoded.blockA.semanticVersion).toBe(
+      BigInt(`0x${expectedBlockA.semanticVersion as string}`),
+    );
+    expect(decoded.blockA.hotLayoutVersion).toBe(
+      BigInt(`0x${expectedBlockA.hotLayoutVersion as string}`),
+    );
+    expect(decoded.blockA.fieldCount).toBe(hotLayoutFields.length);
+    expect(decoded.blockA.mutableRegionByteLength).toBe(hotLayoutManifest.mutableRegionByteLength);
+    expect(decoded.blockA.reservedHex).toBe(expectedBlockA.reservedHex);
+    expect(decoded.blockB).toEqual({
+      seqlockCounter: 0x0000_0000_0000_0002n,
+      baselineEpoch: 7,
+      continuityGeneration: 3,
+      publicationSequence: 0x0000_0000_0000_0001n,
+    });
+    expect(decoded.fieldValues).toEqual(expectedSnapshot);
     expect(rustOutput.hotRegionBytesHex).not.toBe(
       existingCompleteRegion.completeFixtureRegionBytesHex,
     );
@@ -712,7 +765,97 @@ describe("@exclave/conformance execution", () => {
     expect(view.getUint32(HOT_BASELINE_EPOCH_U32_OFFSET, true)).toBe(7);
     expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(3);
     expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
+    expect(
+      readUnusedStemGainSlotBytes(region, hotLayoutManifest, expectedSnapshot.stemGains),
+    ).toEqual(new Uint8Array(8));
     expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
+  }, 30_000);
+
+  it("reads generated Rust-written hot-exchange-v0 hot region bytes through the generated reader", async () => {
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/hot-exchange-v0/generated/artifacts.json";
+    const artifactManifestPath = resolve(fixtureRoot, "hot-exchange-v0/generated/artifacts.json");
+    const artifactManifest = JSON.parse(readFileSync(artifactManifestPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const hotLayoutManifest = JSON.parse(
+      readFileSync(resolve(fixtureRoot, "hot-exchange-v0/hot-layout-manifest.json"), "utf8"),
+    ) as Record<string, unknown>;
+    const rustOutput = JSON.parse(
+      execFileSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "write-hot-exchange",
+          artifactManifestRelativePath,
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      ),
+    ) as HotExchangeRustWriterOutput;
+    const bytes = hexToBytes(rustOutput.hotRegionBytesHex);
+    const region = copyIntoSharedRegion(bytes);
+    const reader = createHotExchangeReader(region, { instanceKey: "hot-exchange-v0.instance" });
+    const result = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+    const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+
+    const expectedSnapshot = {
+      displayName: "deckB-hot",
+      gain: 0.5,
+      levelVector: [0, 0.25, 0.75, 1],
+      phase: 256.25,
+      revision: 57_006,
+    } satisfies HotExchangeSnapshot;
+
+    expect(rustOutput).toMatchObject({
+      fixtureKind: "rust-hot-writer-output",
+      fixtureName: artifactManifest.fixtureName,
+      contractKey: artifactManifest.contractKey,
+      hotAbiVersion: artifactManifest.hotAbiVersion,
+      hotLayoutVersion: artifactManifest.hotLayoutVersion,
+      snapshot: expectedSnapshot,
+      blockB: {
+        seqlockCounter: "0x0000000000000002",
+        baselineEpoch: 7,
+        continuityGeneration: 3,
+        publicationSequence: "0x0000000000000001",
+      },
+    });
+    expect(rustOutput.contractKey).toBe(hotLayoutManifest.contractKey);
+    expect(rustOutput.hotAbiVersion).toBe(hotLayoutManifest.hotAbiVersion);
+    expect(rustOutput.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
+    expect(rustOutput.hotRegionBytesHex).toMatch(/^[\da-f]+$/);
+    expect(bytes.byteLength).toBe(hotLayoutManifest.totalRegionByteLength);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated hot-exchange reader to consume Rust-written bytes");
+    }
+    expect(result.sequence).toBe(0x0000_0000_0000_0002n);
+    expect(result.sequence % 2n).toBe(0n);
+    expect(result.snapshot).toEqual(expectedSnapshot);
+    expect(Atomics.load(blockBSeqlockView(region), 0)).toBe(0x0000_0000_0000_0002n);
+    expect(view.getUint32(HOT_BASELINE_EPOCH_U32_OFFSET, true)).toBe(7);
+    expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(3);
+    expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
+    expect(readHotExchangeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
+
+    const displayNameLayout = fixedStringFieldLayout(hotLayoutManifest, "displayName");
+    const unusedBytes = region.slice(
+      displayNameLayout.absoluteOffset + "deckB-hot".length,
+      displayNameLayout.absoluteOffset + displayNameLayout.byteLength,
+    );
+    expect(unusedBytes).toEqual(new Uint8Array(7));
   }, 30_000);
 
   it("rejects malformed deck-runtime-v0 Block A bytes through the Rust reader", async () => {
@@ -1512,6 +1655,23 @@ describe("@exclave/conformance execution", () => {
     }
   });
 
+  it("keeps generated Rust hot writer sources zero-discovery", () => {
+    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+      readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot_writer.rs"), "utf8"),
+    );
+
+    for (const source of sources) {
+      expect(source).toContain("publish_");
+      expect(source).toContain("Snapshot");
+      expect(source).not.toContain(".fields");
+      expect(source).not.toContain("dotPath");
+      expect(source).not.toContain("shape");
+      expect(source).not.toContain(".find(");
+      expect(source).not.toContain("SharedArrayBuffer");
+      expect(source).not.toContain("@exclave");
+    }
+  });
+
   it("rejects generated reader manifests with duplicate field dotPaths", async () => {
     await expectGeneratedReaderManifestRejected((manifest) => {
       const fields = manifest.fields as Record<string, unknown>[];
@@ -1573,6 +1733,19 @@ describe("@exclave/conformance execution", () => {
         dotPath: fields[0]?.dotPath,
       };
     }, "duplicates beatPhase01");
+  });
+
+  it("rejects generated Rust writer enum variants that cannot become Rust enum variants", async () => {
+    await expectGeneratedRustWriterManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      const transportState = fields.find((field) => field.dotPath === "transportState");
+      if (transportState === undefined) {
+        throw new Error("deck-runtime manifest must contain transportState");
+      }
+      const shape = cloneRecord(transportState.shape);
+      shape.variants = ["not-safe"];
+      transportState.shape = shape;
+    }, "variant not-safe is not supported by generated Rust writer v0");
   });
 
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
@@ -1945,6 +2118,85 @@ function deckRuntimeExpectedFieldValues(completeRegion: Record<string, unknown>)
   };
 }
 
+function readUnusedStemGainSlotBytes(
+  region: Uint8Array,
+  hotLayoutManifest: Record<string, unknown>,
+  logicalValues: readonly unknown[],
+): Uint8Array {
+  const reservations = hotLayoutManifest.reservations;
+  if (!Array.isArray(reservations)) {
+    throw new Error("deck-runtime hot layout manifest reservations must be an array");
+  }
+
+  const reservation = reservations.find(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      entry.dotPath === "stemGains",
+  );
+
+  if (reservation === undefined) {
+    throw new Error("deck-runtime hot layout manifest must contain a stemGains reservation");
+  }
+
+  const elementsOffset = reservation.elementsOffset;
+  const maxCount = reservation.maxCount;
+  const unitByteLength = reservation.unitByteLength;
+  if (
+    typeof elementsOffset !== "number" ||
+    typeof maxCount !== "number" ||
+    typeof unitByteLength !== "number"
+  ) {
+    throw new Error("deck-runtime stemGains reservation offsets must be numeric");
+  }
+
+  const unusedStart = elementsOffset + logicalValues.length * unitByteLength;
+  const unusedEnd = elementsOffset + maxCount * unitByteLength;
+  return region.slice(unusedStart, unusedEnd);
+}
+
+function fixedStringFieldLayout(
+  manifest: Record<string, unknown>,
+  dotPath: string,
+): { absoluteOffset: number; byteLength: number } {
+  const fields = manifest.fields;
+  if (!Array.isArray(fields)) {
+    throw new Error("hot layout manifest fields must be an array");
+  }
+  const field = fields.find(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      entry.dotPath === dotPath,
+  );
+  if (field === undefined) {
+    throw new Error(`hot layout manifest field "${dotPath}" not found`);
+  }
+  const absoluteOffset = field.absoluteOffset;
+  if (typeof absoluteOffset !== "number") {
+    throw new Error(`hot layout manifest field "${dotPath}" absoluteOffset must be a number`);
+  }
+  const shape = field.shape;
+  if (typeof shape !== "object" || shape === null || Array.isArray(shape)) {
+    throw new Error(`hot layout manifest field "${dotPath}" shape must be an object`);
+  }
+  if (shape.kind !== "FixedStringEncoded") {
+    throw new Error(
+      `hot layout manifest field "${dotPath}" shape.kind must be "FixedStringEncoded"`,
+    );
+  }
+  if (shape.encoding !== "ascii") {
+    throw new Error(`hot layout manifest field "${dotPath}" shape.encoding must be "ascii"`);
+  }
+  const byteLength = shape.byteLength;
+  if (typeof byteLength !== "number") {
+    throw new Error(`hot layout manifest field "${dotPath}" shape.byteLength must be a number`);
+  }
+  return { absoluteOffset, byteLength };
+}
+
 async function expectGeneratedReaderManifestRejected(
   mutateManifest: (manifest: Record<string, unknown>) => void,
   expectedMessage: string,
@@ -1993,6 +2245,33 @@ async function expectGeneratedWriterManifestRejected(
         fixtureName: "malformed-fixture",
         symbolStem: "MalformedFixture",
         semanticVersion: "e3636f7cdffa73b2",
+        manifestPath,
+        outputPath,
+        generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
+      }),
+    ).rejects.toThrow(expectedMessage);
+  });
+}
+
+async function expectGeneratedRustWriterManifestRejected(
+  mutateManifest: (manifest: Record<string, unknown>) => void,
+  expectedMessage: string,
+): Promise<void> {
+  const baseManifest = JSON.parse(
+    readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+  ) as Record<string, unknown>;
+
+  mutateManifest(baseManifest);
+
+  await withTempFixtureRoot(async (root) => {
+    const manifestPath = resolve(root, "hot-layout-manifest.json");
+    const outputPath = resolve(root, "generated/hot_writer.rs");
+    await writeFile(manifestPath, `${JSON.stringify(baseManifest, null, 2)}\n`);
+
+    await expect(
+      writeGeneratedRustHotWriter({
+        fixtureName: "malformed-fixture",
+        symbolStem: "MalformedFixture",
         manifestPath,
         outputPath,
         generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
