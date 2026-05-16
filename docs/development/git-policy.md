@@ -66,7 +66,6 @@ Preferred scopes:
 
 - `base`
 - `schema`
-- `primitives`
 - `compiler`
 - `hot-codec`
 - `hot-consumer`

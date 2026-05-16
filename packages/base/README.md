@@ -3,7 +3,7 @@
 `@exclave/base` is the small shared foundation used by Exclave packages.
 
 It owns the portable pieces that every layer can agree on without pulling in
-schema, primitives, runtime composition, diagnostics, or application concerns.
+schema, runtime composition, diagnostics, or application concerns.
 
 ## What Belongs Here
 
@@ -16,11 +16,10 @@ schema, primitives, runtime composition, diagnostics, or application concerns.
 
 ## What Does Not Belong Here
 
-- Concrete error domains such as `schema.*`, `primitives.*`, `backing.*`, or
+- Concrete error domains such as `schema.*`, `compiler.*`, `conformance.*`, or
   `internal.*`.
 - Numeric domain allocation tables or registry aggregation.
 - Schema AST ownership.
-- Shared-memory primitives.
 - Core runtime planning, binding, handoff, or composition logic.
 - Compatibility wrappers or aliases for older private package paths.
 
