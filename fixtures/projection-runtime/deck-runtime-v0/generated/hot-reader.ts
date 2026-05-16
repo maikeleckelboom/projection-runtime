@@ -58,7 +58,7 @@ export function createDeckRuntimeReader(region: Uint8Array): DeckRuntimeReader {
         sequence: binding.seqlock,
         readCandidate: () => readDeckRuntimeSnapshotUnchecked(binding.region),
         state,
-        options,
+        ...(options !== undefined && { options }),
       }),
   };
 }

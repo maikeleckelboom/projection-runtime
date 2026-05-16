@@ -229,7 +229,7 @@ function renderCreateReaderFunction({
     "        sequence: binding.seqlock,",
     `        readCandidate: () => ${readFunctionName}(binding.region),`,
     "        state,",
-    "        options,",
+    "        ...(options !== undefined && { options }),",
     "      }),",
     "  };",
     "}",
