@@ -29,6 +29,7 @@ const config: UserConfig = {
         "session",
         "control-plane",
         "resource",
+        "warm",
         "fixtures",
         "docs",
         "tooling",

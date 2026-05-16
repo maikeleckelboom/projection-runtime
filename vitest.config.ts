@@ -26,6 +26,7 @@ const workspaceAliases = {
     new URL("./packages/control-plane/src/index.ts", import.meta.url),
   ),
   "@exclave/resource": fileURLToPath(new URL("./packages/resource/src/index.ts", import.meta.url)),
+  "@exclave/warm": fileURLToPath(new URL("./packages/warm/src/index.ts", import.meta.url)),
 };
 
 export default defineConfig({
@@ -157,6 +158,16 @@ export default defineConfig({
           name: "@exclave/resource",
           environment: "node",
           include: ["packages/resource/tests/**/*.test.ts", "packages/resource/src/**/*.test.ts"],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@exclave/warm",
+          environment: "node",
+          include: ["packages/warm/tests/**/*.test.ts", "packages/warm/src/**/*.test.ts"],
         },
       },
     ],
