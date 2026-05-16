@@ -17,7 +17,6 @@
     "paths": {
       "@exclave/base": ["packages/base/src/index.ts"],
       "@exclave/schema": ["packages/schema/src/index.ts"],
-      "@exclave/primitives": ["packages/primitives/src/index.ts"],
       "@exclave/hot-codec": ["packages/hot-codec/src/index.ts"],
       "@exclave/hot-binding": ["packages/hot-binding/src/index.ts"],
       "@exclave/hot-consumer": ["packages/hot-consumer/src/index.ts"],

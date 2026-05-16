@@ -4,9 +4,6 @@ import { defineConfig } from "vitest/config";
 
 const workspaceAliases = {
   "@exclave/base": fileURLToPath(new URL("./packages/base/src/index.ts", import.meta.url)),
-  "@exclave/primitives": fileURLToPath(
-    new URL("./packages/primitives/src/index.ts", import.meta.url),
-  ),
   "@exclave/schema": fileURLToPath(new URL("./packages/schema/src/index.ts", import.meta.url)),
   "@exclave/compiler": fileURLToPath(new URL("./packages/compiler/src/index.ts", import.meta.url)),
   "@exclave/conformance": fileURLToPath(
@@ -121,19 +118,6 @@ export default defineConfig({
           include: [
             "packages/hot-consumer/tests/**/*.test.ts",
             "packages/hot-consumer/src/**/*.test.ts",
-          ],
-        },
-      },
-      {
-        resolve: {
-          alias: workspaceAliases,
-        },
-        test: {
-          name: "@exclave/primitives",
-          environment: "node",
-          include: [
-            "packages/primitives/tests/**/*.test.ts",
-            "packages/primitives/src/**/*.test.ts",
           ],
         },
       },
