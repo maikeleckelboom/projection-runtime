@@ -8,6 +8,8 @@ import { ExclaveError } from "@exclave/base";
 import { type HotBindingError, isHotBindingError } from "@exclave/hot-binding";
 import {
   decodeHotCompleteFixtureRegion,
+  HOT_BASELINE_EPOCH_U32_OFFSET,
+  HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
   hexToBytes,
@@ -58,6 +60,31 @@ const GENERATED_HOT_ARTIFACT_FIXTURE_FILES = [
   "generated/hot-writer.ts",
   "generated/artifacts.json",
 ] as const;
+
+type RustHotWriterOutput = {
+  readonly fixtureKind: "rust-hot-writer-output";
+  readonly fixtureName: string;
+  readonly contractKey: string;
+  readonly hotAbiVersion: number;
+  readonly hotLayoutVersion: string;
+  readonly hotRegionBytesHex: string;
+  readonly snapshot: {
+    readonly beatPhase01: number;
+    readonly level: number;
+    readonly loopActive: boolean;
+    readonly mediaTimeSeconds: number;
+    readonly samplePosition: string;
+    readonly stemGains: readonly number[];
+    readonly tempoRatio: number;
+    readonly transportState: string;
+  };
+  readonly blockB: {
+    readonly seqlockCounter: string;
+    readonly baselineEpoch: number;
+    readonly continuityGeneration: number;
+    readonly publicationSequence: string;
+  };
+};
 
 describe("@exclave/conformance fixture discovery", () => {
   it("discovers all checked-in projection-runtime fixtures", async () => {
@@ -545,6 +572,100 @@ describe("@exclave/conformance execution", () => {
     expect(result.snapshot.transportState).toBe("playing");
     expect(result.snapshot.stemGains).toEqual([1, 0.875, 0.5, 0.25]);
   });
+
+  it("reads Rust-written deck-runtime-v0 hot region bytes through the generated reader", async () => {
+    const artifactManifestRelativePath =
+      "fixtures/projection-runtime/deck-runtime-v0/generated/artifacts.json";
+    const artifactManifestPath = resolve(fixtureRoot, "deck-runtime-v0/generated/artifacts.json");
+    const artifactManifest = JSON.parse(readFileSync(artifactManifestPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const hotLayoutManifest = JSON.parse(
+      readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+    ) as Record<string, unknown>;
+    const rustOutput = JSON.parse(
+      execFileSync(
+        "cargo",
+        ["run", "--quiet", "-p", "hot-writer-conformance", "--", artifactManifestRelativePath],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      ),
+    ) as RustHotWriterOutput;
+    const bytes = hexToBytes(rustOutput.hotRegionBytesHex);
+    const region = copyIntoSharedRegion(bytes);
+    const reader = createDeckRuntimeReader(region);
+    const result = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+    const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+    const existingCompleteRegion = cloneRecord(
+      (await loadProjectionRuntimeFixture("deck-runtime-v0")).artifacts.hotCompleteFixtureRegion,
+    );
+    const expectedSnapshot = {
+      beatPhase01: 0.5,
+      level: 0.25,
+      loopActive: false,
+      mediaTimeSeconds: 128.5,
+      samplePosition: 0x0020_0000_0000_0000n,
+      stemGains: [0.25, 0.5],
+      tempoRatio: 1.25,
+      transportState: "paused",
+    } satisfies DeckRuntimeSnapshot;
+
+    expect(rustOutput).toMatchObject({
+      fixtureKind: "rust-hot-writer-output",
+      fixtureName: artifactManifest.fixtureName,
+      contractKey: artifactManifest.contractKey,
+      hotAbiVersion: artifactManifest.hotAbiVersion,
+      hotLayoutVersion: artifactManifest.hotLayoutVersion,
+      snapshot: {
+        beatPhase01: 0.5,
+        level: 0.25,
+        loopActive: false,
+        mediaTimeSeconds: 128.5,
+        samplePosition: "0x0020000000000000",
+        stemGains: [0.25, 0.5],
+        tempoRatio: 1.25,
+        transportState: "paused",
+      },
+      blockB: {
+        seqlockCounter: "0x0000000000000002",
+        baselineEpoch: 7,
+        continuityGeneration: 3,
+        publicationSequence: "0x0000000000000001",
+      },
+    });
+    expect(rustOutput.contractKey).toBe(hotLayoutManifest.contractKey);
+    expect(rustOutput.hotAbiVersion).toBe(hotLayoutManifest.hotAbiVersion);
+    expect(rustOutput.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
+    expect(rustOutput.hotRegionBytesHex).toMatch(/^[\da-f]+$/);
+    expect(bytes.byteLength).toBe(hotLayoutManifest.totalRegionByteLength);
+    expect(rustOutput.hotRegionBytesHex).not.toBe(
+      existingCompleteRegion.completeFixtureRegionBytesHex,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated deck-runtime reader to consume Rust-written bytes");
+    }
+    expect(result.sequence).toBe(0x0000_0000_0000_0002n);
+    expect(result.sequence % 2n).toBe(0n);
+    expect(result.snapshot).toEqual(expectedSnapshot);
+    expect(result.snapshot).not.toEqual(deckRuntimeExpectedFieldValues(existingCompleteRegion));
+    expect(typeof result.snapshot.samplePosition).toBe("bigint");
+    expect(typeof result.snapshot.loopActive).toBe("boolean");
+    expect(result.snapshot.transportState).toBe("paused");
+    expect(result.snapshot.stemGains).toEqual([0.25, 0.5]);
+    expect(Atomics.load(blockBSeqlockView(region), 0)).toBe(0x0000_0000_0000_0002n);
+    expect(view.getUint32(HOT_BASELINE_EPOCH_U32_OFFSET, true)).toBe(7);
+    expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(3);
+    expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
+    expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
+  }, 30_000);
 
   it("publishes hot-exchange-v0 through the generated writer and reads it back through the generated reader", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");

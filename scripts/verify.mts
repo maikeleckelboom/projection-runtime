@@ -115,6 +115,7 @@ function compareString(left: string, right: string): number {
 run("typecheck", "pnpm", ["typecheck"]);
 run("test", "pnpm", ["test"]);
 run("build", "pnpm", ["build"]);
+run("cargo test", "cargo", ["test"]);
 run("biome check", "pnpm", ["exec", "biome", "check", "."]);
 
 const guardedRoots = [
