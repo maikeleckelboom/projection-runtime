@@ -123,11 +123,11 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
-    if args.first().map(String::as_str) == Some("read") {
-        return run_reader(&args);
+    match args.first().map(String::as_str) {
+        Some("write-deck-runtime") => run_writer(&args[1..]),
+        Some("read-deck-runtime") => run_reader(&args[1..]),
+        _ => Err(usage().to_string()),
     }
-
-    run_writer(&args)
 }
 
 fn run_writer(args: &[String]) -> Result<(), String> {
@@ -183,8 +183,8 @@ fn run_writer(args: &[String]) -> Result<(), String> {
 }
 
 fn run_reader(args: &[String]) -> Result<(), String> {
-    let artifact_manifest_path = args.get(1).ok_or_else(|| usage().to_string())?;
-    let hot_region_bytes_source = args.get(2).ok_or_else(|| usage().to_string())?;
+    let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
+    let hot_region_bytes_source = args.get(1).ok_or_else(|| usage().to_string())?;
     let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
     let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
 
@@ -228,7 +228,7 @@ fn run_reader(args: &[String]) -> Result<(), String> {
 }
 
 fn usage() -> &'static str {
-    "usage: hot-writer-conformance <generated/artifacts.json>\n       hot-writer-conformance read <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>"
+    "usage: hot-abi-conformance write-deck-runtime <generated/artifacts.json>\n       hot-abi-conformance read-deck-runtime <generated/artifacts.json> <hotRegionBytesHex|hot-region-bytes.json>"
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {

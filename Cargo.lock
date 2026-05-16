@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "hot-writer-conformance"
+name = "hot-abi-conformance"
 version = "0.0.0"
 dependencies = [
  "serde",

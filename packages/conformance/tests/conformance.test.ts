@@ -613,7 +613,15 @@ describe("@exclave/conformance execution", () => {
     const rustOutput = JSON.parse(
       execFileSync(
         "cargo",
-        ["run", "--quiet", "-p", "hot-writer-conformance", "--", artifactManifestRelativePath],
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "hot-abi-conformance",
+          "--",
+          "write-deck-runtime",
+          artifactManifestRelativePath,
+        ],
         {
           cwd: repoRoot,
           encoding: "utf8",
@@ -731,9 +739,9 @@ describe("@exclave/conformance execution", () => {
           "run",
           "--quiet",
           "-p",
-          "hot-writer-conformance",
+          "hot-abi-conformance",
           "--",
-          "read",
+          "read-deck-runtime",
           artifactManifestRelativePath,
           hotRegionBytesHex,
         ],
