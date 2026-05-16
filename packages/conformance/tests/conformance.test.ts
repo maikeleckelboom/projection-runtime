@@ -9,9 +9,14 @@ import { decodeHotCompleteFixtureRegion, hexToBytes } from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  createDeckRuntimeReader,
+  readDeckRuntimeSnapshotUnchecked,
+} from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-reader.ts";
+import {
   createHotExchangeReader,
   readHotExchangeSnapshotUnchecked,
 } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts";
+import { writeGeneratedHotReader } from "../../../scripts/projection-runtime/write-generated-hot-reader.mts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -36,7 +41,7 @@ const GENERATED_FIXTURE_FILES = [
   "hot-complete-fixture-region.json",
   "resolved-contract.json",
 ] as const;
-const GENERATED_HOT_EXCHANGE_FIXTURE_FILES = [
+const GENERATED_HOT_READER_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
   "generated/hot-reader.ts",
 ] as const;
@@ -460,6 +465,32 @@ describe("@exclave/conformance execution", () => {
     expect(readHotExchangeSnapshotUnchecked(region)).toEqual(result.snapshot);
   });
 
+  it("reads deck-runtime-v0 through the generated contract-shaped hot reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const reader = createDeckRuntimeReader(region);
+
+    const result = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated deck-runtime reader to succeed");
+    }
+    const expected = deckRuntimeExpectedFieldValues(completeRegion);
+    expect(result.sequence).toBe(2n);
+    expect(result.snapshot).toEqual(expected);
+    expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(result.snapshot);
+    expect(typeof result.snapshot.samplePosition).toBe("bigint");
+    expect(typeof result.snapshot.loopActive).toBe("boolean");
+    expect(result.snapshot.transportState).toBe("playing");
+    expect(result.snapshot.stemGains).toEqual([1, 0.875, 0.5, 0.25]);
+  });
+
   it("binds the generated hot-exchange seqlock view with a non-zero region byteOffset", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
@@ -478,6 +509,24 @@ describe("@exclave/conformance execution", () => {
     expect(result.snapshot).toEqual(cloneRecord(completeRegion.decoded).fieldValues);
   });
 
+  it("binds the generated deck-runtime seqlock view with a non-zero region byteOffset", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes, 8);
+    const result = createDeckRuntimeReader(region).tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected generated non-zero byteOffset deck-runtime read to succeed");
+    }
+    expect(result.sequence).toBe(2n);
+    expect(result.snapshot).toEqual(deckRuntimeExpectedFieldValues(completeRegion));
+  });
+
   it("rejects generated hot-exchange reader regions without SharedArrayBuffer backing", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
@@ -486,7 +535,7 @@ describe("@exclave/conformance execution", () => {
     region.set(bytes);
 
     expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange region must be backed by SharedArrayBuffer",
+      "hot-exchange-v0 region must be backed by SharedArrayBuffer",
     );
   });
 
@@ -494,7 +543,7 @@ describe("@exclave/conformance execution", () => {
     const region = new Uint8Array(new SharedArrayBuffer(151));
 
     expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange region must be at least 152 bytes",
+      "hot-exchange-v0 region must be at least 152 bytes",
     );
   });
 
@@ -505,20 +554,100 @@ describe("@exclave/conformance execution", () => {
     const region = copyIntoSharedRegion(bytes, 4);
 
     expect(() => createHotExchangeReader(region)).toThrow(
-      "hot-exchange seqlock view is not u64-aligned",
+      "hot-exchange-v0 seqlock view is not u64-aligned",
     );
   });
 
-  it("keeps the generated hot-exchange reader source zero-discovery", () => {
-    const source = readFileSync(
-      resolve(fixtureRoot, "hot-exchange-v0/generated/hot-reader.ts"),
-      "utf8",
+  it("rejects invalid generated deck-runtime bounded-array counts", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+    view.setUint32(128, 5, true);
+
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
+      "stemGains bounded array count exceeds maxCount",
+    );
+  });
+
+  it("rejects invalid generated deck-runtime enum discriminants", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const view = new DataView(region.buffer, region.byteOffset, region.byteLength);
+    view.setUint8(152, 9);
+
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
+      "transportState enum discriminant is outside variants",
+    );
+  });
+
+  it("keeps generated hot reader sources zero-discovery", () => {
+    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+      readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot-reader.ts"), "utf8"),
     );
 
-    expect(source).not.toContain(".fields");
-    expect(source).not.toContain("dotPath");
-    expect(source).not.toContain("shape");
-    expect(source).not.toContain(".find(");
+    for (const source of sources) {
+      expect(source).not.toContain(".fields");
+      expect(source).not.toContain("dotPath");
+      expect(source).not.toContain("shape");
+      expect(source).not.toContain(".find(");
+    }
+  });
+
+  it("rejects generated reader manifests with duplicate field dotPaths", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[1] = {
+        ...fields[1],
+        dotPath: fields[0]?.dotPath,
+      };
+    }, "duplicates beatPhase01");
+  });
+
+  it("rejects bounded array fields without reservations", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      manifest.reservations = [];
+    }, "must contain exactly one stemGains reservation");
+  });
+
+  it("rejects reservations without bounded array fields", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      const reservations = manifest.reservations as Record<string, unknown>[];
+      manifest.reservations = [
+        ...reservations,
+        {
+          ...reservations[0],
+          dotPath: "level",
+        },
+      ];
+    }, "does not belong to a BoundedArray field");
+  });
+
+  it("rejects generated reader manifests with out-of-range field offsets", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[0] = {
+        ...fields[0],
+        absoluteOffset: 159,
+      };
+    }, "byte range exceeds totalRegionByteLength");
+  });
+
+  it("rejects duplicate generated reader constant names", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[0] = {
+        ...fields[0],
+        dotPath: "xML",
+      };
+      fields[1] = {
+        ...fields[1],
+        dotPath: "xMl",
+      };
+    }, "generates duplicate constant X_ML_OFFSET");
   });
 
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
@@ -869,11 +998,53 @@ function readGeneratedFixtureFiles(
 function generatedFixtureFilesFor(
   fixtureName: "hot-basic-v0" | "deck-runtime-v0" | "hot-exchange-v0",
 ): readonly string[] {
-  if (fixtureName === "hot-exchange-v0") {
-    return GENERATED_HOT_EXCHANGE_FIXTURE_FILES;
+  if (fixtureName === "deck-runtime-v0" || fixtureName === "hot-exchange-v0") {
+    return GENERATED_HOT_READER_FIXTURE_FILES;
   }
 
   return GENERATED_FIXTURE_FILES;
+}
+
+function deckRuntimeExpectedFieldValues(completeRegion: Record<string, unknown>) {
+  const decoded = cloneRecord(completeRegion.decoded);
+  const fieldValues = cloneRecord(decoded.fieldValues);
+  const samplePosition = fieldValues.samplePosition;
+
+  if (typeof samplePosition !== "string") {
+    throw new Error("deck-runtime fixture samplePosition must be hex u64");
+  }
+
+  return {
+    ...fieldValues,
+    samplePosition: BigInt(`0x${samplePosition}`),
+  };
+}
+
+async function expectGeneratedReaderManifestRejected(
+  mutateManifest: (manifest: Record<string, unknown>) => void,
+  expectedMessage: string,
+): Promise<void> {
+  const baseManifest = JSON.parse(
+    readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+  ) as Record<string, unknown>;
+
+  mutateManifest(baseManifest);
+
+  await withTempFixtureRoot(async (root) => {
+    const manifestPath = resolve(root, "hot-layout-manifest.json");
+    const outputPath = resolve(root, "generated/hot-reader.ts");
+    await writeFile(manifestPath, `${JSON.stringify(baseManifest, null, 2)}\n`);
+
+    await expect(
+      writeGeneratedHotReader({
+        fixtureName: "malformed-fixture",
+        symbolStem: "MalformedFixture",
+        manifestPath,
+        outputPath,
+        generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
+      }),
+    ).rejects.toThrow(expectedMessage);
+  });
 }
 
 function copyIntoSharedRegion(bytes: Uint8Array, byteOffset = 0): Uint8Array {
