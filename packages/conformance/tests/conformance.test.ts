@@ -5,18 +5,28 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ExclaveError } from "@exclave/base";
-import { decodeHotCompleteFixtureRegion, hexToBytes } from "@exclave/hot-codec";
+import {
+  decodeHotCompleteFixtureRegion,
+  HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
+  HOT_SEQLOCK_U64_OFFSET,
+  hexToBytes,
+} from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   createDeckRuntimeReader,
+  type DeckRuntimeSnapshot,
   readDeckRuntimeSnapshotUnchecked,
 } from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-reader.ts";
+import { createDeckRuntimeWriter } from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-writer.ts";
 import {
   createHotExchangeReader,
+  type HotExchangeSnapshot,
   readHotExchangeSnapshotUnchecked,
 } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts";
+import { createHotExchangeWriter } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-writer.ts";
 import { writeGeneratedHotReader } from "../../../scripts/projection-runtime/write-generated-hot-reader.mts";
+import { writeGeneratedHotWriter } from "../../../scripts/projection-runtime/write-generated-hot-writer.mts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -41,9 +51,10 @@ const GENERATED_FIXTURE_FILES = [
   "hot-complete-fixture-region.json",
   "resolved-contract.json",
 ] as const;
-const GENERATED_HOT_READER_FIXTURE_FILES = [
+const GENERATED_HOT_ARTIFACT_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
   "generated/hot-reader.ts",
+  "generated/hot-writer.ts",
 ] as const;
 
 describe("@exclave/conformance fixture discovery", () => {
@@ -491,6 +502,97 @@ describe("@exclave/conformance execution", () => {
     expect(result.snapshot.stemGains).toEqual([1, 0.875, 0.5, 0.25]);
   });
 
+  it("publishes hot-exchange-v0 through the generated writer and reads it back through the generated reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const seqlock = blockBSeqlockView(region);
+    const publicationSequence = blockBPublicationSequenceView(region);
+    const previousSeqlockCounter = Atomics.load(seqlock, 0);
+    const previousPublicationSequence = Atomics.load(publicationSequence, 0);
+    const writer = createHotExchangeWriter(region);
+    const snapshot = {
+      displayName: "deckB-hot",
+      gain: 0.5,
+      levelVector: [0, 0.25, 0.75, 1],
+      phase: 256.25,
+      revision: 57_006,
+    } satisfies HotExchangeSnapshot;
+
+    const publishResult = writer.publish(snapshot);
+    const reader = createHotExchangeReader(region);
+    const readResult = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(publishResult).toEqual({
+      previousSeqlockCounter,
+      seqlockCounter: previousSeqlockCounter + 2n,
+      previousPublicationSequence,
+      publicationSequence: previousPublicationSequence + 1n,
+    });
+    expect(Atomics.load(seqlock, 0)).toBe(previousSeqlockCounter + 2n);
+    expect(Atomics.load(publicationSequence, 0)).toBe(previousPublicationSequence + 1n);
+    expect(readResult.ok).toBe(true);
+    if (!readResult.ok) {
+      throw new Error("expected generated hot-exchange round trip to succeed");
+    }
+    expect(readResult.sequence).toBe(previousSeqlockCounter + 2n);
+    expect(readResult.snapshot).toEqual(snapshot);
+    expect(readHotExchangeSnapshotUnchecked(region)).toEqual(snapshot);
+  });
+
+  it("publishes deck-runtime-v0 through the generated writer and reads it back through the generated reader", async () => {
+    const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+    const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+    const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+    const region = copyIntoSharedRegion(bytes);
+    const seqlock = blockBSeqlockView(region);
+    const publicationSequence = blockBPublicationSequenceView(region);
+    const previousSeqlockCounter = Atomics.load(seqlock, 0);
+    const previousPublicationSequence = Atomics.load(publicationSequence, 0);
+    const writer = createDeckRuntimeWriter(region);
+    const snapshot = {
+      beatPhase01: 0.5,
+      level: 0.25,
+      loopActive: false,
+      mediaTimeSeconds: 128.5,
+      samplePosition: 9_007_199_254_740_992n,
+      stemGains: [0.25, 0.5],
+      tempoRatio: 1.25,
+      transportState: "paused",
+    } satisfies DeckRuntimeSnapshot;
+
+    const publishResult = writer.publish(snapshot);
+    const reader = createDeckRuntimeReader(region);
+    const readResult = reader.tryRead({
+      maxWriterActivePolls: 0,
+      maxTornReads: 0,
+    });
+
+    expect(publishResult).toEqual({
+      previousSeqlockCounter,
+      seqlockCounter: previousSeqlockCounter + 2n,
+      previousPublicationSequence,
+      publicationSequence: previousPublicationSequence + 1n,
+    });
+    expect(Atomics.load(seqlock, 0)).toBe(previousSeqlockCounter + 2n);
+    expect(Atomics.load(publicationSequence, 0)).toBe(previousPublicationSequence + 1n);
+    expect(readResult.ok).toBe(true);
+    if (!readResult.ok) {
+      throw new Error("expected generated deck-runtime round trip to succeed");
+    }
+    expect(readResult.sequence).toBe(previousSeqlockCounter + 2n);
+    expect(readResult.snapshot).toEqual(snapshot);
+    expect(typeof readResult.snapshot.samplePosition).toBe("bigint");
+    expect(typeof readResult.snapshot.loopActive).toBe("boolean");
+    expect(readResult.snapshot.stemGains).toEqual([0.25, 0.5]);
+    expect(readResult.snapshot.transportState).toBe("paused");
+    expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(snapshot);
+  });
+
   it("binds the generated hot-exchange seqlock view with a non-zero region byteOffset", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
     const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
@@ -584,6 +686,76 @@ describe("@exclave/conformance execution", () => {
     );
   });
 
+  it("rejects generated hot-exchange writer displayName values that exceed the fixed byte length before publishing", async () => {
+    await expectHotExchangeWriterSnapshotRejected(
+      {
+        ...validHotExchangeSnapshot(),
+        displayName: "12345678901234567",
+      },
+      "displayName must fit",
+    );
+  });
+
+  it("rejects generated hot-exchange writer displayName values with non-ASCII text before publishing", async () => {
+    await expectHotExchangeWriterSnapshotRejected(
+      {
+        ...validHotExchangeSnapshot(),
+        displayName: "deck-\u00e1",
+      },
+      "displayName must contain ASCII only",
+    );
+  });
+
+  it("rejects generated deck-runtime writer samplePosition values outside u64 before publishing", async () => {
+    await expectDeckRuntimeWriterSnapshotRejected(
+      {
+        ...validDeckRuntimeSnapshot(),
+        samplePosition: 0x1_0000_0000_0000_0000n,
+      },
+      "samplePosition must be a bigint in u64 range",
+    );
+  });
+
+  it("rejects generated deck-runtime writer stemGains values longer than maxCount before publishing", async () => {
+    await expectDeckRuntimeWriterSnapshotRejected(
+      {
+        ...validDeckRuntimeSnapshot(),
+        stemGains: [0, 0.25, 0.5, 0.75, 1],
+      },
+      "stemGains length must be <=",
+    );
+  });
+
+  it("rejects generated deck-runtime writer stemGains values with non-finite elements before publishing", async () => {
+    await expectDeckRuntimeWriterSnapshotRejected(
+      {
+        ...validDeckRuntimeSnapshot(),
+        stemGains: [0.25, Number.NaN],
+      },
+      "stemGains.1 must be a finite number",
+    );
+  });
+
+  it("rejects generated deck-runtime writer invalid transportState values before publishing", async () => {
+    await expectDeckRuntimeWriterSnapshotRejected(
+      {
+        ...validDeckRuntimeSnapshot(),
+        transportState: "seeking",
+      } as unknown as DeckRuntimeSnapshot,
+      "transportState must be one of the generated variants",
+    );
+  });
+
+  it("rejects generated deck-runtime writer non-boolean loopActive values before publishing", async () => {
+    await expectDeckRuntimeWriterSnapshotRejected(
+      {
+        ...validDeckRuntimeSnapshot(),
+        loopActive: "true",
+      } as unknown as DeckRuntimeSnapshot,
+      "loopActive must be a boolean",
+    );
+  });
+
   it("keeps generated hot reader sources zero-discovery", () => {
     const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
       readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot-reader.ts"), "utf8"),
@@ -594,6 +766,21 @@ describe("@exclave/conformance execution", () => {
       expect(source).not.toContain("dotPath");
       expect(source).not.toContain("shape");
       expect(source).not.toContain(".find(");
+    }
+  });
+
+  it("keeps generated hot writer sources zero-discovery", () => {
+    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+      readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot-writer.ts"), "utf8"),
+    );
+
+    for (const source of sources) {
+      expect(source).toContain("publishHotRegion");
+      expect(source).not.toContain(".fields");
+      expect(source).not.toContain("dotPath");
+      expect(source).not.toContain("shape");
+      expect(source).not.toContain(".find(");
+      expect(source).not.toContain("@exclave/hot-codec");
     }
   });
 
@@ -648,6 +835,16 @@ describe("@exclave/conformance execution", () => {
         dotPath: "xMl",
       };
     }, "generates duplicate constant X_ML_OFFSET");
+  });
+
+  it("rejects generated writer manifests with duplicate field dotPaths", async () => {
+    await expectGeneratedWriterManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[1] = {
+        ...fields[1],
+        dotPath: fields[0]?.dotPath,
+      };
+    }, "duplicates beatPhase01");
   });
 
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
@@ -999,7 +1196,7 @@ function generatedFixtureFilesFor(
   fixtureName: "hot-basic-v0" | "deck-runtime-v0" | "hot-exchange-v0",
 ): readonly string[] {
   if (fixtureName === "deck-runtime-v0" || fixtureName === "hot-exchange-v0") {
-    return GENERATED_HOT_READER_FIXTURE_FILES;
+    return GENERATED_HOT_ARTIFACT_FIXTURE_FILES;
   }
 
   return GENERATED_FIXTURE_FILES;
@@ -1045,6 +1242,110 @@ async function expectGeneratedReaderManifestRejected(
       }),
     ).rejects.toThrow(expectedMessage);
   });
+}
+
+async function expectGeneratedWriterManifestRejected(
+  mutateManifest: (manifest: Record<string, unknown>) => void,
+  expectedMessage: string,
+): Promise<void> {
+  const baseManifest = JSON.parse(
+    readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+  ) as Record<string, unknown>;
+
+  mutateManifest(baseManifest);
+
+  await withTempFixtureRoot(async (root) => {
+    const manifestPath = resolve(root, "hot-layout-manifest.json");
+    const outputPath = resolve(root, "generated/hot-writer.ts");
+    await writeFile(manifestPath, `${JSON.stringify(baseManifest, null, 2)}\n`);
+
+    await expect(
+      writeGeneratedHotWriter({
+        fixtureName: "malformed-fixture",
+        symbolStem: "MalformedFixture",
+        manifestPath,
+        outputPath,
+        generatedFromPath: "fixtures/projection-runtime/malformed-fixture/hot-layout-manifest.json",
+      }),
+    ).rejects.toThrow(expectedMessage);
+  });
+}
+
+async function expectHotExchangeWriterSnapshotRejected(
+  snapshot: HotExchangeSnapshot,
+  expectedMessage: string,
+): Promise<void> {
+  const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");
+  const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+  const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+  const region = copyIntoSharedRegion(bytes);
+  const seqlock = blockBSeqlockView(region);
+  const publicationSequence = blockBPublicationSequenceView(region);
+  const beforeSeqlockCounter = Atomics.load(seqlock, 0);
+  const beforePublicationSequence = Atomics.load(publicationSequence, 0);
+  const beforeSnapshot = readHotExchangeSnapshotUnchecked(region);
+  const writer = createHotExchangeWriter(region);
+
+  expect(() => writer.publish(snapshot)).toThrow(expectedMessage);
+  expect(Atomics.load(seqlock, 0)).toBe(beforeSeqlockCounter);
+  expect(Atomics.load(publicationSequence, 0)).toBe(beforePublicationSequence);
+  expect(readHotExchangeSnapshotUnchecked(region)).toEqual(beforeSnapshot);
+}
+
+async function expectDeckRuntimeWriterSnapshotRejected(
+  snapshot: DeckRuntimeSnapshot,
+  expectedMessage: string,
+): Promise<void> {
+  const fixture = await loadProjectionRuntimeFixture("deck-runtime-v0");
+  const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+  const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+  const region = copyIntoSharedRegion(bytes);
+  const seqlock = blockBSeqlockView(region);
+  const publicationSequence = blockBPublicationSequenceView(region);
+  const beforeSeqlockCounter = Atomics.load(seqlock, 0);
+  const beforePublicationSequence = Atomics.load(publicationSequence, 0);
+  const beforeSnapshot = readDeckRuntimeSnapshotUnchecked(region);
+  const writer = createDeckRuntimeWriter(region);
+
+  expect(() => writer.publish(snapshot)).toThrow(expectedMessage);
+  expect(Atomics.load(seqlock, 0)).toBe(beforeSeqlockCounter);
+  expect(Atomics.load(publicationSequence, 0)).toBe(beforePublicationSequence);
+  expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(beforeSnapshot);
+}
+
+function validHotExchangeSnapshot(): HotExchangeSnapshot {
+  return {
+    displayName: "deckB-hot",
+    gain: 0.5,
+    levelVector: [0, 0.25, 0.75, 1],
+    phase: 256.25,
+    revision: 57_006,
+  };
+}
+
+function validDeckRuntimeSnapshot(): DeckRuntimeSnapshot {
+  return {
+    beatPhase01: 0.5,
+    level: 0.25,
+    loopActive: false,
+    mediaTimeSeconds: 128.5,
+    samplePosition: 9_007_199_254_740_992n,
+    stemGains: [0.25, 0.5],
+    tempoRatio: 1.25,
+    transportState: "paused",
+  };
+}
+
+function blockBSeqlockView(region: Uint8Array): BigUint64Array {
+  return new BigUint64Array(region.buffer, region.byteOffset + HOT_SEQLOCK_U64_OFFSET, 1);
+}
+
+function blockBPublicationSequenceView(region: Uint8Array): BigUint64Array {
+  return new BigUint64Array(
+    region.buffer,
+    region.byteOffset + HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
+    1,
+  );
 }
 
 function copyIntoSharedRegion(bytes: Uint8Array, byteOffset = 0): Uint8Array {

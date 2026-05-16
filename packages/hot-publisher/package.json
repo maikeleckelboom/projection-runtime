@@ -1,0 +1,33 @@
+{
+  "name": "@exclave/hot-publisher",
+  "version": "0.0.0",
+  "description": "Writer-side hot-lane publication transitions for already-opened Exclave Block B views.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "vitest run --root ../.. --project @exclave/hot-publisher",
+    "test:watch": "vitest --root ../.. --project @exclave/hot-publisher"
+  },
+  "dependencies": {
+    "@exclave/base": "workspace:*"
+  }
+}

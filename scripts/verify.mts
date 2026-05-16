@@ -122,6 +122,7 @@ const guardedRoots = [
   resolve(root, "packages/compiler/src"),
   resolve(root, "packages/conformance/src"),
   resolve(root, "packages/hot-consumer/src"),
+  resolve(root, "packages/hot-publisher/src"),
 ];
 
 const allSourceFiles = guardedRoots.flatMap(readSourceFiles);

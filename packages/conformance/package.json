@@ -30,6 +30,7 @@
   "dependencies": {
     "@exclave/base": "workspace:*",
     "@exclave/compiler": "workspace:*",
-    "@exclave/hot-codec": "workspace:*"
+    "@exclave/hot-codec": "workspace:*",
+    "@exclave/hot-publisher": "workspace:*"
   }
 }

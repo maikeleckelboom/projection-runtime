@@ -7,6 +7,7 @@
     { "path": "./packages/schema" },
     { "path": "./packages/hot-codec" },
     { "path": "./packages/hot-consumer" },
+    { "path": "./packages/hot-publisher" },
     { "path": "./packages/compiler" },
     { "path": "./packages/conformance" },
     { "path": "./packages/primitives" }
