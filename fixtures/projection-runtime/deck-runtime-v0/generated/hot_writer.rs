@@ -52,9 +52,52 @@ pub enum DeckRuntimeWriteError {
     WriterActiveSeqlock { counter: u64 },
     SeqlockOverflow { counter: u64 },
     PublicationSequenceOverflow { sequence: u64 },
+    LayoutRangeOutOfBounds {
+        field: &'static str,
+        offset: usize,
+        byte_length: usize,
+        total_region_byte_length: usize,
+    },
+    LayoutOverlapsBlockA {
+        field: &'static str,
+        offset: usize,
+        byte_length: usize,
+        block_a_size: usize,
+    },
+    LayoutRangesOverlap {
+        first_field: &'static str,
+        first_offset: usize,
+        first_byte_length: usize,
+        second_field: &'static str,
+        second_offset: usize,
+        second_byte_length: usize,
+    },
     BoundedArrayOverflow { field: &'static str, max_count: usize, actual: usize },
     FixedStringTooLong { field: &'static str, max_bytes: usize, actual_bytes: usize },
     FixedStringNonAscii { field: &'static str },
+}
+
+impl From<hot_publication::HotPublicationError> for DeckRuntimeWriteError {
+    fn from(error: hot_publication::HotPublicationError) -> Self {
+        match error {
+            hot_publication::HotPublicationError::RegionTooShort { expected_minimum, actual } =>
+                DeckRuntimeWriteError::RegionTooShort { expected_minimum, actual },
+            hot_publication::HotPublicationError::BlockALength { expected, actual } =>
+                DeckRuntimeWriteError::BlockALength { expected, actual },
+            hot_publication::HotPublicationError::WriterActiveSeqlock { counter } =>
+                DeckRuntimeWriteError::WriterActiveSeqlock { counter },
+            hot_publication::HotPublicationError::SeqlockOverflow { counter } =>
+                DeckRuntimeWriteError::SeqlockOverflow { counter },
+            hot_publication::HotPublicationError::PublicationSequenceOverflow { sequence } =>
+                DeckRuntimeWriteError::PublicationSequenceOverflow { sequence },
+            hot_publication::HotPublicationError::LayoutRangeOutOfBounds { field, offset, byte_length, total_region_byte_length } =>
+                DeckRuntimeWriteError::LayoutRangeOutOfBounds { field, offset, byte_length, total_region_byte_length },
+            hot_publication::HotPublicationError::LayoutOverlapsBlockA { field, offset, byte_length, block_a_size } =>
+                DeckRuntimeWriteError::LayoutOverlapsBlockA { field, offset, byte_length, block_a_size },
+            hot_publication::HotPublicationError::LayoutRangesOverlap { first_field, first_offset, first_byte_length, second_field, second_offset, second_byte_length } =>
+                DeckRuntimeWriteError::LayoutRangesOverlap { first_field, first_offset, first_byte_length, second_field, second_offset, second_byte_length },
+        }
+    }
 }
 
 pub const BLOCK_A_SIZE: usize = 72;
@@ -83,46 +126,33 @@ pub fn publish_deck_runtime_snapshot(
     publication: DeckRuntimePublication,
     snapshot: &DeckRuntimeSnapshot<'_>,
 ) -> Result<DeckRuntimePublishResult, DeckRuntimeWriteError> {
-    require_region_length(region)?;
-    require_block_a_length(block_a)?;
     validate_deck_runtime_snapshot(snapshot)?;
 
-    let previous_seqlock_counter = read_u64_le(region, SEQLOCK_OFFSET);
-    if previous_seqlock_counter & 1 == 1 {
-        return Err(DeckRuntimeWriteError::WriterActiveSeqlock {
-            counter: previous_seqlock_counter,
-        });
-    }
-    let seqlock_counter = previous_seqlock_counter
-        .checked_add(2)
-        .ok_or(DeckRuntimeWriteError::SeqlockOverflow {
-            counter: previous_seqlock_counter,
-        })?;
-    let active_seqlock_counter = previous_seqlock_counter + 1;
-    let previous_publication_sequence = read_u64_le(region, PUBLICATION_SEQUENCE_OFFSET);
-    let publication_sequence = previous_publication_sequence
-        .checked_add(1)
-        .ok_or(DeckRuntimeWriteError::PublicationSequenceOverflow {
-            sequence: previous_publication_sequence,
-        })?;
-
-    write_u64_le(region, SEQLOCK_OFFSET, active_seqlock_counter);
-    region[0..BLOCK_A_SIZE].copy_from_slice(block_a);
-    write_u32_le(region, BASELINE_EPOCH_OFFSET, publication.baseline_epoch);
-    write_u32_le(
+    let mut region_handle = hot_publication::HotPublicationRegion::bind(
+        hot_publication::HotPublicationLayout {
+            total_region_byte_length: TOTAL_REGION_BYTE_LENGTH,
+            block_a_size: BLOCK_A_SIZE,
+            seqlock_offset: SEQLOCK_OFFSET,
+            baseline_epoch_offset: BASELINE_EPOCH_OFFSET,
+            continuity_generation_offset: CONTINUITY_GENERATION_OFFSET,
+            publication_sequence_offset: PUBLICATION_SEQUENCE_OFFSET,
+        },
         region,
-        CONTINUITY_GENERATION_OFFSET,
-        publication.continuity_generation,
-    );
-    write_deck_runtime_snapshot_fields(region, snapshot);
-    write_u64_le(region, PUBLICATION_SEQUENCE_OFFSET, publication_sequence);
-    write_u64_le(region, SEQLOCK_OFFSET, seqlock_counter);
+    )?;
+    let result = region_handle.publish(
+        block_a,
+        hot_publication::HotPublication {
+            baseline_epoch: publication.baseline_epoch,
+            continuity_generation: publication.continuity_generation,
+        },
+        |region| write_deck_runtime_snapshot_fields(region, snapshot),
+    )?;
 
     Ok(DeckRuntimePublishResult {
-        previous_seqlock_counter,
-        seqlock_counter,
-        previous_publication_sequence,
-        publication_sequence,
+        previous_seqlock_counter: result.previous_seqlock_counter,
+        seqlock_counter: result.seqlock_counter,
+        previous_publication_sequence: result.previous_publication_sequence,
+        publication_sequence: result.publication_sequence,
     })
 }
 
@@ -182,22 +212,6 @@ fn require_region_length(region: &[u8]) -> Result<(), DeckRuntimeWriteError> {
         });
     }
     Ok(())
-}
-
-fn require_block_a_length(block_a: &[u8]) -> Result<(), DeckRuntimeWriteError> {
-    if block_a.len() != BLOCK_A_SIZE {
-        return Err(DeckRuntimeWriteError::BlockALength {
-            expected: BLOCK_A_SIZE,
-            actual: block_a.len(),
-        });
-    }
-    Ok(())
-}
-
-fn read_u64_le(region: &[u8], offset: usize) -> u64 {
-    let mut bytes = [0_u8; 8];
-    bytes.copy_from_slice(&region[offset..offset + 8]);
-    u64::from_le_bytes(bytes)
 }
 
 fn write_u32_le(region: &mut [u8], offset: usize, value: u32) {

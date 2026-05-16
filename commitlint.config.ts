@@ -24,6 +24,7 @@ const config: UserConfig = {
         "hot-consumer",
         "hot-publisher",
         "hot-binding",
+        "hot-publication",
         "conformance",
         "fixtures",
         "docs",

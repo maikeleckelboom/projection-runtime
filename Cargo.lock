@@ -60,10 +60,15 @@ dependencies = [
 name = "hot-abi-conformance"
 version = "0.0.0"
 dependencies = [
+ "hot-publication",
  "serde",
  "serde_json",
  "sha2",
 ]
+
+[[package]]
+name = "hot-publication"
+version = "0.0.0"
 
 [[package]]
 name = "itoa"
