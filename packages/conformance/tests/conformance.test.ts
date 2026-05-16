@@ -67,7 +67,7 @@ type RustHotWriterOutput = {
   readonly contractKey: string;
   readonly hotAbiVersion: number;
   readonly hotLayoutVersion: string;
-  readonly completeRegionBytesHex: string;
+  readonly hotRegionBytesHex: string;
   readonly snapshot: {
     readonly beatPhase01: number;
     readonly level: number;
@@ -587,14 +587,14 @@ describe("@exclave/conformance execution", () => {
     const rustOutput = JSON.parse(
       execFileSync(
         "cargo",
-        ["run", "-p", "hot-writer-conformance", "--", artifactManifestRelativePath],
+        ["run", "--quiet", "-p", "hot-writer-conformance", "--", artifactManifestRelativePath],
         {
           cwd: repoRoot,
           encoding: "utf8",
         },
       ),
     ) as RustHotWriterOutput;
-    const bytes = hexToBytes(rustOutput.completeRegionBytesHex);
+    const bytes = hexToBytes(rustOutput.hotRegionBytesHex);
     const region = copyIntoSharedRegion(bytes);
     const reader = createDeckRuntimeReader(region);
     const result = reader.tryRead({
@@ -642,9 +642,9 @@ describe("@exclave/conformance execution", () => {
     expect(rustOutput.contractKey).toBe(hotLayoutManifest.contractKey);
     expect(rustOutput.hotAbiVersion).toBe(hotLayoutManifest.hotAbiVersion);
     expect(rustOutput.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
-    expect(rustOutput.completeRegionBytesHex).toMatch(/^[\da-f]+$/);
+    expect(rustOutput.hotRegionBytesHex).toMatch(/^[\da-f]+$/);
     expect(bytes.byteLength).toBe(hotLayoutManifest.totalRegionByteLength);
-    expect(rustOutput.completeRegionBytesHex).not.toBe(
+    expect(rustOutput.hotRegionBytesHex).not.toBe(
       existingCompleteRegion.completeFixtureRegionBytesHex,
     );
 
@@ -665,7 +665,7 @@ describe("@exclave/conformance execution", () => {
     expect(view.getUint32(HOT_CONTINUITY_GENERATION_U32_OFFSET, true)).toBe(3);
     expect(Atomics.load(blockBPublicationSequenceView(region), 0)).toBe(0x0000_0000_0000_0001n);
     expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
-  });
+  }, 30_000);
 
   it("publishes hot-exchange-v0 through the generated writer and reads it back through the generated reader", async () => {
     const fixture = await loadProjectionRuntimeFixture("hot-exchange-v0");

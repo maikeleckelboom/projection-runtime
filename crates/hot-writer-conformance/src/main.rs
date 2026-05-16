@@ -67,7 +67,7 @@ struct RustHotWriterOutput {
     contract_key: &'static str,
     hot_abi_version: u64,
     hot_layout_version: String,
-    complete_region_bytes_hex: String,
+    hot_region_bytes_hex: String,
     snapshot: SnapshotOutput,
     block_b: BlockBOutput,
 }
@@ -129,7 +129,7 @@ fn run() -> Result<(), String> {
         contract_key: CONTRACT_KEY,
         hot_abi_version: HOT_ABI_VERSION,
         hot_layout_version: artifact_manifest.hot_layout_version,
-        complete_region_bytes_hex: bytes_to_hex(&region),
+        hot_region_bytes_hex: bytes_to_hex(&region),
         snapshot: SnapshotOutput {
             beat_phase01: 0.5,
             level: 0.25,
@@ -457,6 +457,7 @@ fn write_field_data(region: &mut [u8]) {
         STEM_GAINS_ELEMENTS_OFFSET + STEM_GAINS_UNIT_BYTE_LENGTH as usize,
         0.5,
     );
+    region[STEM_GAINS_ELEMENTS_OFFSET + 8..STEM_GAINS_ELEMENTS_OFFSET + 16].fill(0);
     write_f32_le(region, TEMPO_RATIO_OFFSET, 1.25);
     region[TRANSPORT_STATE_OFFSET] = 3;
 }
@@ -519,10 +520,8 @@ mod tests {
 
     #[test]
     fn zeroes_unused_bounded_array_slots() {
-        let mut region = vec![0xff_u8; TOTAL_REGION_BYTE_LENGTH];
-        for byte in &mut region {
-            *byte = 0;
-        }
+        let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
+        region[STEM_GAINS_ELEMENTS_OFFSET + 8..STEM_GAINS_ELEMENTS_OFFSET + 16].fill(0xff);
 
         write_field_data(&mut region);
 
