@@ -6,8 +6,7 @@ export type InvalidationReason =
   | "authorityRestarted"
   | "authorityReplaced"
   | "surfaceReplaced"
-  | "surfaceRevoked"
-  | "bindingClosed";
+  | "surfaceRevoked";
 
 export type BindingState =
   | { readonly kind: "opening" }
@@ -28,20 +27,41 @@ export type BindingExpectation = {
   readonly authorityEpoch: AuthorityEpoch;
 };
 
-export type BindingValidityFailure = {
+export type BindingOpeningFailure = {
   readonly ok: false;
-  readonly reason:
-    | "bindingOpening"
-    | "bindingInvalidated"
-    | "bindingClosed"
-    | "authorityKeyMismatch"
-    | "surfaceKeyMismatch"
-    | "authorityEpochMismatch";
-  readonly rebindRequired: boolean;
+  readonly reason: "bindingOpening";
+  readonly rebindRequired: true;
   readonly binding: AuthorityBinding;
-  readonly expected?: BindingExpectation;
-  readonly invalidationReason?: InvalidationReason;
 };
+
+export type BindingInvalidatedFailure = {
+  readonly ok: false;
+  readonly reason: "bindingInvalidated";
+  readonly rebindRequired: true;
+  readonly binding: AuthorityBinding;
+  readonly invalidationReason: InvalidationReason;
+};
+
+export type BindingClosedFailure = {
+  readonly ok: false;
+  readonly reason: "bindingClosed";
+  readonly rebindRequired: false;
+  readonly binding: AuthorityBinding;
+};
+
+export type BindingExpectationMismatchFailure = {
+  readonly ok: false;
+  readonly reason: "authorityKeyMismatch" | "surfaceKeyMismatch" | "authorityEpochMismatch";
+  readonly rebindRequired: true;
+  readonly binding: AuthorityBinding;
+  readonly expected: BindingExpectation;
+};
+
+export type BindingValidityFailure =
+  | BindingOpeningFailure
+  | BindingInvalidatedFailure
+  | BindingClosedFailure
+  | BindingExpectationMismatchFailure;
 
 export type BindingValidity =
   | { readonly ok: true; readonly binding: AuthorityBinding }
@@ -87,27 +107,51 @@ export function validateAuthorityBinding(
   const state = binding.state;
 
   if (state.kind === "opening") {
-    return createFailure("bindingOpening", true, binding);
+    return { ok: false, reason: "bindingOpening", rebindRequired: true, binding };
   }
 
   if (state.kind === "invalidated") {
-    return createInvalidatedFailure(binding, state.reason);
+    return {
+      ok: false,
+      reason: "bindingInvalidated",
+      rebindRequired: true,
+      binding,
+      invalidationReason: state.reason,
+    };
   }
 
   if (state.kind === "closed") {
-    return createFailure("bindingClosed", false, binding);
+    return { ok: false, reason: "bindingClosed", rebindRequired: false, binding };
   }
 
   if (binding.authorityKey !== expected.authorityKey) {
-    return createMismatchFailure("authorityKeyMismatch", binding, expected);
+    return {
+      ok: false,
+      reason: "authorityKeyMismatch",
+      rebindRequired: true,
+      binding,
+      expected,
+    };
   }
 
   if (binding.surfaceKey !== expected.surfaceKey) {
-    return createMismatchFailure("surfaceKeyMismatch", binding, expected);
+    return {
+      ok: false,
+      reason: "surfaceKeyMismatch",
+      rebindRequired: true,
+      binding,
+      expected,
+    };
   }
 
   if (binding.authorityEpoch !== expected.authorityEpoch) {
-    return createMismatchFailure("authorityEpochMismatch", binding, expected);
+    return {
+      ok: false,
+      reason: "authorityEpochMismatch",
+      rebindRequired: true,
+      binding,
+      expected,
+    };
   }
 
   return { ok: true, binding };
@@ -125,33 +169,4 @@ export function guardAuthorityBinding<T>(
   }
 
   return validity;
-}
-
-function createFailure(
-  reason: BindingValidityFailure["reason"],
-  rebindRequired: boolean,
-  binding: AuthorityBinding,
-): BindingValidityFailure {
-  return { ok: false, reason, rebindRequired, binding };
-}
-
-function createInvalidatedFailure(
-  binding: AuthorityBinding,
-  invalidationReason: InvalidationReason,
-): BindingValidityFailure {
-  return {
-    ok: false,
-    reason: "bindingInvalidated",
-    rebindRequired: true,
-    binding,
-    invalidationReason,
-  };
-}
-
-function createMismatchFailure(
-  reason: "authorityKeyMismatch" | "surfaceKeyMismatch" | "authorityEpochMismatch",
-  binding: AuthorityBinding,
-  expected: BindingExpectation,
-): BindingValidityFailure {
-  return { ok: false, reason, rebindRequired: true, binding, expected };
 }

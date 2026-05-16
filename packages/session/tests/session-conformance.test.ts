@@ -16,43 +16,52 @@ import {
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 
-function loadDeckRuntimeCompleteFixtureRegion(): Uint8Array {
+type DeckRuntimeFixtureIdentity = {
+  readonly contractKey: string;
+  readonly instanceKey: string;
+  readonly region: Uint8Array;
+};
+
+function loadDeckRuntimeFixtureIdentity(): DeckRuntimeFixtureIdentity {
   const path = resolve(
     repoRoot,
     "fixtures/projection-runtime/deck-runtime-v0/hot-complete-fixture-region.json",
   );
-  const { completeFixtureRegionBytesHex } = JSON.parse(readFileSync(path, "utf8")) as {
+  const fixture = JSON.parse(readFileSync(path, "utf8")) as {
+    contractKey: string;
+    instanceKey: string;
     completeFixtureRegionBytesHex: string;
   };
-  const bytes = hexToBytes(completeFixtureRegionBytesHex);
+  const bytes = hexToBytes(fixture.completeFixtureRegionBytesHex);
   const region = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
   region.set(bytes);
-  return region;
+  return {
+    contractKey: fixture.contractKey,
+    instanceKey: fixture.instanceKey,
+    region,
+  };
 }
 
 describe("@exclave/session conformance guard proof", () => {
   it("ready binding guard invokes DeckRuntimeReader.tryRead and returns the result", () => {
-    const region = loadDeckRuntimeCompleteFixtureRegion();
-    const reader = createDeckRuntimeReader(region, {
-      instanceKey: "deck-runtime-v0.instance",
-    });
+    const { contractKey, instanceKey, region } = loadDeckRuntimeFixtureIdentity();
+    const reader = createDeckRuntimeReader(region, { instanceKey });
+    const readSpy = vi.fn(() => reader.tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }));
 
     const binding = markAuthorityBindingReady(
       createAuthorityBinding({
-        authorityKey: "fixture.deckRuntime",
-        surfaceKey: "deck-runtime-v0.instance",
+        authorityKey: contractKey,
+        surfaceKey: instanceKey,
         authorityEpoch: 1n,
       }),
     );
     const expected = {
-      authorityKey: "fixture.deckRuntime",
-      surfaceKey: "deck-runtime-v0.instance",
+      authorityKey: contractKey,
+      surfaceKey: instanceKey,
       authorityEpoch: 1n,
     };
 
-    const result = guardAuthorityBinding(binding, expected, () =>
-      reader.tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }),
-    );
+    const result = guardAuthorityBinding(binding, expected, readSpy);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected guard to succeed");
@@ -70,27 +79,26 @@ describe("@exclave/session conformance guard proof", () => {
     expect(readResult.snapshot.stemGains).toEqual([1, 0.875, 0.5, 0.25]);
     expect(readResult.snapshot.tempoRatio).toBe(1.024999976158142);
     expect(readResult.snapshot.transportState).toBe("playing");
+    expect(readSpy).toHaveBeenCalledTimes(1);
   });
 
   it("invalidated binding guard rejects before DeckRuntimeReader.tryRead", () => {
-    const region = loadDeckRuntimeCompleteFixtureRegion();
-    const reader = createDeckRuntimeReader(region, {
-      instanceKey: "deck-runtime-v0.instance",
-    });
+    const { contractKey, instanceKey, region } = loadDeckRuntimeFixtureIdentity();
+    const reader = createDeckRuntimeReader(region, { instanceKey });
 
     const binding = invalidateAuthorityBinding(
       markAuthorityBindingReady(
         createAuthorityBinding({
-          authorityKey: "fixture.deckRuntime",
-          surfaceKey: "deck-runtime-v0.instance",
+          authorityKey: contractKey,
+          surfaceKey: instanceKey,
           authorityEpoch: 1n,
         }),
       ),
       "authorityRestarted",
     );
     const expected = {
-      authorityKey: "fixture.deckRuntime",
-      surfaceKey: "deck-runtime-v0.instance",
+      authorityKey: contractKey,
+      surfaceKey: instanceKey,
       authorityEpoch: 1n,
     };
     const readSpy = vi.fn(() => reader.tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }));
@@ -102,7 +110,9 @@ describe("@exclave/session conformance guard proof", () => {
 
     expect(result.reason).toBe("bindingInvalidated");
     expect(result.rebindRequired).toBe(true);
-    expect(result.invalidationReason).toBe("authorityRestarted");
+    if (result.reason === "bindingInvalidated") {
+      expect(result.invalidationReason).toBe("authorityRestarted");
+    }
     expect(readSpy).not.toHaveBeenCalled();
   });
 });

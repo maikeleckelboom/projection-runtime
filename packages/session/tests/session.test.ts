@@ -30,11 +30,7 @@ describe("@exclave/session public exports", () => {
     expectTypeOf<session.SurfaceKey>().toEqualTypeOf<string>();
     expectTypeOf<session.AuthorityEpoch>().toEqualTypeOf<bigint>();
     expectTypeOf<session.InvalidationReason>().toEqualTypeOf<
-      | "authorityRestarted"
-      | "authorityReplaced"
-      | "surfaceReplaced"
-      | "surfaceRevoked"
-      | "bindingClosed"
+      "authorityRestarted" | "authorityReplaced" | "surfaceReplaced" | "surfaceRevoked"
     >();
     expectTypeOf<session.BindingState>().toEqualTypeOf<
       | { readonly kind: "opening" }
@@ -42,6 +38,13 @@ describe("@exclave/session public exports", () => {
       | { readonly kind: "invalidated"; readonly reason: InvalidationReason }
       | { readonly kind: "closed" }
     >();
+  });
+
+  it("exports discriminated failure types", () => {
+    expectTypeOf<session.BindingOpeningFailure>().toMatchTypeOf<session.BindingValidityFailure>();
+    expectTypeOf<session.BindingInvalidatedFailure>().toMatchTypeOf<session.BindingValidityFailure>();
+    expectTypeOf<session.BindingClosedFailure>().toMatchTypeOf<session.BindingValidityFailure>();
+    expectTypeOf<session.BindingExpectationMismatchFailure>().toMatchTypeOf<session.BindingValidityFailure>();
   });
 
   it("exports the intended function surface", () => {
@@ -135,7 +138,6 @@ describe("invalidateAuthorityBinding", () => {
       "authorityReplaced",
       "surfaceReplaced",
       "surfaceRevoked",
-      "bindingClosed",
     ];
 
     for (const reason of reasons) {
@@ -212,12 +214,11 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation();
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("bindingOpening");
-      expect(result.rebindRequired).toBe(true);
-      expect(result.expected).toBeUndefined();
-    }
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "bindingOpening",
+      rebindRequired: true,
+    });
   });
 
   it("rejects invalidated binding with bindingInvalidated, rebindRequired true, and carries reason", () => {
@@ -225,12 +226,13 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation();
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("bindingInvalidated");
-      expect(result.rebindRequired).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "bindingInvalidated",
+      rebindRequired: true,
+    });
+    if (!result.ok && result.reason === "bindingInvalidated") {
       expect(result.invalidationReason).toBe("authorityRestarted");
-      expect(result.expected).toBeUndefined();
     }
   });
 
@@ -239,12 +241,11 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation();
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("bindingClosed");
-      expect(result.rebindRequired).toBe(false);
-      expect(result.expected).toBeUndefined();
-    }
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "bindingClosed",
+      rebindRequired: false,
+    });
   });
 
   it("rejects authorityKey mismatch", () => {
@@ -252,10 +253,12 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation({ authorityKey: AUTHORITY_KEY_B });
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("authorityKeyMismatch");
-      expect(result.rebindRequired).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "authorityKeyMismatch",
+      rebindRequired: true,
+    });
+    if (!result.ok && result.reason === "authorityKeyMismatch") {
       expect(result.expected).toEqual(expected);
     }
   });
@@ -265,10 +268,12 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation({ surfaceKey: SURFACE_KEY_B });
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("surfaceKeyMismatch");
-      expect(result.rebindRequired).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "surfaceKeyMismatch",
+      rebindRequired: true,
+    });
+    if (!result.ok && result.reason === "surfaceKeyMismatch") {
       expect(result.expected).toEqual(expected);
     }
   });
@@ -278,10 +283,12 @@ describe("validateAuthorityBinding", () => {
     const expected = createMatchingExpectation({ authorityEpoch: EPOCH_2 });
     const result = validateAuthorityBinding(binding, expected);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("authorityEpochMismatch");
-      expect(result.rebindRequired).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "authorityEpochMismatch",
+      rebindRequired: true,
+    });
+    if (!result.ok && result.reason === "authorityEpochMismatch") {
       expect(result.expected).toEqual(expected);
     }
   });
@@ -390,6 +397,8 @@ describe("guardAuthorityBinding", () => {
     if (!result.ok) {
       expect(result.reason).toBe("bindingInvalidated");
       expect(result.rebindRequired).toBe(true);
+    }
+    if (!result.ok && result.reason === "bindingInvalidated") {
       expect(result.invalidationReason).toBe("authorityRestarted");
     }
     expect(read).not.toHaveBeenCalled();
