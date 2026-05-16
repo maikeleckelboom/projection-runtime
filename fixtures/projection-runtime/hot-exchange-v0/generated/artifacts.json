@@ -6,7 +6,10 @@
   "hotAbiVersion": 1,
   "hotLayoutVersion": "a601a5b9fe7fc79e",
   "source": {
-    "hotLayoutManifest": "../hot-layout-manifest.json"
+    "hotLayoutManifest": "../hot-layout-manifest.json",
+    "hotBlockAFixture": "../hot-block-a-fixture.json",
+    "hotCompleteFixtureRegion": "../hot-complete-fixture-region.json",
+    "resolvedContract": "../resolved-contract.json"
   },
   "artifacts": {
     "reader": "hot-reader.ts",

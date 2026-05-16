@@ -7,13 +7,9 @@ use std::path::{Path, PathBuf};
 
 const FIXTURE_NAME: &str = "deck-runtime-v0";
 const CONTRACT_KEY: &str = "fixture.deckRuntime";
-const INSTANCE_KEY: &str = "deck-runtime-v0.instance";
 const SYMBOL_STEM: &str = "DeckRuntime";
 const HOT_ABI_VERSION: u64 = 1;
-const HOT_ABI_VERSION_U32: u32 = 1;
 const TOTAL_REGION_BYTE_LENGTH: usize = 160;
-const MUTABLE_REGION_BYTE_LENGTH: u32 = 88;
-const FIELD_COUNT: u32 = 8;
 const BLOCK_A_SIZE: usize = 72;
 const BLOCK_B_START_OFFSET: usize = 72;
 const SEQLOCK_OFFSET: usize = 72;
@@ -34,13 +30,16 @@ const STEM_GAINS_UNIT_BYTE_LENGTH: u64 = 4;
 const TEMPO_RATIO_OFFSET: usize = 148;
 const TRANSPORT_STATE_OFFSET: usize = 152;
 
+const REGION_MAGIC: [u8; 4] = [0x53, 0x51, 0x4c, 0x4b];
+const REGION_MAGIC_HEX: &str = "53514c4b";
+const BLOCK_A_RESERVED_ZERO: [u8; 8] = [0; 8];
+const BLOCK_A_RESERVED_ZERO_HEX: &str = "0000000000000000";
+
 const SEQLOCK_COUNTER: u64 = 0x0000_0000_0000_0002;
 const BASELINE_EPOCH: u32 = 7;
 const CONTINUITY_GENERATION: u32 = 3;
 const PUBLICATION_SEQUENCE: u64 = 0x0000_0000_0000_0001;
 const SAMPLE_POSITION: u64 = 0x0020_0000_0000_0000;
-const SEMANTIC_VERSION: u64 = 0xe363_6f7c_dffa_73b2;
-const REGION_MAGIC: [u8; 4] = [0x53, 0x51, 0x4c, 0x4b];
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,6 +58,9 @@ struct ArtifactManifest {
 #[serde(rename_all = "camelCase")]
 struct ArtifactManifestSource {
     hot_layout_manifest: String,
+    hot_block_a_fixture: String,
+    hot_complete_fixture_region: String,
+    resolved_contract: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,12 +69,94 @@ struct ArtifactManifestArtifacts {
     writer: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HotBlockAFixture {
+    fixture_kind: String,
+    contract_key: String,
+    instance_key: String,
+    semantic_version: String,
+    hot_layout_version: String,
+    field_count: u32,
+    mutable_region_byte_length: u32,
+    expected: HotBlockAExpected,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HotBlockAExpected {
+    block_a_bytes_hex: String,
+    decoded: HotBlockADecoded,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct HotBlockADecoded {
+    contract_key_hash_hex: String,
+    field_count: u32,
+    hot_abi_version: u32,
+    hot_layout_version: String,
+    instance_key_hash_hex: String,
+    mutable_region_byte_length: u32,
+    region_magic_hex: String,
+    reserved_hex: String,
+    semantic_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolvedContract {
+    hot_layout_version: String,
+    semantic_version: String,
+    manifest: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HotCompleteFixtureRegion {
+    fixture_kind: String,
+    contract_key: String,
+    instance_key: String,
+    hot_layout_version: String,
+    total_region_byte_length: u64,
+    block_a_bytes_hex: String,
+    complete_fixture_region_bytes_hex: String,
+    decoded: HotCompleteFixtureRegionDecoded,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HotCompleteFixtureRegionDecoded {
+    block_a: HotBlockADecoded,
+}
+
+#[derive(Debug)]
+struct ConformanceInputs {
+    artifact_manifest: ArtifactManifest,
+    block_a: BlockAExpectation,
+    total_region_byte_length: usize,
+}
+
+#[derive(Debug)]
+struct BlockAExpectation {
+    region_magic: [u8; 4],
+    hot_abi_version: u32,
+    contract_key_hash: [u8; 16],
+    instance_key_hash: [u8; 16],
+    semantic_version: u64,
+    hot_layout_version: u64,
+    field_count: u32,
+    mutable_region_byte_length: u32,
+    reserved: [u8; 8],
+    block_a_bytes: [u8; BLOCK_A_SIZE],
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RustHotWriterOutput {
     fixture_kind: &'static str,
-    fixture_name: &'static str,
-    contract_key: &'static str,
+    fixture_name: String,
+    contract_key: String,
     hot_abi_version: u64,
     hot_layout_version: String,
     hot_region_bytes_hex: String,
@@ -90,8 +174,8 @@ struct HotRegionBytesInput {
 #[serde(rename_all = "camelCase")]
 struct RustHotReaderOutput {
     fixture_kind: &'static str,
-    fixture_name: &'static str,
-    contract_key: &'static str,
+    fixture_name: String,
+    contract_key: String,
     hot_abi_version: u64,
     hot_layout_version: String,
     hot_region_bytes_hex: String,
@@ -140,30 +224,20 @@ fn run() -> Result<(), String> {
 fn run_writer(args: &[String]) -> Result<(), String> {
     let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
     let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
-    let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
+    let inputs = load_conformance_inputs(&artifact_manifest_path)?;
+    let artifact_manifest = &inputs.artifact_manifest;
 
-    assert_artifact_manifest(&artifact_manifest)?;
-
-    let hot_layout_manifest_path = resolve_manifest_relative_path(
-        &artifact_manifest_path,
-        &artifact_manifest.source.hot_layout_manifest,
-    )?;
-    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
-
-    assert_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
-    assert_hot_layout_manifest(&hot_layout_manifest)?;
-
-    let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
-    write_block_a(&mut region, &artifact_manifest)?;
+    let mut region = vec![0_u8; inputs.total_region_byte_length];
+    write_block_a(&mut region, &inputs.block_a)?;
     write_block_b(&mut region);
     write_field_data(&mut region);
 
     let output = RustHotWriterOutput {
         fixture_kind: "rust-hot-writer-output",
-        fixture_name: FIXTURE_NAME,
-        contract_key: CONTRACT_KEY,
-        hot_abi_version: HOT_ABI_VERSION,
-        hot_layout_version: artifact_manifest.hot_layout_version,
+        fixture_name: artifact_manifest.fixture_name.clone(),
+        contract_key: artifact_manifest.contract_key.clone(),
+        hot_abi_version: artifact_manifest.hot_abi_version,
+        hot_layout_version: artifact_manifest.hot_layout_version.clone(),
         hot_region_bytes_hex: bytes_to_hex(&region),
         snapshot: SnapshotOutput {
             beat_phase01: 0.5,
@@ -194,37 +268,27 @@ fn run_reader(args: &[String]) -> Result<(), String> {
     let artifact_manifest_path = args.first().ok_or_else(|| usage().to_string())?;
     let hot_region_bytes_source = args.get(1).ok_or_else(|| usage().to_string())?;
     let artifact_manifest_path = PathBuf::from(artifact_manifest_path);
-    let artifact_manifest = read_json::<ArtifactManifest>(&artifact_manifest_path)?;
-
-    assert_artifact_manifest(&artifact_manifest)?;
-
-    let hot_layout_manifest_path = resolve_manifest_relative_path(
-        &artifact_manifest_path,
-        &artifact_manifest.source.hot_layout_manifest,
-    )?;
-    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
-
-    assert_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
-    assert_hot_layout_manifest(&hot_layout_manifest)?;
+    let inputs = load_conformance_inputs(&artifact_manifest_path)?;
+    let artifact_manifest = &inputs.artifact_manifest;
 
     let hot_region_bytes_hex = read_hot_region_bytes_hex(hot_region_bytes_source)?;
     let hot_region_bytes = hex_to_bytes(&hot_region_bytes_hex)?;
-    if hot_region_bytes.len() != TOTAL_REGION_BYTE_LENGTH {
+    if hot_region_bytes.len() != inputs.total_region_byte_length {
         return Err(format!(
             "hotRegionBytesHex length mismatch: expected {} bytes, got {} bytes",
-            TOTAL_REGION_BYTE_LENGTH,
+            inputs.total_region_byte_length,
             hot_region_bytes.len()
         ));
     }
-    validate_block_a(&hot_region_bytes, &artifact_manifest)?;
+    validate_block_a(&hot_region_bytes, &inputs.block_a)?;
     reject_writer_active_seqlock(&hot_region_bytes)?;
 
     let output = RustHotReaderOutput {
         fixture_kind: "rust-hot-reader-output",
-        fixture_name: FIXTURE_NAME,
-        contract_key: CONTRACT_KEY,
-        hot_abi_version: HOT_ABI_VERSION,
-        hot_layout_version: artifact_manifest.hot_layout_version,
+        fixture_name: artifact_manifest.fixture_name.clone(),
+        contract_key: artifact_manifest.contract_key.clone(),
+        hot_abi_version: artifact_manifest.hot_abi_version,
+        hot_layout_version: artifact_manifest.hot_layout_version.clone(),
         hot_region_bytes_hex: bytes_to_hex(&hot_region_bytes),
         snapshot: read_snapshot(&hot_region_bytes)?,
         block_b: read_block_b(&hot_region_bytes),
@@ -252,15 +316,72 @@ fn read_json_value(path: &Path) -> Result<Value, String> {
     read_json(path)
 }
 
+fn load_conformance_inputs(artifact_manifest_path: &Path) -> Result<ConformanceInputs, String> {
+    let artifact_manifest = read_json::<ArtifactManifest>(artifact_manifest_path)?;
+    assert_artifact_manifest(&artifact_manifest)?;
+
+    let hot_layout_manifest_path = resolve_manifest_relative_path(
+        artifact_manifest_path,
+        &artifact_manifest.source.hot_layout_manifest,
+    )?;
+    let hot_block_a_fixture_path = resolve_manifest_relative_path(
+        artifact_manifest_path,
+        &artifact_manifest.source.hot_block_a_fixture,
+    )?;
+    let hot_complete_fixture_region_path = resolve_manifest_relative_path(
+        artifact_manifest_path,
+        &artifact_manifest.source.hot_complete_fixture_region,
+    )?;
+    let resolved_contract_path = resolve_manifest_relative_path(
+        artifact_manifest_path,
+        &artifact_manifest.source.resolved_contract,
+    )?;
+
+    let hot_layout_manifest = read_json_value(&hot_layout_manifest_path)?;
+    let hot_block_a_fixture = read_json::<HotBlockAFixture>(&hot_block_a_fixture_path)?;
+    let hot_complete_fixture_region =
+        read_json::<HotCompleteFixtureRegion>(&hot_complete_fixture_region_path)?;
+    let resolved_contract = read_json::<ResolvedContract>(&resolved_contract_path)?;
+
+    assert_manifest_agreement(&artifact_manifest, &hot_layout_manifest)?;
+    assert_hot_layout_manifest(&hot_layout_manifest)?;
+
+    let total_region_byte_length = total_region_byte_length(&hot_layout_manifest)?;
+    let block_a = derive_block_a_expectation(
+        &artifact_manifest,
+        &hot_layout_manifest,
+        &hot_block_a_fixture,
+        &hot_complete_fixture_region,
+        &resolved_contract,
+        total_region_byte_length,
+    )?;
+
+    Ok(ConformanceInputs {
+        artifact_manifest,
+        block_a,
+        total_region_byte_length,
+    })
+}
+
 fn resolve_manifest_relative_path(
     artifact_manifest_path: &Path,
     relative_path: &str,
 ) -> Result<PathBuf, String> {
+    let source_path = Path::new(relative_path);
+    if relative_path.is_empty() {
+        return Err("artifact manifest source paths must be non-empty".to_string());
+    }
+    if source_path.is_absolute() {
+        return Err(format!(
+            "artifact manifest source path {relative_path:?} must be relative to artifacts.json"
+        ));
+    }
+
     let manifest_dir = artifact_manifest_path
         .parent()
         .ok_or_else(|| "artifact manifest path must have a parent directory".to_string())?;
 
-    Ok(manifest_dir.join(relative_path))
+    Ok(manifest_dir.join(source_path))
 }
 
 fn assert_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
@@ -273,10 +394,21 @@ fn assert_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
     assert_eq_str("contractKey", &manifest.contract_key, CONTRACT_KEY)?;
     assert_eq_str("symbolStem", &manifest.symbol_stem, SYMBOL_STEM)?;
     assert_eq_u64("hotAbiVersion", manifest.hot_abi_version, HOT_ABI_VERSION)?;
-    assert_eq_str(
+    assert_manifest_source_path(
         "source.hotLayoutManifest",
         &manifest.source.hot_layout_manifest,
-        "../hot-layout-manifest.json",
+    )?;
+    assert_manifest_source_path(
+        "source.hotBlockAFixture",
+        &manifest.source.hot_block_a_fixture,
+    )?;
+    assert_manifest_source_path(
+        "source.hotCompleteFixtureRegion",
+        &manifest.source.hot_complete_fixture_region,
+    )?;
+    assert_manifest_source_path(
+        "source.resolvedContract",
+        &manifest.source.resolved_contract,
     )?;
     assert_eq_str(
         "artifacts.reader",
@@ -288,6 +420,17 @@ fn assert_artifact_manifest(manifest: &ArtifactManifest) -> Result<(), String> {
         &manifest.artifacts.writer,
         "hot-writer.ts",
     )?;
+
+    Ok(())
+}
+
+fn assert_manifest_source_path(label: &str, value: &str) -> Result<(), String> {
+    if value.is_empty() {
+        return Err(format!("{label} must be non-empty"));
+    }
+    if Path::new(value).is_absolute() {
+        return Err(format!("{label} must be relative to artifacts.json"));
+    }
 
     Ok(())
 }
@@ -313,6 +456,209 @@ fn assert_manifest_agreement(
     )?;
 
     Ok(())
+}
+
+fn derive_block_a_expectation(
+    artifact_manifest: &ArtifactManifest,
+    hot_layout_manifest: &Value,
+    hot_block_a_fixture: &HotBlockAFixture,
+    hot_complete_fixture_region: &HotCompleteFixtureRegion,
+    resolved_contract: &ResolvedContract,
+    total_region_byte_length: usize,
+) -> Result<BlockAExpectation, String> {
+    assert_eq_str(
+        "hot-block-a-fixture.fixtureKind",
+        &hot_block_a_fixture.fixture_kind,
+        "hot-block-a-fixture",
+    )?;
+    assert_eq_str(
+        "hot-complete-fixture-region.fixtureKind",
+        &hot_complete_fixture_region.fixture_kind,
+        "hot-complete-fixture-region",
+    )?;
+    assert_eq_str(
+        "hot-block-a-fixture.contractKey",
+        &hot_block_a_fixture.contract_key,
+        &artifact_manifest.contract_key,
+    )?;
+    assert_eq_str(
+        "hot-complete-fixture-region.contractKey",
+        &hot_complete_fixture_region.contract_key,
+        &artifact_manifest.contract_key,
+    )?;
+    assert_eq_str(
+        "hot-complete-fixture-region.instanceKey",
+        &hot_complete_fixture_region.instance_key,
+        &hot_block_a_fixture.instance_key,
+    )?;
+    assert_eq_str(
+        "hot-block-a-fixture.hotLayoutVersion",
+        &hot_block_a_fixture.hot_layout_version,
+        &artifact_manifest.hot_layout_version,
+    )?;
+    assert_eq_str(
+        "hot-complete-fixture-region.hotLayoutVersion",
+        &hot_complete_fixture_region.hot_layout_version,
+        &artifact_manifest.hot_layout_version,
+    )?;
+    assert_eq_str(
+        "resolved-contract.hotLayoutVersion",
+        &resolved_contract.hot_layout_version,
+        &artifact_manifest.hot_layout_version,
+    )?;
+    assert_eq_str(
+        "hot-block-a-fixture.semanticVersion",
+        &hot_block_a_fixture.semantic_version,
+        &resolved_contract.semantic_version,
+    )?;
+    assert_json_str(
+        &resolved_contract.manifest,
+        "key",
+        &artifact_manifest.contract_key,
+    )?;
+
+    let layout_field_count = hot_layout_field_count(hot_layout_manifest)?;
+    assert_eq_u64(
+        "hot-block-a-fixture.fieldCount",
+        hot_block_a_fixture.field_count as u64,
+        layout_field_count as u64,
+    )?;
+    assert_eq_u64(
+        "hot-block-a-fixture.expected.decoded.fieldCount",
+        hot_block_a_fixture.expected.decoded.field_count as u64,
+        hot_block_a_fixture.field_count as u64,
+    )?;
+    assert_eq_u64(
+        "hot-block-a-fixture.mutableRegionByteLength",
+        hot_block_a_fixture.mutable_region_byte_length as u64,
+        json_u64_field(hot_layout_manifest, "mutableRegionByteLength")?,
+    )?;
+    assert_eq_u64(
+        "hot-block-a-fixture.expected.decoded.mutableRegionByteLength",
+        hot_block_a_fixture
+            .expected
+            .decoded
+            .mutable_region_byte_length as u64,
+        hot_block_a_fixture.mutable_region_byte_length as u64,
+    )?;
+    assert_eq_u64(
+        "hot-block-a-fixture.expected.decoded.hotAbiVersion",
+        hot_block_a_fixture.expected.decoded.hot_abi_version as u64,
+        HOT_ABI_VERSION,
+    )?;
+    assert_eq_str(
+        "hot-block-a-fixture.expected.decoded.hotLayoutVersion",
+        &hot_block_a_fixture.expected.decoded.hot_layout_version,
+        &artifact_manifest.hot_layout_version,
+    )?;
+    assert_eq_str(
+        "hot-block-a-fixture.expected.decoded.semanticVersion",
+        &hot_block_a_fixture.expected.decoded.semantic_version,
+        &resolved_contract.semantic_version,
+    )?;
+
+    if hot_complete_fixture_region.total_region_byte_length != total_region_byte_length as u64 {
+        return Err(format!(
+            "hot-complete-fixture-region totalRegionByteLength mismatch: expected {}, got {}",
+            total_region_byte_length, hot_complete_fixture_region.total_region_byte_length
+        ));
+    }
+    assert_eq_str(
+        "hot-complete-fixture-region.blockABytesHex",
+        &hot_complete_fixture_region.block_a_bytes_hex,
+        &hot_block_a_fixture.expected.block_a_bytes_hex,
+    )?;
+    if hot_complete_fixture_region.decoded.block_a != hot_block_a_fixture.expected.decoded {
+        return Err(
+            "hot-complete-fixture-region decoded Block A must match hot-block-a-fixture expected decoded values"
+                .to_string(),
+        );
+    }
+
+    let region_magic = REGION_MAGIC;
+    assert_eq_str(
+        "hot-block-a-fixture.expected.decoded.regionMagicHex",
+        &hot_block_a_fixture.expected.decoded.region_magic_hex,
+        REGION_MAGIC_HEX,
+    )?;
+    let contract_key_hash = parse_hex_bytes_exact::<16>(
+        &hot_block_a_fixture.expected.decoded.contract_key_hash_hex,
+        "hot-block-a-fixture.expected.decoded.contractKeyHashHex",
+    )?;
+    let instance_key_hash = parse_hex_bytes_exact::<16>(
+        &hot_block_a_fixture.expected.decoded.instance_key_hash_hex,
+        "hot-block-a-fixture.expected.decoded.instanceKeyHashHex",
+    )?;
+    let reserved = BLOCK_A_RESERVED_ZERO;
+    assert_eq_str(
+        "hot-block-a-fixture.expected.decoded.reservedHex",
+        &hot_block_a_fixture.expected.decoded.reserved_hex,
+        BLOCK_A_RESERVED_ZERO_HEX,
+    )?;
+    let semantic_version = parse_u64_hex(
+        &resolved_contract.semantic_version,
+        "resolved-contract.semanticVersion",
+    )?;
+    let hot_layout_version = parse_u64_hex(
+        &hot_block_a_fixture.hot_layout_version,
+        "hot-block-a-fixture.hotLayoutVersion",
+    )?;
+    let block_a_bytes = parse_hex_bytes_exact::<BLOCK_A_SIZE>(
+        &hot_block_a_fixture.expected.block_a_bytes_hex,
+        "hot-block-a-fixture.expected.blockABytesHex",
+    )?;
+    let complete_region_bytes = hex_to_bytes_with_label(
+        &hot_complete_fixture_region.complete_fixture_region_bytes_hex,
+        "hot-complete-fixture-region.completeFixtureRegionBytesHex",
+    )?;
+
+    if complete_region_bytes.len() != total_region_byte_length {
+        return Err(format!(
+            "hot-complete-fixture-region completeFixtureRegionBytesHex length mismatch: expected {} bytes, got {} bytes",
+            total_region_byte_length,
+            complete_region_bytes.len()
+        ));
+    }
+    if complete_region_bytes[0..BLOCK_A_SIZE] != block_a_bytes[..] {
+        return Err(
+            "hot-complete-fixture-region Block A bytes must match hot-block-a-fixture expected bytes"
+                .to_string(),
+        );
+    }
+
+    let computed_contract_key_hash = identity_hash_16(&artifact_manifest.contract_key);
+    if contract_key_hash != computed_contract_key_hash {
+        return Err(format!(
+            "hot-block-a-fixture.expected.decoded.contractKeyHashHex mismatch: expected hash of contractKey {}, got {}",
+            bytes_to_hex(&computed_contract_key_hash),
+            bytes_to_hex(&contract_key_hash)
+        ));
+    }
+    let computed_instance_key_hash = identity_hash_16(&hot_block_a_fixture.instance_key);
+    if instance_key_hash != computed_instance_key_hash {
+        return Err(format!(
+            "hot-block-a-fixture.expected.decoded.instanceKeyHashHex mismatch: expected hash of instanceKey {}, got {}",
+            bytes_to_hex(&computed_instance_key_hash),
+            bytes_to_hex(&instance_key_hash)
+        ));
+    }
+
+    let block_a = BlockAExpectation {
+        region_magic,
+        hot_abi_version: HOT_ABI_VERSION as u32,
+        contract_key_hash,
+        instance_key_hash,
+        semantic_version,
+        hot_layout_version,
+        field_count: hot_block_a_fixture.field_count,
+        mutable_region_byte_length: hot_block_a_fixture.mutable_region_byte_length,
+        reserved,
+        block_a_bytes,
+    };
+
+    validate_block_a(&complete_region_bytes, &block_a)?;
+
+    Ok(block_a)
 }
 
 fn assert_hot_layout_manifest(manifest: &Value) -> Result<(), String> {
@@ -478,6 +824,19 @@ fn field_by_dot_path<'a>(manifest: &'a Value, dot_path: &str) -> Result<&'a Valu
         .ok_or_else(|| format!("missing expected field {dot_path}"))
 }
 
+fn hot_layout_field_count(manifest: &Value) -> Result<usize, String> {
+    Ok(manifest
+        .get("fields")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "fields must be an array".to_string())?
+        .len())
+}
+
+fn total_region_byte_length(manifest: &Value) -> Result<usize, String> {
+    usize::try_from(json_u64_field(manifest, "totalRegionByteLength")?)
+        .map_err(|_| "totalRegionByteLength does not fit usize".to_string())
+}
+
 fn object_field<'a>(value: &'a Value, key: &str) -> Result<&'a Value, String> {
     let nested = value
         .get(key)
@@ -497,11 +856,15 @@ fn assert_json_str(value: &Value, key: &str, expected: &str) -> Result<(), Strin
 }
 
 fn assert_json_u64(value: &Value, key: &str, expected: u64) -> Result<(), String> {
-    let actual = value
+    let actual = json_u64_field(value, key)?;
+    assert_eq_u64(key, actual, expected)
+}
+
+fn json_u64_field(value: &Value, key: &str) -> Result<u64, String> {
+    value
         .get(key)
         .and_then(Value::as_u64)
-        .ok_or_else(|| format!("{key} must be an unsigned integer"))?;
-    assert_eq_u64(key, actual, expected)
+        .ok_or_else(|| format!("{key} must be an unsigned integer"))
 }
 
 fn assert_eq_str(label: &str, actual: &str, expected: &str) -> Result<(), String> {
@@ -531,86 +894,87 @@ fn write_block_b(region: &mut [u8]) {
     write_u64_le(region, PUBLICATION_SEQ_OFFSET, PUBLICATION_SEQUENCE);
 }
 
-fn write_block_a(region: &mut [u8], artifact_manifest: &ArtifactManifest) -> Result<(), String> {
-    let hot_layout_version = parse_u64_hex(&artifact_manifest.hot_layout_version, "hotLayoutVersion")?;
+fn write_block_a(region: &mut [u8], block_a: &BlockAExpectation) -> Result<(), String> {
+    region[0..4].copy_from_slice(&block_a.region_magic);
+    write_u32_le(region, 4, block_a.hot_abi_version);
+    region[8..24].copy_from_slice(&block_a.contract_key_hash);
+    region[24..40].copy_from_slice(&block_a.instance_key_hash);
+    write_u64_le(region, 40, block_a.semantic_version);
+    write_u64_le(region, 48, block_a.hot_layout_version);
+    write_u32_le(region, 56, block_a.field_count);
+    write_u32_le(region, 60, block_a.mutable_region_byte_length);
+    region[64..72].copy_from_slice(&block_a.reserved);
 
-    region[0..4].copy_from_slice(&REGION_MAGIC);
-    write_u32_le(region, 4, HOT_ABI_VERSION_U32);
-    region[8..24].copy_from_slice(&identity_hash_16(CONTRACT_KEY));
-    region[24..40].copy_from_slice(&identity_hash_16(INSTANCE_KEY));
-    write_u64_le(region, 40, SEMANTIC_VERSION);
-    write_u64_le(region, 48, hot_layout_version);
-    write_u32_le(region, 56, FIELD_COUNT);
-    write_u32_le(region, 60, MUTABLE_REGION_BYTE_LENGTH);
-    region[64..72].fill(0);
+    if region[0..BLOCK_A_SIZE] != block_a.block_a_bytes[..] {
+        return Err("declared Block A bytes did not match decoded fixture values".to_string());
+    }
 
     Ok(())
 }
 
-fn validate_block_a(region: &[u8], artifact_manifest: &ArtifactManifest) -> Result<(), String> {
-    if region[0..4] != REGION_MAGIC {
-        return Err("Block A regionMagic mismatch: expected 53514c4b".to_string());
+fn validate_block_a(region: &[u8], block_a: &BlockAExpectation) -> Result<(), String> {
+    if region[0..4] != block_a.region_magic {
+        return Err(format!(
+            "Block A regionMagic mismatch: expected {}",
+            bytes_to_hex(&block_a.region_magic)
+        ));
     }
 
     let hot_abi_version = read_u32_le(region, 4);
-    if hot_abi_version != HOT_ABI_VERSION_U32 {
+    if hot_abi_version != block_a.hot_abi_version {
         return Err(format!(
             "Block A hotAbiVersion mismatch: expected {}, got {}",
-            HOT_ABI_VERSION_U32, hot_abi_version
+            block_a.hot_abi_version, hot_abi_version
         ));
     }
 
-    let expected_contract_hash = identity_hash_16(CONTRACT_KEY);
-    if region[8..24] != expected_contract_hash {
+    if region[8..24] != block_a.contract_key_hash {
         return Err(format!(
             "Block A contractKeyHash mismatch: expected {}",
-            bytes_to_hex(&expected_contract_hash)
+            bytes_to_hex(&block_a.contract_key_hash)
         ));
     }
 
-    let expected_instance_hash = identity_hash_16(INSTANCE_KEY);
-    if region[24..40] != expected_instance_hash {
+    if region[24..40] != block_a.instance_key_hash {
         return Err(format!(
             "Block A instanceKeyHash mismatch: expected {}",
-            bytes_to_hex(&expected_instance_hash)
+            bytes_to_hex(&block_a.instance_key_hash)
         ));
     }
 
     let semantic_version = read_u64_le(region, 40);
-    if semantic_version != SEMANTIC_VERSION {
+    if semantic_version != block_a.semantic_version {
         return Err(format!(
             "Block A semanticVersion mismatch: expected 0x{:016x}, got 0x{:016x}",
-            SEMANTIC_VERSION, semantic_version
+            block_a.semantic_version, semantic_version
         ));
     }
 
-    let expected_hot_layout_version =
-        parse_u64_hex(&artifact_manifest.hot_layout_version, "hotLayoutVersion")?;
     let hot_layout_version = read_u64_le(region, 48);
-    if hot_layout_version != expected_hot_layout_version {
+    if hot_layout_version != block_a.hot_layout_version {
         return Err(format!(
             "Block A hotLayoutVersion mismatch: expected 0x{:016x}, got 0x{:016x}",
-            expected_hot_layout_version, hot_layout_version
+            block_a.hot_layout_version, hot_layout_version
         ));
     }
 
     let field_count = read_u32_le(region, 56);
-    if field_count != FIELD_COUNT {
+    if field_count != block_a.field_count {
         return Err(format!(
             "Block A fieldCount mismatch: expected {}, got {}",
-            FIELD_COUNT, field_count
+            block_a.field_count, field_count
         ));
     }
 
     let mutable_region_byte_length = read_u32_le(region, 60);
-    if mutable_region_byte_length != MUTABLE_REGION_BYTE_LENGTH {
+    if mutable_region_byte_length != block_a.mutable_region_byte_length {
         return Err(format!(
             "Block A mutableRegionByteLength mismatch: expected {}, got {}",
-            MUTABLE_REGION_BYTE_LENGTH, mutable_region_byte_length
+            block_a.mutable_region_byte_length, mutable_region_byte_length
         ));
     }
 
-    if region[64..72].iter().any(|byte| *byte != 0) {
+    if region[64..72] != block_a.reserved[..] {
         return Err("Block A reserved bytes must be zero".to_string());
     }
 
@@ -777,22 +1141,22 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 }
 
 fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
+    hex_to_bytes_with_label(hex, "hotRegionBytesHex")
+}
+
+fn hex_to_bytes_with_label(hex: &str, label: &str) -> Result<Vec<u8>, String> {
     if hex.len() % 2 != 0 {
-        return Err("hotRegionBytesHex must have an even number of hex digits".to_string());
+        return Err(format!("{label} must have an even number of hex digits"));
     }
 
     let mut bytes = Vec::with_capacity(hex.len() / 2);
     let chars: Vec<u8> = hex.bytes().collect();
     for index in (0..chars.len()).step_by(2) {
-        let high = hex_nibble(chars[index]).ok_or_else(|| {
-            format!(
-                "hotRegionBytesHex contains a non-hex digit at character {}",
-                index
-            )
-        })?;
+        let high = hex_nibble(chars[index])
+            .ok_or_else(|| format!("{label} contains a non-hex digit at character {}", index))?;
         let low = hex_nibble(chars[index + 1]).ok_or_else(|| {
             format!(
-                "hotRegionBytesHex contains a non-hex digit at character {}",
+                "{label} contains a non-hex digit at character {}",
                 index + 1
             )
         })?;
@@ -800,6 +1164,21 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
     }
 
     Ok(bytes)
+}
+
+fn parse_hex_bytes_exact<const N: usize>(hex: &str, label: &str) -> Result<[u8; N], String> {
+    let bytes = hex_to_bytes_with_label(hex, label)?;
+    if bytes.len() != N {
+        return Err(format!(
+            "{label} length mismatch: expected {} bytes, got {} bytes",
+            N,
+            bytes.len()
+        ));
+    }
+
+    bytes
+        .try_into()
+        .map_err(|_| format!("{label} length mismatch: expected {N} bytes"))
 }
 
 fn parse_u64_hex(hex: &str, label: &str) -> Result<u64, String> {
@@ -834,6 +1213,36 @@ fn format_u64_hex_prefixed(value: u64) -> String {
 mod tests {
     use super::*;
 
+    fn test_block_a_expectation() -> BlockAExpectation {
+        let mut block_a_bytes = [0_u8; BLOCK_A_SIZE];
+        let semantic_version = 0xe363_6f7c_dffa_73b2;
+        let hot_layout_version = 0xadef_6ee4_8efd_daed;
+        let contract_key_hash = identity_hash_16(CONTRACT_KEY);
+        let instance_key_hash = identity_hash_16("deck-runtime-v0.instance");
+
+        block_a_bytes[0..4].copy_from_slice(&[0x53, 0x51, 0x4c, 0x4b]);
+        write_u32_le(&mut block_a_bytes, 4, HOT_ABI_VERSION as u32);
+        block_a_bytes[8..24].copy_from_slice(&contract_key_hash);
+        block_a_bytes[24..40].copy_from_slice(&instance_key_hash);
+        write_u64_le(&mut block_a_bytes, 40, semantic_version);
+        write_u64_le(&mut block_a_bytes, 48, hot_layout_version);
+        write_u32_le(&mut block_a_bytes, 56, 8);
+        write_u32_le(&mut block_a_bytes, 60, 88);
+
+        BlockAExpectation {
+            region_magic: [0x53, 0x51, 0x4c, 0x4b],
+            hot_abi_version: HOT_ABI_VERSION as u32,
+            contract_key_hash,
+            instance_key_hash,
+            semantic_version,
+            hot_layout_version,
+            field_count: 8,
+            mutable_region_byte_length: 88,
+            reserved: [0; 8],
+            block_a_bytes,
+        }
+    }
+
     #[test]
     fn writes_little_endian_block_b_values() {
         let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
@@ -860,35 +1269,24 @@ mod tests {
 
     #[test]
     fn writes_block_a_header_values() {
-        let manifest = ArtifactManifest {
-            artifact_manifest_version: 1,
-            fixture_name: FIXTURE_NAME.to_string(),
-            contract_key: CONTRACT_KEY.to_string(),
-            symbol_stem: SYMBOL_STEM.to_string(),
-            hot_abi_version: HOT_ABI_VERSION,
-            hot_layout_version: "adef6ee48efddaed".to_string(),
-            source: ArtifactManifestSource {
-                hot_layout_manifest: "../hot-layout-manifest.json".to_string(),
-            },
-            artifacts: ArtifactManifestArtifacts {
-                reader: "hot-reader.ts".to_string(),
-                writer: "hot-writer.ts".to_string(),
-            },
-        };
+        let block_a = test_block_a_expectation();
         let mut region = vec![0_u8; TOTAL_REGION_BYTE_LENGTH];
 
-        write_block_a(&mut region, &manifest).unwrap();
+        write_block_a(&mut region, &block_a).unwrap();
 
-        assert_eq!(&region[0..4], &REGION_MAGIC);
-        assert_eq!(read_u32_le(&region, 4), HOT_ABI_VERSION_U32);
+        assert_eq!(&region[0..4], &block_a.region_magic);
+        assert_eq!(read_u32_le(&region, 4), block_a.hot_abi_version);
         assert_eq!(&region[8..24], &identity_hash_16(CONTRACT_KEY));
-        assert_eq!(&region[24..40], &identity_hash_16(INSTANCE_KEY));
-        assert_eq!(read_u64_le(&region, 40), SEMANTIC_VERSION);
+        assert_eq!(
+            &region[24..40],
+            &identity_hash_16("deck-runtime-v0.instance")
+        );
+        assert_eq!(read_u64_le(&region, 40), 0xe363_6f7c_dffa_73b2);
         assert_eq!(read_u64_le(&region, 48), 0xadef_6ee4_8efd_daed);
-        assert_eq!(read_u32_le(&region, 56), FIELD_COUNT);
-        assert_eq!(read_u32_le(&region, 60), MUTABLE_REGION_BYTE_LENGTH);
+        assert_eq!(read_u32_le(&region, 56), 8);
+        assert_eq!(read_u32_le(&region, 60), 88);
         assert_eq!(&region[64..72], &[0; 8]);
-        validate_block_a(&region, &manifest).unwrap();
+        validate_block_a(&region, &block_a).unwrap();
     }
 
     #[test]
