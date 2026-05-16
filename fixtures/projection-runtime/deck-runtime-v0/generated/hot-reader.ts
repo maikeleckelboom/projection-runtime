@@ -26,6 +26,11 @@ export type DeckRuntimeReader = {
 
 const SEQLOCK_OFFSET = 72;
 const TOTAL_REGION_BYTE_LENGTH = 160;
+const CONTRACT_KEY = "fixture.deckRuntime";
+const SEMANTIC_VERSION = 0xe3636f7cdffa73b2n;
+const HOT_LAYOUT_VERSION = 0xaddeef4f8ef66eadn;
+const FIELD_COUNT = 8;
+const MUTABLE_REGION_BYTE_LENGTH = 88;
 const BEAT_PHASE01_OFFSET = 96;
 const LEVEL_OFFSET = 100;
 const LOOP_ACTIVE_OFFSET = 104;
@@ -44,11 +49,22 @@ export function readDeckRuntimeSnapshotUnchecked(region: Uint8Array): DeckRuntim
   return readDeckRuntimeFields(view);
 }
 
-export function createDeckRuntimeReader(region: Uint8Array): DeckRuntimeReader {
+export function createDeckRuntimeReader(
+  region: Uint8Array,
+  { instanceKey }: { instanceKey: string },
+): DeckRuntimeReader {
   const binding = bindHotReadRegion({
     region,
     seqlockOffset: SEQLOCK_OFFSET,
     totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+    blockA: {
+      contractKey: CONTRACT_KEY,
+      instanceKey,
+      semanticVersion: SEMANTIC_VERSION,
+      hotLayoutVersion: HOT_LAYOUT_VERSION,
+      fieldCount: FIELD_COUNT,
+      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,
+    },
   });
   const state: HotReadState<DeckRuntimeSnapshot> = createHotReadState<DeckRuntimeSnapshot>();
 

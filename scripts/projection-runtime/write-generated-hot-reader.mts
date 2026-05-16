@@ -49,6 +49,7 @@ type WriteGeneratedHotReaderInput = {
   readonly manifestPath: string;
   readonly outputPath: string;
   readonly generatedFromPath: string;
+  readonly semanticVersion: string;
 };
 
 export async function writeGeneratedHotReader({
@@ -57,12 +58,20 @@ export async function writeGeneratedHotReader({
   manifestPath,
   outputPath,
   generatedFromPath,
+  semanticVersion,
 }: WriteGeneratedHotReaderInput): Promise<void> {
   validateGeneratedArtifactProfile({ fixtureName, symbolStem, generatedFromPath });
 
   const manifest = await readHotLayoutManifest(manifestPath);
   validateHotLayoutManifest(manifest, manifestPath, {
     getGeneratedConstantNames: generatedConstantNamesFor,
+    extraRootConstantNames: [
+      "CONTRACT_KEY",
+      "SEMANTIC_VERSION",
+      "HOT_LAYOUT_VERSION",
+      "FIELD_COUNT",
+      "MUTABLE_REGION_BYTE_LENGTH",
+    ],
   });
 
   const source = renderHotReader({
@@ -70,6 +79,7 @@ export async function writeGeneratedHotReader({
     symbolStem,
     generatedFromPath,
     manifest,
+    semanticVersion,
   });
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -117,6 +127,7 @@ function renderHotReader(input: {
   readonly symbolStem: string;
   readonly generatedFromPath: string;
   readonly manifest: HotLayoutManifest;
+  readonly semanticVersion: string;
 }): string {
   const fields = input.manifest.fields.map((field) => generateField(input.manifest, field));
   const snapshotTypeName = `${input.symbolStem}Snapshot`;
@@ -141,6 +152,7 @@ function renderHotReader(input: {
     "",
     `const SEQLOCK_OFFSET = ${input.manifest.seqlockOffset};`,
     `const TOTAL_REGION_BYTE_LENGTH = ${input.manifest.totalRegionByteLength};`,
+    ...renderBlockAConstants(input.manifest, input.semanticVersion),
     ...constants.map((constant) => constant.source),
     "",
     ...renderUncheckedReadFunction(readFunctionName, fieldsFunctionName, snapshotTypeName),
@@ -168,6 +180,19 @@ function renderImports(): readonly string[] {
     "  type HotReadState,",
     "  tryReadHotSnapshot,",
     '} from "@exclave/hot-consumer";',
+  ];
+}
+
+function renderBlockAConstants(
+  manifest: HotLayoutManifest,
+  semanticVersion: string,
+): readonly string[] {
+  return [
+    `const CONTRACT_KEY = ${stringLiteral(manifest.contractKey)};`,
+    `const SEMANTIC_VERSION = 0x${semanticVersion}n;`,
+    `const HOT_LAYOUT_VERSION = 0x${manifest.hotLayoutVersion}n;`,
+    `const FIELD_COUNT = ${manifest.fields.length};`,
+    `const MUTABLE_REGION_BYTE_LENGTH = ${manifest.mutableRegionByteLength};`,
   ];
 }
 
@@ -215,11 +240,19 @@ function renderCreateReaderFunction({
   readonly snapshotTypeName: string;
 }): readonly string[] {
   return [
-    `export function ${createFunctionName}(region: Uint8Array): ${readerTypeName} {`,
+    `export function ${createFunctionName}(region: Uint8Array, { instanceKey }: { instanceKey: string }): ${readerTypeName} {`,
     "  const binding = bindHotReadRegion({",
     "    region,",
     "    seqlockOffset: SEQLOCK_OFFSET,",
     "    totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,",
+    "    blockA: {",
+    "      contractKey: CONTRACT_KEY,",
+    "      instanceKey,",
+    "      semanticVersion: SEMANTIC_VERSION,",
+    "      hotLayoutVersion: HOT_LAYOUT_VERSION,",
+    "      fieldCount: FIELD_COUNT,",
+    "      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,",
+    "    },",
     "  });",
     `  const state: HotReadState<${snapshotTypeName}> = createHotReadState<${snapshotTypeName}>();`,
     "",

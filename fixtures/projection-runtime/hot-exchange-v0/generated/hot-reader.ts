@@ -23,6 +23,11 @@ export type HotExchangeReader = {
 
 const SEQLOCK_OFFSET = 72;
 const TOTAL_REGION_BYTE_LENGTH = 152;
+const CONTRACT_KEY = "fixture.hotExchange.v0";
+const SEMANTIC_VERSION = 0xda65c7947f2837d9n;
+const HOT_LAYOUT_VERSION = 0xa601a5b9fe7fc79en;
+const FIELD_COUNT = 5;
+const MUTABLE_REGION_BYTE_LENGTH = 80;
 const DISPLAY_NAME_OFFSET = 96;
 const DISPLAY_NAME_BYTE_LENGTH = 16;
 const GAIN_OFFSET = 112;
@@ -39,11 +44,22 @@ export function readHotExchangeSnapshotUnchecked(region: Uint8Array): HotExchang
   return readHotExchangeFields(view);
 }
 
-export function createHotExchangeReader(region: Uint8Array): HotExchangeReader {
+export function createHotExchangeReader(
+  region: Uint8Array,
+  { instanceKey }: { instanceKey: string },
+): HotExchangeReader {
   const binding = bindHotReadRegion({
     region,
     seqlockOffset: SEQLOCK_OFFSET,
     totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+    blockA: {
+      contractKey: CONTRACT_KEY,
+      instanceKey,
+      semanticVersion: SEMANTIC_VERSION,
+      hotLayoutVersion: HOT_LAYOUT_VERSION,
+      fieldCount: FIELD_COUNT,
+      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,
+    },
   });
   const state: HotReadState<HotExchangeSnapshot> = createHotReadState<HotExchangeSnapshot>();
 

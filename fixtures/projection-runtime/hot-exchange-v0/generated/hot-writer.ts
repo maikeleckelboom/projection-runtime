@@ -11,6 +11,11 @@ export type HotExchangeWriter = {
 const SEQLOCK_OFFSET = 72;
 const PUBLICATION_SEQUENCE_OFFSET = 88;
 const TOTAL_REGION_BYTE_LENGTH = 152;
+const CONTRACT_KEY = "fixture.hotExchange.v0";
+const SEMANTIC_VERSION = 0xda65c7947f2837d9n;
+const HOT_LAYOUT_VERSION = 0xa601a5b9fe7fc79en;
+const FIELD_COUNT = 5;
+const MUTABLE_REGION_BYTE_LENGTH = 80;
 const DISPLAY_NAME_OFFSET = 96;
 const DISPLAY_NAME_BYTE_LENGTH = 16;
 const GAIN_OFFSET = 112;
@@ -23,12 +28,23 @@ const LEVEL_VECTOR_3_OFFSET = 128;
 const PHASE_OFFSET = 136;
 const REVISION_OFFSET = 144;
 
-export function createHotExchangeWriter(region: Uint8Array): HotExchangeWriter {
+export function createHotExchangeWriter(
+  region: Uint8Array,
+  { instanceKey }: { instanceKey: string },
+): HotExchangeWriter {
   const binding = bindHotPublishRegion({
     region,
     seqlockOffset: SEQLOCK_OFFSET,
     publicationSequenceOffset: PUBLICATION_SEQUENCE_OFFSET,
     totalRegionByteLength: TOTAL_REGION_BYTE_LENGTH,
+    blockA: {
+      contractKey: CONTRACT_KEY,
+      instanceKey,
+      semanticVersion: SEMANTIC_VERSION,
+      hotLayoutVersion: HOT_LAYOUT_VERSION,
+      fieldCount: FIELD_COUNT,
+      mutableRegionByteLength: MUTABLE_REGION_BYTE_LENGTH,
+    },
   });
 
   return {
