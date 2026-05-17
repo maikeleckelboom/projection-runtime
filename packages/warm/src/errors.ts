@@ -1,17 +1,34 @@
-import type { ErrorMeta } from "@exclave/base";
-import { ExclaveError } from "@exclave/base";
+import {
+  defineErrorDomain,
+  type ErrorDomainWithFactory,
+  type KeyedErrorFactoryOf,
+} from "@exclave/base";
 
-const INPUT_REJECTED_META: ErrorMeta = {
-  severity: "error",
-  recoverable: false,
-  boundarySafe: true,
+const WARM_DEFS = {
+  inputRejected: {
+    message: "Warm input rejected",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
+} as const;
+
+export const warmErrorDomain: ErrorDomainWithFactory<"warm", typeof WARM_DEFS> = defineErrorDomain(
+  "warm",
+  WARM_DEFS,
+);
+
+type WarmErrorDetails = {
+  readonly inputRejected: {
+    readonly detail: string;
+  };
 };
 
+export const createWarmError: KeyedErrorFactoryOf<typeof warmErrorDomain, WarmErrorDetails> =
+  warmErrorDomain.createError;
+
 export function throwInputRejected(detail: string): never {
-  throw new ExclaveError(
-    "warm.inputRejected",
-    "Warm input rejected",
-    { detail },
-    INPUT_REJECTED_META,
-  );
+  throw createWarmError("inputRejected", { detail });
 }
