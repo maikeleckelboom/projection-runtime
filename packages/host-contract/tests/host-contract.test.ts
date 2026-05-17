@@ -1,9 +1,9 @@
+import type { JsonObject } from "@exclave/base";
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
 import { RESOURCE_READ_RANGE_OPERATION_KEY } from "@exclave/resource";
 import { type AuthorityBinding, createAuthorityBinding } from "@exclave/session";
 import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import * as hostContract from "../src/index";
 import {
   createHostAuthorityOwner,
   createHostAuthorityOwnerFromBinding,
@@ -17,6 +17,8 @@ import {
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
   type HostAuthorityOwner,
+  type HostContractFailureCode,
+  type HostContractVersion,
   type HostControlPlaneDescriptor,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
@@ -32,7 +34,8 @@ import {
   validateHostSurfaceInvalidatedEnvelope,
   validateHostSurfaceReadyEnvelope,
   validateHostWarmStreamDescriptor,
-} from "../src/index";
+} from "../src";
+import * as hostContract from "../src/index";
 
 function validOwner(): HostAuthorityOwner {
   return {
@@ -107,8 +110,8 @@ describe("@exclave/host-contract public exports", () => {
   });
 
   it("exports intended types", () => {
-    expectTypeOf(hostContract.HostContractVersion).toEqualTypeOf<1>();
-    expectTypeOf(hostContract.HostContractFailureCode).toEqualTypeOf<
+    expectTypeOf<HostContractVersion>().toEqualTypeOf<1>();
+    expectTypeOf<HostContractFailureCode>().toEqualTypeOf<
       "host-contract.invalidDescriptor" | "host-contract.rejected"
     >();
   });
@@ -1004,7 +1007,7 @@ describe("HostContractFailure", () => {
       createHostContractFailure({
         code: "host-contract.invalidDescriptor",
         message: "test",
-        details: { fn: () => {} } as unknown as Record<string, unknown>,
+        details: { fn: () => {} } as unknown as JsonObject,
       }),
     ).toThrow();
   });

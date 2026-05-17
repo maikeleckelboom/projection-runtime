@@ -1,3 +1,4 @@
+import type { JsonObject } from "@exclave/base";
 import type { ResourceDescriptor, ResourceOwner } from "@exclave/resource";
 import {
   createInvalidRangeResourceFailure,
@@ -680,7 +681,7 @@ describe("ResourceFailure", () => {
       createResourceFailure({
         code: "resource.rejected",
         message: "test",
-        details: { bad: 1n } as unknown as Record<string, unknown>,
+        details: { bad: 1n } as unknown as JsonObject,
       }),
     ).toThrow();
   });
@@ -833,7 +834,7 @@ describe("ResourceFailure", () => {
       createResourceFailure({
         code: "resource.rejected",
         message: "denied",
-        details,
+        details: details as unknown as JsonObject,
       }),
     ).toThrow();
     expect(getterCalled).toBe(false);
@@ -844,7 +845,7 @@ describe("ResourceFailure", () => {
       createResourceFailure({
         code: "resource.rejected",
         message: "denied",
-        details: { value: 1n } as unknown as Record<string, unknown>,
+        details: { value: 1n } as unknown as JsonObject,
       }),
     ).toThrow();
   });

@@ -1,0 +1,34 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "isolatedDeclarations": false,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "types": ["node", "vitest"],
+    "paths": {
+      "@exclave/base": ["./packages/base/src/index.ts"],
+      "@exclave/schema": ["./packages/schema/src/index.ts"],
+      "@exclave/compiler": ["./packages/compiler/src/index.ts"],
+      "@exclave/conformance": ["./packages/conformance/src/index.ts"],
+      "@exclave/hot-binding": ["./packages/hot-binding/src/index.ts"],
+      "@exclave/hot-codec": ["./packages/hot-codec/src/index.ts"],
+      "@exclave/hot-consumer": ["./packages/hot-consumer/src/index.ts"],
+      "@exclave/hot-publisher": ["./packages/hot-publisher/src/index.ts"],
+      "@exclave/session": ["./packages/session/src/index.ts"],
+      "@exclave/control-plane": ["./packages/control-plane/src/index.ts"],
+      "@exclave/resource": ["./packages/resource/src/index.ts"],
+      "@exclave/warm": ["./packages/warm/src/index.ts"],
+      "@exclave/host-contract": ["./packages/host-contract/src/index.ts"]
+    }
+  },
+  "include": [],
+  "exclude": ["node_modules", "dist", "packages/**/dist"]
+}
