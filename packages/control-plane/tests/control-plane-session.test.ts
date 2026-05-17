@@ -61,13 +61,15 @@ describe("@exclave/control-plane binding failure projection", () => {
     expect(controlFailure.code).toBe("control.bindingInvalid");
     expect(controlFailure.details).toBeDefined();
     if (controlFailure.details === undefined) return;
-    expect(controlFailure.details.reason).toBe("authorityEpochMismatch");
-    expect(controlFailure.details.rebindRequired).toBe(true);
-    expect(controlFailure.details.expected).toBeDefined();
-    if (controlFailure.details.expected === undefined) return;
-    expect(controlFailure.details.expected.authorityKey).toBe("auth-1");
-    expect(controlFailure.details.expected.surfaceKey).toBe("surf-1");
-    expect(controlFailure.details.expected.authorityEpoch).toBe("2");
+    const d = controlFailure.details as unknown as Record<string, unknown>;
+    expect(d.reason).toBe("authorityEpochMismatch");
+    expect(d.rebindRequired).toBe(true);
+    expect(d.expected).toBeDefined();
+    if (d.expected === undefined || d.expected === null) return;
+    const expected = d.expected as Record<string, unknown>;
+    expect(expected.authorityKey).toBe("auth-1");
+    expect(expected.surfaceKey).toBe("surf-1");
+    expect(expected.authorityEpoch).toBe("2");
   });
 
   it("projects authorityEpoch values as decimal strings", () => {
@@ -90,11 +92,13 @@ describe("@exclave/control-plane binding failure projection", () => {
 
     expect(controlFailure.details).toBeDefined();
     if (controlFailure.details === undefined) return;
-    expect(controlFailure.details.binding.authorityEpoch).toBe("42");
-    expect(typeof controlFailure.details.binding.authorityEpoch).toBe("string");
-    if (controlFailure.details.expected) {
-      expect(controlFailure.details.expected.authorityEpoch).toBe("100");
-      expect(typeof controlFailure.details.expected.authorityEpoch).toBe("string");
+    const d = controlFailure.details as unknown as Record<string, unknown>;
+    expect((d.binding as Record<string, unknown>).authorityEpoch).toBe("42");
+    expect(typeof (d.binding as Record<string, unknown>).authorityEpoch).toBe("string");
+    const expected = d.expected as Record<string, unknown> | undefined;
+    if (expected) {
+      expect(expected.authorityEpoch).toBe("100");
+      expect(typeof expected.authorityEpoch).toBe("string");
     }
   });
 
@@ -266,7 +270,9 @@ describe("@exclave/control-plane conformance: binding failure round-trips throug
     expect(failure.details.reason).toBe("bindingInvalidated");
     expect(failure.details.rebindRequired).toBe(true);
     expect(failure.details.invalidationReason).toBe("authorityRestarted");
-    expect(failure.details.binding.authorityEpoch).toBe("42");
-    expect(typeof failure.details.binding.authorityEpoch).toBe("string");
+    expect((failure.details.binding as Record<string, unknown>).authorityEpoch).toBe("42");
+    expect(typeof (failure.details.binding as Record<string, unknown>).authorityEpoch).toBe(
+      "string",
+    );
   });
 });

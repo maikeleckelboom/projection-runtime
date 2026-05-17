@@ -193,14 +193,14 @@ describe("@exclave/base JSON safety", () => {
 
   it("rejects nested array with symbol key", () => {
     const arr: unknown[] = [1, 2, 3];
-    (arr as Record<symbol, unknown>)[Symbol("s")] = "x";
+    (arr as unknown as Record<symbol, unknown>)[Symbol("s")] = "x";
     const result = checkJsonObjectRoot({ items: arr });
     expect(result.ok).toBe(false);
   });
 
   it("rejects nested array with extra string property", () => {
     const arr: unknown[] = [1, 2, 3];
-    (arr as Record<string, unknown>).foo = "bar";
+    (arr as unknown as Record<string, unknown>).foo = "bar";
     const result = checkJsonObjectRoot({ items: arr });
     expect(result.ok).toBe(false);
   });

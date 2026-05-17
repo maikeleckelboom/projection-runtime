@@ -269,15 +269,14 @@ describe("HostSurfaceDescriptor integration proof — ready composition", () => 
 
     expect(vSurface.hotRegions).toBeDefined();
     expect(vSurface.hotRegions?.length).toBe(1);
-    expect(vSurface.hotRegions?.[0].hotRegionKey).toBe("deck-runtime-v0.hot");
-    expect(vSurface.hotRegions?.[0].blockA).toEqual(expectedBlockA);
-    expect(vSurface.hotRegions?.[0].totalRegionByteLength).toBe(
-      expectedOffsets.totalRegionByteLength,
-    );
-    expect(vSurface.hotRegions?.[0].seqlockOffset).toBe(expectedOffsets.seqlockOffset);
-    expect(vSurface.hotRegions?.[0].publicationSequenceOffset).toBe(
-      expectedOffsets.publicationSeqOffset,
-    );
+    const [region] = vSurface.hotRegions ?? [];
+    expect(region).toBeDefined();
+    if (region === undefined) return;
+    expect(region.hotRegionKey).toBe("deck-runtime-v0.hot");
+    expect(region.blockA).toEqual(expectedBlockA);
+    expect(region.totalRegionByteLength).toBe(expectedOffsets.totalRegionByteLength);
+    expect(region.seqlockOffset).toBe(expectedOffsets.seqlockOffset);
+    expect(region.publicationSequenceOffset).toBe(expectedOffsets.publicationSeqOffset);
 
     expect(vSurface.control).toBeDefined();
     expect(vSurface.control?.endpointKey).toBe("deck-runtime-v0.control");
@@ -288,7 +287,10 @@ describe("HostSurfaceDescriptor integration proof — ready composition", () => 
 
     expect(vSurface.warmStreams).toBeDefined();
     expect(vSurface.warmStreams?.length).toBe(1);
-    expect(vSurface.warmStreams?.[0].streamKey).toBe("deck-runtime-v0.warm");
+    const [validatedWarmStream] = vSurface.warmStreams ?? [];
+    expect(validatedWarmStream).toBeDefined();
+    if (validatedWarmStream === undefined) return;
+    expect(validatedWarmStream.streamKey).toBe("deck-runtime-v0.warm");
 
     expect(vSurface.resourcePlane).toBeDefined();
     expect(vSurface.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);

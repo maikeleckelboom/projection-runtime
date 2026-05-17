@@ -13,6 +13,7 @@ import {
   HOT_CONTINUITY_GENERATION_U32_OFFSET,
   HOT_PUBLICATION_SEQUENCE_U64_OFFSET,
   HOT_SEQLOCK_U64_OFFSET,
+  type HotLayoutManifest,
   hexToBytes,
 } from "@exclave/hot-codec";
 import { describe, expect, expectTypeOf, it } from "vitest";
@@ -275,7 +276,7 @@ describe("@exclave/conformance fixture loading", () => {
       transportState: "playing",
     });
     expect(expected.decodedValues).toEqual({
-      ...hotByteFixture.values,
+      ...(hotByteFixture.values as Record<string, unknown>),
       tempoRatio: 1.024999976158142,
     });
   });
@@ -385,7 +386,9 @@ describe("@exclave/conformance fixture loading", () => {
     const hotBlockAFixture = cloneRecord(fixture.artifacts.hotBlockAFixture);
 
     expect(hotBlockAFixture.hotLayoutVersion).toBe(hotLayoutManifest.hotLayoutVersion);
-    expect(hotBlockAFixture.fieldCount).toBe(hotLayoutManifest.fields.length);
+    expect(hotBlockAFixture.fieldCount).toBe(
+      (hotLayoutManifest.fields as readonly unknown[]).length,
+    );
     expect(hotBlockAFixture.mutableRegionByteLength).toBe(
       hotLayoutManifest.mutableRegionByteLength,
     );
@@ -2148,9 +2151,10 @@ describe("@exclave/conformance execution", () => {
       },
     ] as const;
 
-    for (let i = 0; i < 3; i++) {
+    for (const [i, expected] of expectedFrames.entries()) {
       const frame = output.frames[i];
-      const expected = expectedFrames[i];
+      expect(frame).toBeDefined();
+      if (frame === undefined) return;
 
       expect(frame.frameIndex).toBe(expected.frameIndex);
       expect(frame.publishResult).toEqual(expected.publishResult);
@@ -2167,6 +2171,8 @@ describe("@exclave/conformance execution", () => {
         expect(frame.publishResult.previousSeqlockCounter).toBe("0x0000000000000000");
       } else {
         const prev = output.frames[i - 1];
+        expect(prev).toBeDefined();
+        if (prev === undefined) return;
         expect(frame.publishResult.previousPublicationSequence).toBe(
           prev.publishResult.publicationSequence,
         );
@@ -2228,6 +2234,9 @@ describe("@exclave/conformance execution", () => {
     for (let i = 1; i < 3; i++) {
       const prev = output.frames[i - 1];
       const current = output.frames[i];
+      expect(prev).toBeDefined();
+      expect(current).toBeDefined();
+      if (prev === undefined || current === undefined) return;
       expect(
         BigInt(current.publishResult.publicationSequence) >
           BigInt(prev.publishResult.publicationSequence),
@@ -2316,7 +2325,7 @@ function cloneRecord(value: unknown): Record<string, unknown> {
   return structuredClone(value) as Record<string, unknown>;
 }
 
-function decodeHotLayoutManifestFixture(value: unknown) {
+function decodeHotLayoutManifestFixture(value: unknown): HotLayoutManifest {
   const hotLayoutManifest = cloneRecord(value);
   const hotLayoutVersion = hotLayoutManifest.hotLayoutVersion;
 
@@ -2327,7 +2336,7 @@ function decodeHotLayoutManifestFixture(value: unknown) {
   return {
     ...hotLayoutManifest,
     hotLayoutVersion: BigInt(`0x${hotLayoutVersion}`),
-  };
+  } as HotLayoutManifest;
 }
 
 function readGeneratedFixtureFiles(
@@ -2432,15 +2441,16 @@ function fixedStringFieldLayout(
   if (typeof shape !== "object" || shape === null || Array.isArray(shape)) {
     throw new Error(`hot layout manifest field "${dotPath}" shape must be an object`);
   }
-  if (shape.kind !== "FixedStringEncoded") {
+  const shapeRecord = shape as Record<string, unknown>;
+  if (shapeRecord.kind !== "FixedStringEncoded") {
     throw new Error(
       `hot layout manifest field "${dotPath}" shape.kind must be "FixedStringEncoded"`,
     );
   }
-  if (shape.encoding !== "ascii") {
+  if (shapeRecord.encoding !== "ascii") {
     throw new Error(`hot layout manifest field "${dotPath}" shape.encoding must be "ascii"`);
   }
-  const byteLength = shape.byteLength;
+  const byteLength = shapeRecord.byteLength;
   if (typeof byteLength !== "number") {
     throw new Error(`hot layout manifest field "${dotPath}" shape.byteLength must be a number`);
   }
