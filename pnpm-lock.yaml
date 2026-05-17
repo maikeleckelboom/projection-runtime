@@ -74,6 +74,24 @@ importers:
         specifier: workspace:*
         version: link:../session
 
+  packages/host-contract:
+    dependencies:
+      '@exclave/base':
+        specifier: workspace:*
+        version: link:../base
+      '@exclave/control-plane':
+        specifier: workspace:*
+        version: link:../control-plane
+      '@exclave/resource':
+        specifier: workspace:*
+        version: link:../resource
+      '@exclave/session':
+        specifier: workspace:*
+        version: link:../session
+      '@exclave/warm':
+        specifier: workspace:*
+        version: link:../warm
+
   packages/hot-binding:
     dependencies:
       '@exclave/base':

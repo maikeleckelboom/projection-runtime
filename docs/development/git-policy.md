@@ -77,6 +77,7 @@ Preferred scopes:
 - `control-plane`
 - `resource`
 - `warm`
+- `host-contract`
 - `fixtures`
 - `docs`
 - `tooling`
