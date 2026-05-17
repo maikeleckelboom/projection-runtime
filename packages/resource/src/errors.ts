@@ -1,17 +1,34 @@
-import type { ErrorMeta } from "@exclave/base";
-import { ExclaveError } from "@exclave/base";
+import {
+  defineErrorDomain,
+  type ErrorDomainWithFactory,
+  type KeyedErrorFactoryOf,
+} from "@exclave/base";
 
-const INPUT_REJECTED_META: ErrorMeta = {
-  severity: "error",
-  recoverable: false,
-  boundarySafe: true,
+const RESOURCE_DEFS = {
+  inputRejected: {
+    message: "Resource input rejected",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
+} as const;
+
+export const resourceErrorDomain: ErrorDomainWithFactory<"resource", typeof RESOURCE_DEFS> =
+  defineErrorDomain("resource", RESOURCE_DEFS);
+
+type ResourceErrorDetails = {
+  readonly inputRejected: {
+    readonly detail: string;
+  };
 };
 
+export const createResourceError: KeyedErrorFactoryOf<
+  typeof resourceErrorDomain,
+  ResourceErrorDetails
+> = resourceErrorDomain.createError;
+
 export function throwInputRejected(detail: string): never {
-  throw new ExclaveError(
-    "resource.inputRejected",
-    "Resource input rejected",
-    { detail },
-    INPUT_REJECTED_META,
-  );
+  throw createResourceError("inputRejected", { detail });
 }
