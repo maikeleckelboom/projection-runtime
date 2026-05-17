@@ -14,7 +14,8 @@
     { "path": "./packages/session" },
     { "path": "./packages/control-plane" },
     { "path": "./packages/resource" },
-    { "path": "./packages/warm" }
+    { "path": "./packages/warm" },
+    { "path": "./packages/host-contract" }
   ],
   "files": []
 }
