@@ -30,6 +30,7 @@ const config: UserConfig = {
         "control-plane",
         "resource",
         "warm",
+        "host-contract",
         "fixtures",
         "docs",
         "tooling",

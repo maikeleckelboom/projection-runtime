@@ -27,6 +27,9 @@ const workspaceAliases = {
   ),
   "@exclave/resource": fileURLToPath(new URL("./packages/resource/src/index.ts", import.meta.url)),
   "@exclave/warm": fileURLToPath(new URL("./packages/warm/src/index.ts", import.meta.url)),
+  "@exclave/host-contract": fileURLToPath(
+    new URL("./packages/host-contract/src/index.ts", import.meta.url),
+  ),
 };
 
 export default defineConfig({
@@ -168,6 +171,19 @@ export default defineConfig({
           name: "@exclave/warm",
           environment: "node",
           include: ["packages/warm/tests/**/*.test.ts", "packages/warm/src/**/*.test.ts"],
+        },
+      },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "@exclave/host-contract",
+          environment: "node",
+          include: [
+            "packages/host-contract/tests/**/*.test.ts",
+            "packages/host-contract/src/**/*.test.ts",
+          ],
         },
       },
     ],

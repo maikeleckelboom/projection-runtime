@@ -22,6 +22,7 @@ Currently landed:
 - `@exclave/control-plane`
 - `@exclave/resource`
 - `@exclave/warm`
+- `@exclave/host-contract`
 
 No `@exclave/core` package is required for public v1. If it exists later, it must be either a tiny convenience
 aggregator or a narrow shared runtime contract layer. It must not own compiler, codecs, session lifecycle, resources,
