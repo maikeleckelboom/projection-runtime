@@ -20,6 +20,8 @@ export type HostHotRegionDescriptor = {
   readonly publicationSequenceOffset?: number;
 };
 
+const COUNTER_BYTE_LENGTH = 8;
+
 const CANONICAL_EPOCH_RE = /^(?:0|[1-9][0-9]*)$/;
 
 const BLOCK_A_OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
@@ -104,6 +106,12 @@ function assertSafePositiveInteger(value: unknown, label: string): number {
   return num;
 }
 
+function assertCounterOffsetAligned(offset: number, label: string): void {
+  if (offset % COUNTER_BYTE_LENGTH !== 0) {
+    throwInputRejected(`${label} must be a multiple of ${COUNTER_BYTE_LENGTH}`);
+  }
+}
+
 function assertNoByteFields(
   value: Record<string, unknown>,
   forbiddenKeys: readonly string[],
@@ -181,9 +189,15 @@ export function createHostHotRegionDescriptorThrowing(input: unknown): HostHotRe
     "hotRegion.totalRegionByteLength",
   );
   const seqlockOffset = assertSafeNonNegativeInteger(obj.seqlockOffset, "hotRegion.seqlockOffset");
+  assertCounterOffsetAligned(seqlockOffset, "hotRegion.seqlockOffset");
 
-  if (seqlockOffset >= totalRegionByteLength) {
-    throwInputRejected("hotRegion.seqlockOffset must be within totalRegionByteLength");
+  if (seqlockOffset > Number.MAX_SAFE_INTEGER - COUNTER_BYTE_LENGTH) {
+    throwInputRejected("hotRegion.seqlockOffset arithmetic overflow");
+  }
+  if (seqlockOffset + COUNTER_BYTE_LENGTH > totalRegionByteLength) {
+    throwInputRejected(
+      "hotRegion.seqlockOffset must leave room for an 8-byte counter within totalRegionByteLength",
+    );
   }
 
   let publicationSequenceOffset: number | undefined;
@@ -192,9 +206,21 @@ export function createHostHotRegionDescriptorThrowing(input: unknown): HostHotRe
       obj.publicationSequenceOffset,
       "hotRegion.publicationSequenceOffset",
     );
-    if (publicationSequenceOffset >= totalRegionByteLength) {
+    assertCounterOffsetAligned(publicationSequenceOffset, "hotRegion.publicationSequenceOffset");
+    if (publicationSequenceOffset > Number.MAX_SAFE_INTEGER - COUNTER_BYTE_LENGTH) {
+      throwInputRejected("hotRegion.publicationSequenceOffset arithmetic overflow");
+    }
+    if (publicationSequenceOffset + COUNTER_BYTE_LENGTH > totalRegionByteLength) {
       throwInputRejected(
-        "hotRegion.publicationSequenceOffset must be within totalRegionByteLength",
+        "hotRegion.publicationSequenceOffset must leave room for an 8-byte counter within totalRegionByteLength",
+      );
+    }
+    if (
+      seqlockOffset < publicationSequenceOffset + COUNTER_BYTE_LENGTH &&
+      publicationSequenceOffset < seqlockOffset + COUNTER_BYTE_LENGTH
+    ) {
+      throwInputRejected(
+        "hotRegion.seqlockOffset and publicationSequenceOffset 8-byte counter ranges must not overlap",
       );
     }
   }
@@ -229,7 +255,7 @@ export function validateHostHotRegionDescriptor(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }

@@ -1,5 +1,5 @@
 import type { JsonObject } from "@exclave/base";
-import { checkJsonObjectRoot } from "@exclave/base";
+import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
 import { throwInputRejected } from "./errors";
 
 export type HostContractFailureCode = "host-contract.invalidDescriptor" | "host-contract.rejected";
@@ -13,6 +13,20 @@ export type HostContractFailure = {
 export type HostContractValidationResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly failure: HostContractFailure };
+
+function validationFailure(
+  code: "host-contract.invalidDescriptor" | "host-contract.rejected",
+  message: string,
+): HostContractValidationResult<never> {
+  return {
+    ok: false as const,
+    failure: { code, message } as HostContractFailure,
+  };
+}
+
+function validationSuccess<T>(value: T): HostContractValidationResult<T> {
+  return { ok: true as const, value };
+}
 
 const VALID_CODES: ReadonlySet<string> = new Set([
   "host-contract.invalidDescriptor",
@@ -86,12 +100,27 @@ export function createHostContractFailure(input: {
   };
 }
 
-export function validateHostContractFailure(value: unknown): HostContractFailure {
-  return createHostContractFailure(
-    value as {
-      readonly code: HostContractFailureCode;
-      readonly message: string;
-      readonly details?: JsonObject;
-    },
-  );
+export function validateHostContractFailure(
+  value: unknown,
+): HostContractValidationResult<HostContractFailure> {
+  try {
+    return validationSuccess(
+      createHostContractFailure(
+        value as {
+          readonly code: HostContractFailureCode;
+          readonly message: string;
+          readonly details?: JsonObject;
+        },
+      ),
+    );
+  } catch (error) {
+    const message =
+      error instanceof ExclaveError && typeof error.details.detail === "string"
+        ? error.details.detail
+        : error instanceof Error
+          ? error.message
+          : "Unknown validation error";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
+    return validationFailure(code, message);
+  }
 }

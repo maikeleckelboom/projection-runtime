@@ -215,7 +215,7 @@ export function validateHostSurfaceDescriptor(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }
@@ -263,7 +263,7 @@ export function validateHostSurfaceReadyEnvelope(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }
@@ -326,7 +326,7 @@ export function validateHostSurfaceInvalidatedEnvelope(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }

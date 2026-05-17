@@ -179,6 +179,7 @@ describe("HostAuthorityOwner", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("must be a string");
     }
   });
@@ -190,6 +191,9 @@ describe("HostAuthorityOwner", () => {
       authorityEpoch: 42n,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("5. accepts canonical decimal strings", () => {
@@ -213,6 +217,9 @@ describe("HostAuthorityOwner", () => {
         authorityEpoch: epoch,
       });
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      }
     }
   });
 
@@ -226,6 +233,7 @@ describe("HostAuthorityOwner", () => {
     const result = validateHostAuthorityOwner(obj);
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("extra field");
     }
 
@@ -236,6 +244,9 @@ describe("HostAuthorityOwner", () => {
       [Symbol("x")]: 1,
     });
     expect(resultSymbol.ok).toBe(false);
+    if (!resultSymbol.ok) {
+      expect(resultSymbol.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("8. rejects class instance and accessor/getter input", () => {
@@ -248,6 +259,9 @@ describe("HostAuthorityOwner", () => {
     }
     const result = validateHostAuthorityOwner(new FakeOwner());
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("create does not mutate input object", () => {
@@ -255,6 +269,47 @@ describe("HostAuthorityOwner", () => {
     const frozen = { ...input };
     createHostAuthorityOwner(input);
     expect(input).toEqual(frozen);
+  });
+
+  it("accepts 0n, 1n, 42n, and 9007199254740993n from binding", () => {
+    for (const epoch of [0n, 1n, 42n, 9007199254740993n]) {
+      const binding = createAuthorityBinding({
+        authorityKey: "auth-1",
+        surfaceKey: "surf-1",
+        authorityEpoch: epoch,
+      });
+      const owner = createHostAuthorityOwnerFromBinding(binding);
+      expect(owner.authorityEpoch).toBe(String(epoch));
+    }
+  });
+
+  it("rejects -1n from binding", () => {
+    const binding = createAuthorityBinding({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: -1n,
+    });
+    expect(() => createHostAuthorityOwnerFromBinding(binding)).toThrow();
+  });
+
+  it("owner-from-binding output authorityEpoch is a string", () => {
+    const binding = createAuthorityBinding({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: 42n,
+    });
+    const owner = createHostAuthorityOwnerFromBinding(binding);
+    expect(typeof owner.authorityEpoch).toBe("string");
+  });
+
+  it("owner-from-binding output does not include state", () => {
+    const binding = createAuthorityBinding({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: 42n,
+    });
+    const owner = createHostAuthorityOwnerFromBinding(binding);
+    expect((owner as Record<string, unknown>).state).toBeUndefined();
   });
 });
 
@@ -274,10 +329,13 @@ describe("HostHotRegionDescriptor", () => {
   it("10. rejects byte-like fields", () => {
     const input = {
       ...validHotRegion(),
-      bytes: new Uint8Array([1, 2, 3]),
+      bytes: "forbidden byte field",
     } as unknown as HostHotRegionDescriptor;
     const result = validateHostHotRegionDescriptor(input);
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("11. rejects missing/empty hotRegionKey", () => {
@@ -288,6 +346,9 @@ describe("HostHotRegionDescriptor", () => {
       seqlockOffset: 0,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
 
     const resultEmpty = validateHostHotRegionDescriptor({
       kind: "host.hotRegion",
@@ -297,6 +358,9 @@ describe("HostHotRegionDescriptor", () => {
       seqlockOffset: 0,
     });
     expect(resultEmpty.ok).toBe(false);
+    if (!resultEmpty.ok) {
+      expect(resultEmpty.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("12. rejects bigint semanticVersion/hotLayoutVersion", () => {
@@ -305,12 +369,18 @@ describe("HostHotRegionDescriptor", () => {
       blockA: { ...validBlockA(), semanticVersion: 1n },
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
 
     const result2 = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       blockA: { ...validBlockA(), hotLayoutVersion: 2n },
     });
     expect(result2.ok).toBe(false);
+    if (!result2.ok) {
+      expect(result2.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("13. accepts semanticVersion/hotLayoutVersion as canonical decimal strings", () => {
@@ -327,6 +397,9 @@ describe("HostHotRegionDescriptor", () => {
       blockA: { ...validBlockA(), semanticVersion: "-1" },
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("15. rejects invalid totalRegionByteLength", () => {
@@ -336,6 +409,7 @@ describe("HostHotRegionDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("positive");
     }
   });
@@ -347,6 +421,7 @@ describe("HostHotRegionDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("within");
     }
   });
@@ -358,6 +433,7 @@ describe("HostHotRegionDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("within");
     }
   });
@@ -367,6 +443,7 @@ describe("HostHotRegionDescriptor", () => {
     const result = validateHostHotRegionDescriptor(obj);
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("extra field");
     }
   });
@@ -376,6 +453,122 @@ describe("HostHotRegionDescriptor", () => {
     const frozen = JSON.parse(JSON.stringify(input));
     createHostHotRegionDescriptor(input);
     expect(input).toEqual(frozen);
+  });
+
+  it("seqlockOffset at totalRegionByteLength - 8 is accepted", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 4088,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("seqlockOffset aligned but too large is rejected", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 4096,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(result.failure.message).toContain("8-byte counter");
+    }
+  });
+
+  it("publicationSequenceOffset at totalRegionByteLength - 8 is accepted", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 4088,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("publicationSequenceOffset aligned but too large is rejected", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 4096,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(result.failure.message).toContain("8-byte counter");
+    }
+  });
+
+  it("overlapping aligned seqlock and publicationSequence counter ranges are rejected", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 0,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(result.failure.message).toContain("overlap");
+    }
+  });
+
+  it("adjacent counter ranges are accepted", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 8,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("seqlockOffset aligned to 8 is accepted", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 8,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("seqlockOffset 1 is rejected for misalignment", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 1,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(result.failure.message).toContain("multiple of 8");
+    }
+  });
+
+  it("publicationSequenceOffset aligned to 8 is accepted", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 16,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("publicationSequenceOffset 9 is rejected for misalignment", () => {
+    const result = validateHostHotRegionDescriptor({
+      ...validHotRegion(),
+      totalRegionByteLength: 4096,
+      seqlockOffset: 0,
+      publicationSequenceOffset: 9,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(result.failure.message).toContain("multiple of 8");
+    }
   });
 });
 
@@ -398,6 +591,7 @@ describe("HostControlPlaneDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("envelopeVersion");
     }
   });
@@ -410,6 +604,9 @@ describe("HostControlPlaneDescriptor", () => {
       operationKeys: ["op.1"],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("22. rejects empty operationKeys", () => {
@@ -420,6 +617,9 @@ describe("HostControlPlaneDescriptor", () => {
       operationKeys: [],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("23. rejects empty operation key", () => {
@@ -430,6 +630,9 @@ describe("HostControlPlaneDescriptor", () => {
       operationKeys: [""],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("24. rejects extra fields", () => {
@@ -442,6 +645,9 @@ describe("HostControlPlaneDescriptor", () => {
     };
     const result = validateHostControlPlaneDescriptor(obj);
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 });
 
@@ -461,6 +667,9 @@ describe("HostWarmStreamDescriptor", () => {
       streamKey: "ws-1",
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("27. rejects empty streamKey", () => {
@@ -470,6 +679,9 @@ describe("HostWarmStreamDescriptor", () => {
       streamKey: "",
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("28. rejects extra fields", () => {
@@ -480,6 +692,9 @@ describe("HostWarmStreamDescriptor", () => {
       extra: true,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 });
 
@@ -498,6 +713,9 @@ describe("HostResourcePlaneDescriptor", () => {
       readRangeOperationKey: "wrong",
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("31. rejects extra fields", () => {
@@ -507,6 +725,9 @@ describe("HostResourcePlaneDescriptor", () => {
       extra: true,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 });
 
@@ -566,6 +787,7 @@ describe("HostSurfaceDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("at least one lane");
     }
   });
@@ -579,6 +801,7 @@ describe("HostSurfaceDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("duplicate");
     }
   });
@@ -592,6 +815,7 @@ describe("HostSurfaceDescriptor", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(result.failure.message).toContain("duplicate");
     }
   });
@@ -604,6 +828,9 @@ describe("HostSurfaceDescriptor", () => {
       hotRegions: [validHotRegion()],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("38. rejects invalid owner", () => {
@@ -614,6 +841,9 @@ describe("HostSurfaceDescriptor", () => {
       hotRegions: [validHotRegion()],
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("39. JSON.stringify/parse roundtrip preserves descriptor", () => {
@@ -660,6 +890,9 @@ describe("HostSurfaceReadyEnvelope", () => {
       },
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 });
 
@@ -686,6 +919,9 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
       rebindRequired: true,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("45. rejects rebindRequired false", () => {
@@ -697,6 +933,9 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
       rebindRequired: false,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("46. rejects raw bigint in invalidated owner", () => {
@@ -712,6 +951,9 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
       rebindRequired: true,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
   });
 
   it("47. does not leak raw BindingValidityFailure object", () => {
@@ -767,22 +1009,70 @@ describe("HostContractFailure", () => {
     ).toThrow();
   });
 
-  it("validation returns the failure shape", () => {
-    const failure = validateHostContractFailure({
+  it("52. validateHostContractFailure returns ok true for rejected code", () => {
+    const result = validateHostContractFailure({
       code: "host-contract.rejected",
       message: "validated failure",
     });
-    expect(failure.code).toBe("host-contract.rejected");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.code).toBe("host-contract.rejected");
+      expect(result.value.message).toBe("validated failure");
+    }
   });
 
-  it("validates code, message, details shape", () => {
-    const failure = validateHostContractFailure({
+  it("53. validateHostContractFailure returns ok true for invalidDescriptor with details", () => {
+    const result = validateHostContractFailure({
       code: "host-contract.invalidDescriptor",
       message: "detailed failure",
       details: { key: "value" },
     });
-    expect(failure.code).toBe("host-contract.invalidDescriptor");
-    expect(failure.details).toEqual({ key: "value" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.code).toBe("host-contract.invalidDescriptor");
+      expect(result.value.message).toBe("detailed failure");
+      expect(result.value.details).toEqual({ key: "value" });
+    }
+  });
+
+  it("54. validateHostContractFailure returns ok false for invalid failure code", () => {
+    const result = validateHostContractFailure({
+      code: "warm.invalidEnvelope" as "host-contract.invalidDescriptor",
+      message: "test",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(typeof result.failure.message).toBe("string");
+      expect(result.failure.message.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("55. validateHostContractFailure returns ok false for empty message", () => {
+    const result = validateHostContractFailure({
+      code: "host-contract.invalidDescriptor",
+      message: "",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(typeof result.failure.message).toBe("string");
+      expect(result.failure.message.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("56. validateHostContractFailure returns ok false for non-JSON-safe details", () => {
+    const result = validateHostContractFailure({
+      code: "host-contract.invalidDescriptor",
+      message: "test",
+      details: { fn: () => {} } as unknown as Record<string, unknown>,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+      expect(typeof result.failure.message).toBe("string");
+      expect(result.failure.message.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -801,7 +1091,7 @@ describe("HostContractValidationResult", () => {
     const result = validateHostSurfaceDescriptor({});
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.failure.code).toBe("host-contract.rejected");
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
       expect(typeof result.failure.message).toBe("string");
       expect(result.failure.message.length).toBeGreaterThan(0);
     }

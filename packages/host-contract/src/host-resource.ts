@@ -86,7 +86,7 @@ export function validateHostResourcePlaneDescriptor(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }

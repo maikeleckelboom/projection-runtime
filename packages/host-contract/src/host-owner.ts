@@ -88,13 +88,17 @@ export function createHostAuthorityOwnerFromBinding(binding: AuthorityBinding): 
     throwInputRejected("binding.authorityEpoch must be a bigint");
   }
 
+  if (binding.authorityEpoch < 0n) {
+    throwInputRejected("binding.authorityEpoch must be a non-negative bigint");
+  }
+
   const authorityEpoch = String(binding.authorityEpoch);
 
-  return {
+  return validateHostAuthorityOwnerThrowing({
     authorityKey,
     surfaceKey,
     authorityEpoch,
-  };
+  });
 }
 
 export function validateHostAuthorityOwnerThrowing(owner: unknown): HostAuthorityOwner {
@@ -133,7 +137,7 @@ export function validateHostAuthorityOwner(
         : error instanceof Error
           ? error.message
           : "Unknown validation error";
-    const code: "host-contract.rejected" = "host-contract.rejected";
+    const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
 }
