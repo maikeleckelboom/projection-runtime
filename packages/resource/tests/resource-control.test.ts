@@ -1,3 +1,4 @@
+import type { JsonObject } from "@exclave/base";
 import {
   validateControlRequestEnvelope,
   validateControlResponseEnvelope,
@@ -250,7 +251,7 @@ describe("Resource Control Envelopes", () => {
         resourceFailure: {
           code: "resource.rejected",
           message: "test",
-          details: { bad: 1n } as unknown as Record<string, unknown>,
+          details: { bad: 1n } as unknown as JsonObject,
         },
       }),
     ).toThrow();

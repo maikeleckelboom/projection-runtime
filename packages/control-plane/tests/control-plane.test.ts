@@ -1291,7 +1291,7 @@ describe("@exclave/control-plane request-response correlation", () => {
 
 describe("@exclave/control-plane mutation safety", () => {
   it("does not mutate input payloads during creation", () => {
-    const payload: Record<string, unknown> = { a: 1, b: { c: 2 } };
+    const payload = { a: 1, b: { c: 2 } };
     const original = { a: 1, b: { c: 2 } };
     createControlRequestEnvelope({
       requestKey: "req-1",

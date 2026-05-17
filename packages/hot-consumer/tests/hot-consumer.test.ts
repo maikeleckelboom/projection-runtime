@@ -395,6 +395,9 @@ describe("@exclave/hot-consumer bounded read attempts", () => {
     });
 
     expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("expected read to succeed");
+    }
     expect(result.snapshot.blockB.seqlockCounter).toBe(2n);
     expect(result.snapshot.fieldValues).toEqual({
       cursor: 123,

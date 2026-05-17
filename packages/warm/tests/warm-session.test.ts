@@ -72,14 +72,14 @@ describe("createStaleBindingWarmFailure", () => {
     const invalidatedFailure = {
       ok: false as const,
       reason: "bindingInvalidated" as const,
-      rebindRequired: true,
+      rebindRequired: true as const,
       binding: {
         authorityKey: "auth-x",
         surfaceKey: "surface-x",
         authorityEpoch: 1n,
         state: { kind: "invalidated" as const, reason: "authorityRestarted" as const },
       },
-      invalidationReason: "authorityRestarted",
+      invalidationReason: "authorityRestarted" as const,
     };
 
     const f = createStaleBindingWarmFailure(invalidatedFailure);
@@ -179,7 +179,7 @@ describe("createStaleBindingWarmFailure", () => {
 
     const walk = (obj: unknown, path = "root"): void => {
       if (typeof obj === "bigint") {
-        fail(`Found bigint at ${path}`);
+        throw new Error(`Found bigint at ${path}`);
       }
       if (obj === null || typeof obj !== "object") return;
       if (Array.isArray(obj)) {

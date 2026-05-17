@@ -1,4 +1,4 @@
-import { ExclaveError } from "@exclave/base";
+import { ExclaveError, type JsonObject } from "@exclave/base";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import * as warm from "../src/index";
 import {
@@ -10,10 +10,21 @@ import {
   validateWarmFrameEnvelope,
   validateWarmOwner,
   WARM_ENVELOPE_VERSION,
+  type WarmEnvelopeVersion,
   type WarmFailureCode,
   type WarmFrameEnvelope,
+  type WarmFrameKey,
+  type WarmFrameKind,
+  type WarmFrameSequence,
   type WarmOwner,
+  type WarmStreamKey,
 } from "../src/index";
+
+type WarmFrameInput = {
+  -readonly [Key in keyof Parameters<typeof createWarmFrameEnvelope>[0]]: Parameters<
+    typeof createWarmFrameEnvelope
+  >[0][Key];
+};
 
 function makeRevokedProxy<T extends object>(target: T): T {
   const { proxy, revoke } = Proxy.revocable(target, {});
@@ -29,7 +40,7 @@ function validOwner(): WarmOwner {
   };
 }
 
-function validFrameInput() {
+function validFrameInput(): WarmFrameInput {
   return {
     streamKey: "stream-1",
     frameKey: "frame-1",
@@ -48,13 +59,13 @@ function validFrameEnvelope(): WarmFrameEnvelope {
 
 describe("@exclave/warm public exports", () => {
   it("exports the intended type surface", () => {
-    expectTypeOf(warm.WarmStreamKey).toEqualTypeOf<string>();
-    expectTypeOf(warm.WarmFrameKey).toEqualTypeOf<string>();
-    expectTypeOf(warm.WarmFrameSequence).toEqualTypeOf<string>();
-    expectTypeOf(warm.WarmFrameKind).toEqualTypeOf<string>();
-    expectTypeOf(warm.WarmEnvelopeVersion).toEqualTypeOf<1>();
+    expectTypeOf<WarmStreamKey>().toEqualTypeOf<string>();
+    expectTypeOf<WarmFrameKey>().toEqualTypeOf<string>();
+    expectTypeOf<WarmFrameSequence>().toEqualTypeOf<string>();
+    expectTypeOf<WarmFrameKind>().toEqualTypeOf<string>();
+    expectTypeOf<WarmEnvelopeVersion>().toEqualTypeOf<1>();
 
-    expectTypeOf(warm.WarmFailureCode).toEqualTypeOf<
+    expectTypeOf<WarmFailureCode>().toEqualTypeOf<
       "warm.invalidEnvelope" | "warm.staleBinding" | "warm.rejected"
     >();
   });
@@ -891,7 +902,7 @@ describe("Immutability", () => {
     const payload = { x: 1, y: [2, 3] };
     const frozen = JSON.parse(JSON.stringify(payload));
     const input = validFrameInput();
-    input.payload = payload;
+    input.payload = payload satisfies JsonObject;
 
     createWarmFrameEnvelope(input);
 
