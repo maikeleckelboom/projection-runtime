@@ -1,0 +1,761 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  CONTROL_ENVELOPE_VERSION,
+  createBindingInvalidControlFailure,
+  createControlFailureEnvelope,
+  createControlRequestEnvelope,
+  createControlSuccessEnvelope,
+  validateControlRequestEnvelope,
+  validateControlResponseEnvelope,
+  validateControlResponseForRequest,
+} from "@exclave/control-plane";
+import {
+  createResourceDescriptor,
+  createResourceReadRangeControlRequest,
+  createResourceReadRangeControlSuccess,
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  createStaleBindingResourceFailure,
+  RESOURCE_READ_RANGE_OPERATION_KEY,
+  validateResourceDescriptor,
+  validateResourceFailure,
+  validateResourceReadRangeReceiptPayload,
+} from "@exclave/resource";
+import {
+  type AuthorityBinding,
+  createAuthorityBinding,
+  invalidateAuthorityBinding,
+  markAuthorityBindingReady,
+  validateAuthorityBinding,
+} from "@exclave/session";
+import {
+  createStaleBindingWarmFailure,
+  createWarmFrameEnvelope,
+  createWarmOwner,
+  validateWarmFailure,
+  validateWarmFrameEnvelope,
+  WARM_ENVELOPE_VERSION,
+} from "@exclave/warm";
+import { describe, expect, it } from "vitest";
+
+import {
+  createHostAuthorityOwnerFromBinding,
+  createHostControlPlaneDescriptor,
+  createHostHotRegionDescriptor,
+  createHostResourcePlaneDescriptor,
+  createHostSurfaceDescriptor,
+  createHostSurfaceReadyEnvelope,
+  createHostWarmStreamDescriptor,
+  HOST_CONTRACT_VERSION,
+  type HostHotBlockAExpectation,
+  type HostHotRegionDescriptor,
+  validateHostSurfaceReadyEnvelope,
+} from "../src/index";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const FIXTURES_ROOT = resolve(__dirname, "../../../fixtures/projection-runtime/deck-runtime-v0");
+
+function loadFixtureJson(filename: string): unknown {
+  const raw = readFileSync(resolve(FIXTURES_ROOT, filename), "utf-8");
+  return JSON.parse(raw);
+}
+
+function hexU64ToDecimalString(hex: string): string {
+  if (typeof hex !== "string") {
+    throw new Error("hexU64ToDecimalString: hex must be a string");
+  }
+  if (!/^[0-9a-fA-F]{1,16}$/.test(hex)) {
+    throw new Error("hexU64ToDecimalString: hex must be 1-16 hex characters");
+  }
+  return BigInt(`0x${hex}`).toString();
+}
+
+function assertNoForbiddenDescriptorKeys(
+  value: unknown,
+  forbiddenKeys: ReadonlySet<string>,
+  path: string,
+): void {
+  if (typeof value !== "object" || value === null) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      assertNoForbiddenDescriptorKeys(value[i], forbiddenKeys, `${path}[${i}]`);
+    }
+    return;
+  }
+  for (const key of Object.keys(value)) {
+    if (forbiddenKeys.has(key)) {
+      throw new Error(`forbidden descriptor key "${key}" found at ${path}`);
+    }
+    assertNoForbiddenDescriptorKeys(
+      (value as Record<string, unknown>)[key],
+      forbiddenKeys,
+      `${path}.${key}`,
+    );
+  }
+}
+
+function loadBlockAFixture(): Record<string, unknown> {
+  const data = loadFixtureJson("hot-block-a-fixture.json");
+  if (typeof data !== "object" || data === null) {
+    throw new Error("block A fixture is not an object");
+  }
+  return data as Record<string, unknown>;
+}
+
+function loadLayoutManifest(): Record<string, unknown> {
+  const data = loadFixtureJson("hot-layout-manifest.json");
+  if (typeof data !== "object" || data === null) {
+    throw new Error("layout manifest is not an object");
+  }
+  return data as Record<string, unknown>;
+}
+
+function mustBeString(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string, got ${typeof value}`);
+  }
+  return value;
+}
+
+function mustBeNumber(value: unknown, label: string): number {
+  if (typeof value !== "number") {
+    throw new Error(`${label} must be a number, got ${typeof value}`);
+  }
+  return value;
+}
+
+function deriveFixtureIdentity(): {
+  authorityKey: string;
+  surfaceKey: string;
+  authorityEpoch: bigint;
+} {
+  const blockA = loadBlockAFixture();
+  const authorityKey = mustBeString(blockA.contractKey, "fixture.contractKey");
+  const surfaceKey = mustBeString(blockA.instanceKey, "fixture.instanceKey");
+  return { authorityKey, surfaceKey, authorityEpoch: 1n };
+}
+
+function deriveBlockAExpectation(): HostHotBlockAExpectation {
+  const blockA = loadBlockAFixture();
+  return {
+    contractKey: mustBeString(blockA.contractKey, "fixture.contractKey"),
+    instanceKey: mustBeString(blockA.instanceKey, "fixture.instanceKey"),
+    semanticVersion: hexU64ToDecimalString(
+      mustBeString(blockA.semanticVersion, "fixture.semanticVersion"),
+    ),
+    hotLayoutVersion: hexU64ToDecimalString(
+      mustBeString(blockA.hotLayoutVersion, "fixture.hotLayoutVersion"),
+    ),
+    fieldCount: mustBeNumber(blockA.fieldCount, "fixture.fieldCount"),
+    mutableRegionByteLength: mustBeNumber(
+      blockA.mutableRegionByteLength,
+      "fixture.mutableRegionByteLength",
+    ),
+  };
+}
+
+function deriveLayoutOffsets(): {
+  totalRegionByteLength: number;
+  seqlockOffset: number;
+  publicationSeqOffset: number;
+} {
+  const layout = loadLayoutManifest();
+  return {
+    totalRegionByteLength: mustBeNumber(
+      layout.totalRegionByteLength,
+      "layout.totalRegionByteLength",
+    ),
+    seqlockOffset: mustBeNumber(layout.seqlockOffset, "layout.seqlockOffset"),
+    publicationSeqOffset: mustBeNumber(layout.publicationSeqOffset, "layout.publicationSeqOffset"),
+  };
+}
+
+function createFixtureBlockA(): HostHotBlockAExpectation {
+  return deriveBlockAExpectation();
+}
+
+function createFixtureHotRegion(): HostHotRegionDescriptor {
+  const offsets = deriveLayoutOffsets();
+  return {
+    kind: "host.hotRegion",
+    hotRegionKey: "deck-runtime-v0.hot",
+    blockA: createFixtureBlockA(),
+    totalRegionByteLength: offsets.totalRegionByteLength,
+    seqlockOffset: offsets.seqlockOffset,
+    publicationSequenceOffset: offsets.publicationSeqOffset,
+  };
+}
+
+function createFixtureSurfaceReady() {
+  const identity = deriveFixtureIdentity();
+  const binding: AuthorityBinding = createAuthorityBinding(identity);
+  const readyBinding = markAuthorityBindingReady(binding);
+
+  const owner = createHostAuthorityOwnerFromBinding(readyBinding);
+  const hotRegion = createHostHotRegionDescriptor(createFixtureHotRegion());
+
+  const control = createHostControlPlaneDescriptor({
+    kind: "host.controlPlane",
+    envelopeVersion: CONTROL_ENVELOPE_VERSION,
+    endpointKey: "deck-runtime-v0.control",
+    operationKeys: ["fixture.deckRuntime.describe", "fixture.deckRuntime.invalidate"],
+  });
+
+  const warmStream = createHostWarmStreamDescriptor({
+    kind: "host.warmStream",
+    envelopeVersion: WARM_ENVELOPE_VERSION,
+    streamKey: "deck-runtime-v0.warm",
+  });
+
+  const resourcePlane = createHostResourcePlaneDescriptor({
+    kind: "host.resourcePlane",
+    readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+  });
+
+  const surface = createHostSurfaceDescriptor({
+    kind: "host.surface",
+    contractVersion: HOST_CONTRACT_VERSION,
+    owner,
+    hotRegions: [hotRegion],
+    control,
+    warmStreams: [warmStream],
+    resourcePlane,
+  });
+
+  const envelope = createHostSurfaceReadyEnvelope({
+    kind: "host.surfaceReady",
+    contractVersion: HOST_CONTRACT_VERSION,
+    surface,
+  });
+
+  const json = JSON.stringify(envelope);
+  const parsed = JSON.parse(json);
+
+  return {
+    identity,
+    readyBinding,
+    envelope,
+    validated: validateHostSurfaceReadyEnvelope(parsed),
+  };
+}
+
+const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
+  "blockABytesHex",
+  "completeFixtureRegionBytesHex",
+  "hotRegionBytesHex",
+  "completeFixtureRegionBytes",
+  "completeFixtureRegion",
+  "bytes",
+  "buffer",
+  "region",
+  "view",
+  "SharedArrayBuffer",
+]);
+
+describe("Client lane consumption proof: control, resource, warm", () => {
+  // ─── Proof 1: Control lane request/response is descriptor-driven ───
+
+  describe("Proof 1: Control lane request/response is descriptor-driven", () => {
+    it("validates host.surfaceReady, extracts control descriptor, creates and validates a control request/response cycle", () => {
+      const { validated } = createFixtureSurfaceReady();
+
+      expect(validated.ok).toBe(true);
+      if (!validated.ok) {
+        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      }
+
+      const vSurface = validated.value.surface;
+      const control = vSurface.control;
+      expect(control).toBeDefined();
+      if (!control) return;
+      expect(control.endpointKey).toBe("deck-runtime-v0.control");
+      expect(control.operationKeys).toEqual([
+        "fixture.deckRuntime.describe",
+        "fixture.deckRuntime.invalidate",
+      ]);
+
+      const operationKey = control.operationKeys[0];
+      expect(operationKey).toBe("fixture.deckRuntime.describe");
+
+      const requestPayload = {
+        endpointKey: control.endpointKey,
+        fixture: { action: "describe", target: "deck-runtime-v0" },
+      };
+
+      const request = createControlRequestEnvelope({
+        requestKey: "request-1",
+        operationKey,
+        payload: requestPayload,
+      });
+
+      expect(request.kind).toBe("control.request");
+      expect(request.requestKey).toBe("request-1");
+      expect(request.operationKey).toBe(operationKey);
+      expect(request.envelopeVersion).toBe(CONTROL_ENVELOPE_VERSION);
+
+      const requestJson = JSON.stringify(request);
+      const requestParsed = JSON.parse(requestJson);
+      const requestValidated = validateControlRequestEnvelope(requestParsed);
+      expect(requestValidated.ok).toBe(true);
+      if (!requestValidated.ok) {
+        throw new Error(`control request validation failed: ${requestValidated.failure.message}`);
+      }
+
+      expect(requestValidated.value.operationKey).toBe(operationKey);
+      expect(requestValidated.value.operationKey).toBe(control.operationKeys[0]);
+
+      const responsePayload = { status: "ok", description: "fixture deck runtime v0" };
+      const success = createControlSuccessEnvelope({
+        requestKey: "request-1",
+        payload: responsePayload,
+      });
+
+      expect(success.kind).toBe("control.response");
+      expect(success.ok).toBe(true);
+      expect(success.requestKey).toBe("request-1");
+      expect(success.envelopeVersion).toBe(CONTROL_ENVELOPE_VERSION);
+
+      const responseJson = JSON.stringify(success);
+      const responseParsed = JSON.parse(responseJson);
+      const responseValidated = validateControlResponseEnvelope(responseParsed);
+      expect(responseValidated.ok).toBe(true);
+      if (!responseValidated.ok) {
+        throw new Error(`control response validation failed: ${responseValidated.failure.message}`);
+      }
+
+      const correlation = validateControlResponseForRequest(
+        requestValidated.value,
+        responseValidated.value,
+      );
+      expect(correlation.ok).toBe(true);
+      if (!correlation.ok) {
+        throw new Error(`correlation failed: ${correlation.failure.message}`);
+      }
+
+      expect(correlation.value.requestKey).toBe("request-1");
+      expect(correlation.value.requestKey).toBe(requestValidated.value.requestKey);
+
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(requestJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "request",
+      );
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(responseJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "response",
+      );
+      expect(requestJson).not.toContain("SharedArrayBuffer");
+      expect(responseJson).not.toContain("SharedArrayBuffer");
+    });
+  });
+
+  // ─── Proof 2: Unsupported operation is rejected using control failure envelope ───
+
+  describe("Proof 2: Unsupported operation is rejected using control failure envelope, not dispatch", () => {
+    it("request shape validity is separate from operation support; failure is descriptor-driven", () => {
+      const { validated } = createFixtureSurfaceReady();
+
+      expect(validated.ok).toBe(true);
+      if (!validated.ok) {
+        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      }
+
+      const control = validated.value.surface.control;
+      expect(control).toBeDefined();
+      if (!control) return;
+      const supportedOps = new Set(control.operationKeys);
+      expect(supportedOps.has("fixture.deckRuntime.describe")).toBe(true);
+      expect(supportedOps.has("fixture.deckRuntime.invalidate")).toBe(true);
+
+      const unsupportedOperationKey = "fixture.deckRuntime.nonexistent";
+      expect(supportedOps.has(unsupportedOperationKey)).toBe(false);
+
+      const request = createControlRequestEnvelope({
+        requestKey: "request-unsupported-1",
+        operationKey: unsupportedOperationKey,
+        payload: { endpointKey: control.endpointKey, attempt: true },
+      });
+
+      expect(request.kind).toBe("control.request");
+      expect(request.operationKey).toBe(unsupportedOperationKey);
+
+      const requestJson = JSON.stringify(request);
+      const requestParsed = JSON.parse(requestJson);
+      const requestValidated = validateControlRequestEnvelope(requestParsed);
+      expect(requestValidated.ok).toBe(true);
+      if (!requestValidated.ok) {
+        throw new Error(
+          `unsupported op request validation failed: ${requestValidated.failure.message}`,
+        );
+      }
+
+      expect(requestValidated.value.operationKey).toBe(unsupportedOperationKey);
+      expect(control.operationKeys.includes(requestValidated.value.operationKey)).toBe(false);
+
+      const failureResponse = createControlFailureEnvelope({
+        requestKey: "request-unsupported-1",
+        failure: {
+          code: "control.unsupportedOperation",
+          message: `Operation "${unsupportedOperationKey}" is not supported by endpoint "${control.endpointKey}"`,
+          details: {
+            unsupportedOperationKey,
+            endpointKey: control.endpointKey,
+            supportedOperationKeys: control.operationKeys,
+          },
+        },
+      });
+
+      expect(failureResponse.kind).toBe("control.response");
+      expect(failureResponse.ok).toBe(false);
+      expect(failureResponse.requestKey).toBe("request-unsupported-1");
+      expect(failureResponse.failure.code).toBe("control.unsupportedOperation");
+      expect(failureResponse.failure.message.length).toBeGreaterThan(0);
+
+      const failureJson = JSON.stringify(failureResponse);
+      const failureParsed = JSON.parse(failureJson);
+      const failureValidated = validateControlResponseEnvelope(failureParsed);
+      expect(failureValidated.ok).toBe(true);
+      if (!failureValidated.ok) {
+        throw new Error(`failure response validation failed: ${failureValidated.failure.message}`);
+      }
+
+      const correlation = validateControlResponseForRequest(
+        requestValidated.value,
+        failureValidated.value,
+      );
+      expect(correlation.ok).toBe(true);
+      if (!correlation.ok) {
+        throw new Error(`failure correlation failed: ${correlation.failure.message}`);
+      }
+
+      expect(correlation.value.requestKey).toBe("request-unsupported-1");
+      expect(correlation.value.requestKey).toBe(requestValidated.value.requestKey);
+
+      if (failureResponse.failure.details) {
+        assertNoForbiddenDescriptorKeys(
+          failureResponse.failure.details,
+          FORBIDDEN_DESCRIPTOR_KEYS,
+          "failure.details",
+        );
+      }
+      expect(failureJson).not.toContain("SharedArrayBuffer");
+    });
+  });
+
+  // ─── Proof 3: Resource read-range request/response is descriptor-driven ───
+
+  describe("Proof 3: Resource read-range request/response is descriptor-driven through the host resource plane", () => {
+    it("validates host.surfaceReady, extracts resourcePlane, creates and validates a read-range control request/response", () => {
+      const { validated } = createFixtureSurfaceReady();
+      expect(validated.ok).toBe(true);
+      if (!validated.ok) {
+        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      }
+
+      const owner = validated.value.surface.owner;
+      const resourcePlane = validated.value.surface.resourcePlane;
+      expect(resourcePlane).toBeDefined();
+      if (!resourcePlane) return;
+      expect(resourcePlane.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+
+      const descriptor = createResourceDescriptor({
+        handleKey: "fixture.resource.waveform-0",
+        kind: "fixture.waveform",
+        byteLength: 4096,
+        version: "1",
+        owner: {
+          authorityKey: owner.authorityKey,
+          surfaceKey: owner.surfaceKey,
+          authorityEpoch: owner.authorityEpoch,
+        },
+      });
+
+      const descriptorJson = JSON.stringify(descriptor);
+      const descriptorParsed = JSON.parse(descriptorJson);
+      const validatedDescriptor = validateResourceDescriptor(descriptorParsed);
+      expect(validatedDescriptor.handleKey).toBe("fixture.resource.waveform-0");
+      expect(validatedDescriptor.kind).toBe("fixture.waveform");
+      expect(validatedDescriptor.byteLength).toBe(4096);
+      expect(validatedDescriptor.version).toBe("1");
+
+      const rangePayload = createResourceReadRangeRequestPayload({
+        handleKey: "fixture.resource.waveform-0",
+        range: { offset: 0, byteLength: 4096 },
+        owner: {
+          authorityKey: owner.authorityKey,
+          surfaceKey: owner.surfaceKey,
+          authorityEpoch: owner.authorityEpoch,
+        },
+      });
+
+      const request = createResourceReadRangeControlRequest({
+        requestKey: "resource-request-1",
+        payload: rangePayload,
+      });
+
+      expect(request.kind).toBe("control.request");
+      expect(request.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+      expect(request.operationKey).toBe(resourcePlane.readRangeOperationKey);
+
+      const requestJson = JSON.stringify(request);
+      const requestParsed = JSON.parse(requestJson);
+      const requestValidated = validateControlRequestEnvelope(requestParsed);
+      expect(requestValidated.ok).toBe(true);
+      if (!requestValidated.ok) {
+        throw new Error(`resource request validation failed: ${requestValidated.failure.message}`);
+      }
+
+      expect(requestValidated.value.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+      expect(requestValidated.value.operationKey).toBe(resourcePlane.readRangeOperationKey);
+
+      const receiptPayload = createResourceReadRangeReceiptPayload({
+        handleKey: "fixture.resource.waveform-0",
+        range: { offset: 0, byteLength: 4096 },
+        byteLength: 4096,
+        version: "1",
+      });
+
+      const receiptValidated = validateResourceReadRangeReceiptPayload(receiptPayload);
+      expect(receiptValidated.handleKey).toBe("fixture.resource.waveform-0");
+      expect(receiptValidated.range.offset).toBe(0);
+      expect(receiptValidated.range.byteLength).toBe(4096);
+      expect(receiptValidated.byteLength).toBe(4096);
+      expect(receiptValidated.version).toBe("1");
+
+      const success = createResourceReadRangeControlSuccess({
+        requestKey: "resource-request-1",
+        payload: receiptPayload,
+      });
+
+      expect(success.kind).toBe("control.response");
+      expect(success.ok).toBe(true);
+      expect(success.requestKey).toBe("resource-request-1");
+
+      const successJson = JSON.stringify(success);
+      const successParsed = JSON.parse(successJson);
+      const successValidated = validateControlResponseEnvelope(successParsed);
+      expect(successValidated.ok).toBe(true);
+      if (!successValidated.ok) {
+        throw new Error(`resource success validation failed: ${successValidated.failure.message}`);
+      }
+
+      expect(successValidated.value.requestKey).toBe("resource-request-1");
+      expect(successValidated.value.ok).toBe(true);
+
+      const correlation = validateControlResponseForRequest(
+        requestValidated.value,
+        successValidated.value,
+      );
+      expect(correlation.ok).toBe(true);
+      if (!correlation.ok) {
+        throw new Error(`resource correlation failed: ${correlation.failure.message}`);
+      }
+
+      const successPayload = successValidated.value;
+      if (successPayload.ok) {
+        const receiptFromPayload = validateResourceReadRangeReceiptPayload(successPayload.payload);
+        expect(receiptFromPayload.handleKey).toBe("fixture.resource.waveform-0");
+        expect(receiptFromPayload.range.offset).toBe(0);
+        expect(receiptFromPayload.range.byteLength).toBe(4096);
+        expect(receiptFromPayload.byteLength).toBe(4096);
+        expect(receiptFromPayload.version).toBe("1");
+      }
+
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(requestJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "request",
+      );
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(successJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "success",
+      );
+      expect(requestJson).not.toContain("SharedArrayBuffer");
+      expect(successJson).not.toContain("SharedArrayBuffer");
+      expect(requestJson).not.toContain("bytes");
+      expect(successJson).not.toContain("bytes");
+    });
+  });
+
+  // ─── Proof 4: Warm lane frame is descriptor-driven and JSON-safe ───
+
+  describe("Proof 4: Warm lane frame is descriptor-driven and JSON-safe", () => {
+    it("validates host.surfaceReady, extracts warm stream descriptor, creates and validates a warm frame envelope", () => {
+      const { validated } = createFixtureSurfaceReady();
+      expect(validated.ok).toBe(true);
+      if (!validated.ok) {
+        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      }
+
+      const owner = validated.value.surface.owner;
+      const warmStreams = validated.value.surface.warmStreams;
+      expect(warmStreams).toBeDefined();
+      if (!warmStreams) return;
+      expect(warmStreams.length).toBe(1);
+      const streamDescriptor = warmStreams[0];
+      expect(streamDescriptor.streamKey).toBe("deck-runtime-v0.warm");
+      expect(streamDescriptor.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
+
+      const warmOwner = createWarmOwner({
+        authorityKey: owner.authorityKey,
+        surfaceKey: owner.surfaceKey,
+        authorityEpoch: owner.authorityEpoch,
+      });
+
+      const frame = createWarmFrameEnvelope({
+        streamKey: streamDescriptor.streamKey,
+        frameKey: "fixture.frame-0",
+        sequence: "0",
+        frameKind: "fixture.state",
+        owner: warmOwner,
+        payload: { temperature: 42, status: "nominal" },
+      });
+
+      expect(frame.kind).toBe("warm.frame");
+      expect(frame.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
+      expect(frame.streamKey).toBe("deck-runtime-v0.warm");
+      expect(frame.frameKey).toBe("fixture.frame-0");
+      expect(frame.sequence).toBe("0");
+      expect(frame.frameKind).toBe("fixture.state");
+
+      const frameJson = JSON.stringify(frame);
+      const frameParsed = JSON.parse(frameJson);
+      const frameValidated = validateWarmFrameEnvelope(frameParsed);
+      expect(frameValidated.ok).toBe(true);
+      if (!frameValidated.ok) {
+        throw new Error(`warm frame validation failed: ${frameValidated.failure.message}`);
+      }
+
+      expect(frameValidated.value.streamKey).toBe(streamDescriptor.streamKey);
+      expect(frameValidated.value.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
+      expect(frameValidated.value.frameKey).toBe("fixture.frame-0");
+      expect(frameValidated.value.sequence).toBe("0");
+      expect(frameValidated.value.frameKind).toBe("fixture.state");
+      expect(frameValidated.value.owner.authorityKey).toBe(owner.authorityKey);
+      expect(frameValidated.value.owner.surfaceKey).toBe(owner.surfaceKey);
+
+      assertNoForbiddenDescriptorKeys(JSON.parse(frameJson), FORBIDDEN_DESCRIPTOR_KEYS, "frame");
+      expect(frameJson).not.toContain("SharedArrayBuffer");
+
+      const payload = frameValidated.value.payload as Record<string, unknown>;
+      expect(payload.temperature).toBe(42);
+      expect(payload.status).toBe("nominal");
+    });
+  });
+
+  // ─── Proof 5: Stale session binding projects consistently ───
+
+  describe("Proof 5: Stale session binding projects consistently into control/resource/warm failures", () => {
+    it("projects a bindingInvalidated failure into control, resource, and warm lane failures where helpers exist", () => {
+      const identity = deriveFixtureIdentity();
+      const binding: AuthorityBinding = createAuthorityBinding(identity);
+      const readyBinding = markAuthorityBindingReady(binding);
+      const invalidatedBinding = invalidateAuthorityBinding(readyBinding, "authorityRestarted");
+      const invalidatedFailure = validateAuthorityBinding(invalidatedBinding, identity);
+      expect(invalidatedFailure.ok).toBe(false);
+      if (invalidatedFailure.ok) {
+        throw new Error("invalidated binding unexpectedly validated");
+      }
+      expect(invalidatedFailure.reason).toBe("bindingInvalidated");
+
+      const controlFailure = createBindingInvalidControlFailure(invalidatedFailure);
+
+      expect(controlFailure.code).toBe("control.bindingInvalid");
+      expect(typeof controlFailure.message).toBe("string");
+      expect(controlFailure.message.length).toBeGreaterThan(0);
+
+      const controlFailureJson = JSON.stringify(controlFailure);
+      const controlFailureParsed = JSON.parse(controlFailureJson);
+      const controlDetailsObj = controlFailureParsed.details as Record<string, unknown>;
+      expect(controlDetailsObj).toBeDefined();
+      expect(controlDetailsObj.reason).toBe("bindingInvalidated");
+      expect(controlDetailsObj.rebindRequired).toBe(true);
+      expect(typeof controlDetailsObj.invalidationReason).toBe("string");
+
+      assertNoForbiddenDescriptorKeys(
+        controlFailureParsed,
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "control-failure",
+      );
+
+      const resourceFailure = createStaleBindingResourceFailure(invalidatedFailure);
+
+      expect(resourceFailure.code).toBe("resource.staleBinding");
+      expect(typeof resourceFailure.message).toBe("string");
+      expect(resourceFailure.message.length).toBeGreaterThan(0);
+
+      const resourceFailureValidated = validateResourceFailure(resourceFailure);
+      expect(resourceFailureValidated.code).toBe("resource.staleBinding");
+      expect(typeof resourceFailureValidated.message).toBe("string");
+
+      const resourceFailureJson = JSON.stringify(resourceFailure);
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(resourceFailureJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "resource-failure",
+      );
+
+      const warmFailure = createStaleBindingWarmFailure(invalidatedFailure);
+
+      expect(warmFailure.code).toBe("warm.staleBinding");
+      expect(typeof warmFailure.message).toBe("string");
+      expect(warmFailure.message.length).toBeGreaterThan(0);
+
+      const warmFailureValidated = validateWarmFailure(warmFailure);
+      expect(warmFailureValidated.code).toBe("warm.staleBinding");
+      expect(typeof warmFailureValidated.message).toBe("string");
+
+      const warmFailureJson = JSON.stringify(warmFailure);
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(warmFailureJson),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "warm-failure",
+      );
+
+      const readyEpochOneBinding = markAuthorityBindingReady(
+        createAuthorityBinding({
+          authorityKey: identity.authorityKey,
+          surfaceKey: identity.surfaceKey,
+          authorityEpoch: 1n,
+        }),
+      );
+      const staleExpected = {
+        authorityKey: identity.authorityKey,
+        surfaceKey: identity.surfaceKey,
+        authorityEpoch: 2n,
+      };
+      const epochMismatchFailure = validateAuthorityBinding(readyEpochOneBinding, staleExpected);
+      expect(epochMismatchFailure.ok).toBe(false);
+      if (epochMismatchFailure.ok) {
+        throw new Error("epoch-mismatched binding unexpectedly validated");
+      }
+      expect(epochMismatchFailure.reason).toBe("authorityEpochMismatch");
+
+      const controlEpochFailure = createBindingInvalidControlFailure(epochMismatchFailure);
+      expect(controlEpochFailure.code).toBe("control.bindingInvalid");
+      expect(typeof controlEpochFailure.message).toBe("string");
+      expect(controlEpochFailure.message).toContain("authorityEpochMismatch");
+
+      const resourceEpochFailure = createStaleBindingResourceFailure(epochMismatchFailure);
+      expect(resourceEpochFailure.code).toBe("resource.staleBinding");
+      expect(typeof resourceEpochFailure.message).toBe("string");
+
+      const warmEpochFailure = createStaleBindingWarmFailure(epochMismatchFailure);
+      expect(warmEpochFailure.code).toBe("warm.staleBinding");
+      expect(typeof warmEpochFailure.message).toBe("string");
+
+      assertNoForbiddenDescriptorKeys(
+        JSON.parse(JSON.stringify(controlEpochFailure)),
+        FORBIDDEN_DESCRIPTOR_KEYS,
+        "control-epoch-failure",
+      );
+    });
+  });
+});
