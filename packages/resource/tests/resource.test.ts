@@ -3,18 +3,20 @@ import type { ResourceDescriptor, ResourceOwner } from "@exclave/resource";
 import {
   createInvalidRangeResourceFailure,
   createResourceDescriptor,
-  createResourceFailure,
-  createResourceReadRange,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
+  createResourceReceiptFailure,
   createStaleBindingResourceFailure,
   validateResourceDescriptor,
-  validateResourceFailure,
   validateResourceOwner,
-  validateResourceReadRange,
+  validateResourceReceiptFailure,
 } from "@exclave/resource";
 import type { BindingExpectationMismatchFailure, BindingOpeningFailure } from "@exclave/session";
 import { describe, expect, it } from "vitest";
+import {
+  createResourceReadRange,
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  validateResourceReadRange,
+} from "../src/resource-range";
 
 function validOwner(): ResourceOwner {
   return {
@@ -630,9 +632,9 @@ describe("Read Range Request / Receipt Payloads", () => {
   });
 });
 
-describe("ResourceFailure", () => {
-  it("createResourceFailure accepts valid resource failure", () => {
-    const f = createResourceFailure({
+describe("ResourceReceiptFailure", () => {
+  it("createResourceReceiptFailure accepts valid resource receipt failure", () => {
+    const f = createResourceReceiptFailure({
       code: "resource.rejected",
       message: "Access denied",
     });
@@ -642,7 +644,7 @@ describe("ResourceFailure", () => {
   });
 
   it("accepts failure with details", () => {
-    const f = createResourceFailure({
+    const f = createResourceReceiptFailure({
       code: "resource.invalidHandle",
       message: "Invalid handle",
       details: { handleKey: "bad", reason: "malformed" },
@@ -652,7 +654,7 @@ describe("ResourceFailure", () => {
 
   it("rejects invalid resource failure code", () => {
     expect(() =>
-      createResourceFailure({
+      createResourceReceiptFailure({
         code: "bad.code" as never,
         message: "test",
       }),
@@ -661,7 +663,7 @@ describe("ResourceFailure", () => {
 
   it("rejects empty failure message", () => {
     expect(() =>
-      createResourceFailure({
+      createResourceReceiptFailure({
         code: "resource.rejected",
         message: "",
       }),
@@ -670,7 +672,7 @@ describe("ResourceFailure", () => {
 
   it("rejects non-JSON-safe failure details", () => {
     expect(() =>
-      createResourceFailure({
+      createResourceReceiptFailure({
         code: "resource.rejected",
         message: "test",
         details: { bad: 1n } as unknown as JsonObject,
@@ -803,7 +805,7 @@ describe("ResourceFailure", () => {
   });
 
   it("failure details allow nested arrays", () => {
-    const f = createResourceFailure({
+    const f = createResourceReceiptFailure({
       code: "resource.rejected",
       message: "denied",
       details: { items: [1, 2, 3] },
@@ -823,7 +825,7 @@ describe("ResourceFailure", () => {
       configurable: true,
     });
     expect(() =>
-      createResourceFailure({
+      createResourceReceiptFailure({
         code: "resource.rejected",
         message: "denied",
         details: details as unknown as JsonObject,
@@ -834,7 +836,7 @@ describe("ResourceFailure", () => {
 
   it("failure details reject BigInt", () => {
     expect(() =>
-      createResourceFailure({
+      createResourceReceiptFailure({
         code: "resource.rejected",
         message: "denied",
         details: { value: 1n } as unknown as JsonObject,
@@ -869,7 +871,7 @@ describe("Immutability", () => {
     };
     const frozen = JSON.parse(JSON.stringify(failure));
 
-    validateResourceFailure(failure);
+    validateResourceReceiptFailure(failure);
     expect(failure).toEqual(frozen);
   });
 });

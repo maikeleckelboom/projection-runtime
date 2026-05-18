@@ -3,15 +3,15 @@ import { checkJsonObjectRoot } from "@exclave/base";
 import type { BindingValidityFailure } from "@exclave/session";
 import { throwInputRejected } from "./errors";
 
-export type ResourceFailureCode =
+export type ResourceReceiptFailureCode =
   | "resource.invalidHandle"
   | "resource.staleBinding"
   | "resource.invalidRange"
   | "resource.unavailable"
   | "resource.rejected";
 
-export type ResourceFailure = {
-  readonly code: ResourceFailureCode;
+export type ResourceReceiptFailure = {
+  readonly code: ResourceReceiptFailureCode;
   readonly message: string;
   readonly details?: JsonObject;
 };
@@ -24,7 +24,7 @@ const VALID_CODES: ReadonlySet<string> = new Set([
   "resource.rejected",
 ]);
 
-function isFailureCode(value: unknown): value is ResourceFailureCode {
+function isFailureCode(value: unknown): value is ResourceReceiptFailureCode {
   return typeof value === "string" && VALID_CODES.has(value);
 }
 
@@ -65,11 +65,11 @@ function assertJsonObject(value: unknown, path: string): void {
   }
 }
 
-export function createResourceFailure(input: {
-  readonly code: ResourceFailureCode;
+export function createResourceReceiptFailure(input: {
+  readonly code: ResourceReceiptFailureCode;
   readonly message: string;
   readonly details?: JsonObject;
-}): ResourceFailure {
+}): ResourceReceiptFailure {
   const obj = assertPlainObject(input, "resource failure");
   assertExactRootKeys(obj, new Set(["code", "message", "details"]), "resource failure");
 
@@ -77,7 +77,7 @@ export function createResourceFailure(input: {
     throwInputRejected(`invalid resource failure code: ${String(obj.code)}`);
   }
 
-  const code = obj.code as ResourceFailureCode;
+  const code = obj.code as ResourceReceiptFailureCode;
 
   const message = assertNonEmptyString(obj.message, "failure.message");
 
@@ -92,10 +92,10 @@ export function createResourceFailure(input: {
   };
 }
 
-export function validateResourceFailure(value: unknown): ResourceFailure {
-  return createResourceFailure(
+export function validateResourceReceiptFailure(value: unknown): ResourceReceiptFailure {
+  return createResourceReceiptFailure(
     value as {
-      readonly code: ResourceFailureCode;
+      readonly code: ResourceReceiptFailureCode;
       readonly message: string;
       readonly details?: JsonObject;
     },
@@ -108,7 +108,7 @@ export function createInvalidRangeResourceFailure(input: {
   readonly offset?: number;
   readonly byteLength?: number;
   readonly descriptorByteLength?: number;
-}): ResourceFailure {
+}): ResourceReceiptFailure {
   const obj = assertPlainObject(input, "invalid range failure input");
   assertExactRootKeys(
     obj,
@@ -148,7 +148,7 @@ export function createInvalidRangeResourceFailure(input: {
     details.descriptorByteLength = obj.descriptorByteLength;
   }
 
-  const code: ResourceFailureCode = "resource.invalidRange";
+  const code: ResourceReceiptFailureCode = "resource.invalidRange";
 
   return {
     code,
@@ -169,8 +169,8 @@ function encodeEpoch(epoch: string): string {
 
 export function createStaleBindingResourceFailure(
   failure: BindingValidityFailure,
-): ResourceFailure {
-  const code: ResourceFailureCode = "resource.staleBinding";
+): ResourceReceiptFailure {
+  const code: ResourceReceiptFailureCode = "resource.staleBinding";
 
   const binding = failure.binding;
   const bindingDetails: Record<string, unknown> = {

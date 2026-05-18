@@ -17,13 +17,11 @@ import {
   validateControlResponseForRequest,
 } from "@exclave/control-plane";
 import {
-  createResourceReadRangeControlRequest,
-  createResourceReadRangeControlSuccess,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
-  RESOURCE_READ_RANGE_OPERATION_KEY,
-  validateResourceReadRangeReceiptPayload,
-  validateResourceReadRangeRequestPayload,
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
 } from "@exclave/resource";
 import {
   type AuthorityBinding,
@@ -38,11 +36,21 @@ import {
   WARM_ENVELOPE_VERSION,
 } from "@exclave/warm";
 import { describe, expect, it } from "vitest";
-
 import {
   createDeckRuntimeReader,
   type DeckRuntimeSnapshot,
 } from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-reader";
+import {
+  createResourceReadRangeControlRequest,
+  createResourceReadRangeControlSuccess,
+  RESOURCE_READ_RANGE_OPERATION_KEY,
+} from "../../resource/src/resource-control";
+import {
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  validateResourceReadRangeReceiptPayload,
+  validateResourceReadRangeRequestPayload,
+} from "../../resource/src/resource-range";
 import {
   createHostAuthorityOwnerFromBinding,
   createHostControlPlaneDescriptor,
@@ -371,7 +379,11 @@ class FixtureHost {
 
     const resourcePlane = createHostResourcePlaneDescriptor({
       kind: "host.resourcePlane",
-      readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+      openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+      readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+      mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+      closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+      closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
     });
 
     const surface = createHostSurfaceDescriptor({
@@ -661,9 +673,9 @@ class FixtureClient {
       payload: rangePayload,
     });
 
-    if (request.operationKey !== grant.resourcePlane.readRangeOperationKey) {
+    if (request.operationKey !== RESOURCE_READ_RANGE_OPERATION_KEY) {
       throw new Error(
-        `resource read-range request operationKey "${request.operationKey}" does not match grant resourcePlane readRangeOperationKey "${grant.resourcePlane.readRangeOperationKey}"`,
+        `resource read-range request operationKey "${request.operationKey}" does not match legacy read-range operation key "${RESOURCE_READ_RANGE_OPERATION_KEY}"`,
       );
     }
 
@@ -842,7 +854,7 @@ describe("In-process fixture host/client lifecycle", () => {
 
       expect(grant.resourcePlane).toBeDefined();
       expect(grant.resourcePlane?.kind).toBe("surface.resourcePlaneCapability");
-      expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+      expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
       expect(grant.resourcePlane?.owner.authorityKey).toBe(grant.owner.authorityKey);
 
       expect(grant.warm).toHaveLength(1);
@@ -967,7 +979,7 @@ describe("In-process fixture host/client lifecycle", () => {
   });
 
   describe("Client performs descriptor-driven resource read-range request and receives receipt only", () => {
-    it("uses grant.resourcePlane.readRangeOperationKey and returns receipt metadata", () => {
+    it("uses resource control operation key and returns receipt metadata", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
@@ -976,7 +988,7 @@ describe("In-process fixture host/client lifecycle", () => {
 
       expect(grant.resourcePlane).toBeDefined();
       if (!grant.resourcePlane) return;
-      expect(grant.resourcePlane.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+      expect(grant.resourcePlane.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
 
       const request = client.createResourceReadRangeRequest(grant, "fixture.resource.waveform-0", {
         offset: 0,
@@ -985,11 +997,11 @@ describe("In-process fixture host/client lifecycle", () => {
 
       expect(request.kind).toBe("control.request");
       expect(request.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
-      expect(request.operationKey).toBe(grant.resourcePlane.readRangeOperationKey);
+      expect(request.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
 
       const requestValidated = validateControlRequestEnvelope(JSON.parse(JSON.stringify(request)));
       expect(requestValidated.ok).toBe(true);
-      expect(requestValidated.value.operationKey).toBe(grant.resourcePlane.readRangeOperationKey);
+      expect(requestValidated.value.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
 
       const response = host.handleResourceReadRangeRequest(request);
       expect(response.kind).toBe("control.response");

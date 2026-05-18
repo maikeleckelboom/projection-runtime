@@ -69,6 +69,60 @@ export type BindingValidity =
 
 export type GuardResult<T> = { readonly ok: true; readonly value: T } | BindingValidityFailure;
 
+export type AuthoritySessionDescriptor =
+  | { readonly state: "starting"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "ready"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "stopping"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "stopped" };
+
+export type SessionMismatchFailure = {
+  readonly kind: "sessionMismatch";
+  readonly expectedAuthorityEpoch: AuthorityEpoch;
+  readonly providedAuthorityEpoch: AuthorityEpoch;
+};
+
+export type AuthorityUnavailableFailure = {
+  readonly kind: "authorityUnavailable";
+};
+
+export type AuthorityNotReadyFailure = {
+  readonly kind: "authorityNotReady";
+  readonly state: "starting" | "stopping";
+};
+
+export type RequestIllegalByContractFailure = {
+  readonly kind: "requestIllegalByContract";
+  readonly detail: string;
+};
+
+export type RequestIllegalInCurrentProductStateFailure = {
+  readonly kind: "requestIllegalInCurrentProductState";
+  readonly detail: string;
+};
+
+export type SessionBoundFailure =
+  | SessionMismatchFailure
+  | AuthorityUnavailableFailure
+  | AuthorityNotReadyFailure
+  | RequestIllegalByContractFailure
+  | RequestIllegalInCurrentProductStateFailure;
+
+export type SessionInvalidationEvent =
+  | {
+      readonly kind: "authorityEpochReplaced";
+      readonly replacedAuthorityEpoch: AuthorityEpoch;
+      readonly replacingAuthorityEpoch: AuthorityEpoch;
+    }
+  | {
+      readonly kind: "authorityUnavailable";
+      readonly replacedAuthorityEpoch: AuthorityEpoch;
+      readonly state: "stopping" | "stopped";
+    };
+
+export type SessionStateEvent =
+  | { readonly kind: "authorityReady"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly kind: "authorityStarting"; readonly authorityEpoch: AuthorityEpoch };
+
 export function createAuthorityBinding(input: {
   readonly authorityKey: AuthorityKey;
   readonly surfaceKey: SurfaceKey;

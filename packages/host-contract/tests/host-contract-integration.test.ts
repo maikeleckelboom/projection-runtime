@@ -3,7 +3,13 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
-import { RESOURCE_READ_RANGE_OPERATION_KEY } from "@exclave/resource";
+import {
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
+} from "@exclave/resource";
 import {
   type AuthorityBinding,
   createAuthorityBinding,
@@ -228,7 +234,11 @@ describe("HostSurfaceDescriptor ready composition integration", () => {
 
     const resourcePlane = createHostResourcePlaneDescriptor({
       kind: "host.resourcePlane",
-      readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+      openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+      readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+      mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+      closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+      closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
     });
 
     const surface = createHostSurfaceDescriptor({
@@ -291,7 +301,7 @@ describe("HostSurfaceDescriptor ready composition integration", () => {
     expect(validatedWarmStream.streamKey).toBe("deck-runtime-v0.warm");
 
     expect(vSurface.resourcePlane).toBeDefined();
-    expect(vSurface.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(vSurface.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
 
     const localFieldKeys = new Set([
       "blockABytesHex",

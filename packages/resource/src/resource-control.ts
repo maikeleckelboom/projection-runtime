@@ -10,7 +10,7 @@ import {
   createControlRequestEnvelope,
   createControlSuccessEnvelope,
 } from "@exclave/control-plane";
-import { createResourceFailure, type ResourceFailure } from "./resource-failure";
+import { createResourceReceiptFailure, type ResourceReceiptFailure } from "./resource-failure";
 import {
   createResourceReadRangeReceiptPayload,
   createResourceReadRangeRequestPayload,
@@ -19,6 +19,27 @@ import {
 } from "./resource-range";
 
 export const RESOURCE_READ_RANGE_OPERATION_KEY = "resource.readRange" as const;
+export const RESOURCE_OPEN_OPERATION_KEY = "resource.open" as const;
+export const RESOURCE_READ_CHUNK_OPERATION_KEY = "resource.readChunk" as const;
+export const RESOURCE_MAP_WINDOW_OPERATION_KEY = "resource.mapWindow" as const;
+export const RESOURCE_CLOSE_MAPPING_OPERATION_KEY = "resource.closeMapping" as const;
+export const RESOURCE_CLOSE_HANDLE_OPERATION_KEY = "resource.closeHandle" as const;
+
+export const RESOURCE_PLANE_V1_OPERATION_KEYS: readonly [
+  typeof RESOURCE_OPEN_OPERATION_KEY,
+  typeof RESOURCE_READ_CHUNK_OPERATION_KEY,
+  typeof RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  typeof RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  typeof RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+] = [
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+] as const;
+
+export type ResourcePlaneV1OperationKey = (typeof RESOURCE_PLANE_V1_OPERATION_KEYS)[number];
 
 export function createResourceReadRangeControlRequest(input: {
   readonly requestKey: ControlRequestKey;
@@ -45,9 +66,9 @@ export function createResourceReadRangeControlSuccess(input: {
 
 export function createResourceControlFailure(input: {
   readonly requestKey: ControlRequestKey;
-  readonly resourceFailure: ResourceFailure;
+  readonly resourceFailure: ResourceReceiptFailure;
 }): ControlFailureEnvelope {
-  const normalizedResourceFailure = createResourceFailure(input.resourceFailure);
+  const normalizedResourceFailure = createResourceReceiptFailure(input.resourceFailure);
   const details = {
     resourceFailure: normalizedResourceFailure,
   };
