@@ -212,7 +212,8 @@ Implemented in source and tests:
 - descriptor-bound range checks
 - receipt validation that rejects byte-like payload fields
 - resource failure envelope helpers
-- control-plane helper for a `resource.readRange` operation key
+- resource failure envelope helpers
+- control-plane helper for a `resource.readRange` legacy/test operation key (not part of Resource Plane v1; not part of the public `@exclave/resource` surface; not advertised by host grants)
 - typed `ResourceContract<TOpen, TDescriptor>` and `OpenResourceRequest<TOpen>` shapes
 - epoch-establishing `OpenResourceReply<TDescriptor>` carrying `handleId`, `authorityEpoch`, `resourceKind`,
   `resourceKey`, `resourceVersion`, descriptor, and capabilities
@@ -232,8 +233,7 @@ Remaining gaps:
 
 - no real resource authority, registry, transport, file IO, cache, media decoder, or product resource ownership exists
 - no physical mapped-window backing is implemented
-- the older JSON-safe read-range receipt skeleton remains as a legacy/test-only receipt/no-body test surface; it is not
-  part of Resource Plane v1 and is not advertised by host resource-plane grants
+- the older JSON-safe read-range receipt skeleton remains as an internal legacy/test control-envelope helper; it is not part of the public `@exclave/resource` package surface, is not part of Resource Plane v1, and is not advertised by host resource-plane grants
 - protocol surface and validation/model helpers are implemented; runtime authority registry and physical byte transport
   are not implemented
 

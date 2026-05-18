@@ -1,15 +1,12 @@
 export type { ResourcePlaneV1OperationKey } from "./resource-control";
 export {
   createResourceControlFailure,
-  createResourceReadRangeControlRequest,
-  createResourceReadRangeControlSuccess,
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
   RESOURCE_MAP_WINDOW_OPERATION_KEY,
   RESOURCE_OPEN_OPERATION_KEY,
   RESOURCE_PLANE_V1_OPERATION_KEYS,
   RESOURCE_READ_CHUNK_OPERATION_KEY,
-  RESOURCE_READ_RANGE_OPERATION_KEY,
 } from "./resource-control";
 export type {
   ResourceDescriptor,
@@ -77,16 +74,3 @@ export {
   validateResourceCapabilities,
   validateResourceHandleAccess,
 } from "./resource-protocol";
-export type {
-  ResourceReadRange,
-  ResourceReadRangeReceiptPayload,
-  ResourceReadRangeRequestPayload,
-} from "./resource-range";
-export {
-  createResourceReadRange,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
-  validateResourceReadRange,
-  validateResourceReadRangeReceiptPayload,
-  validateResourceReadRangeRequestPayload,
-} from "./resource-range";

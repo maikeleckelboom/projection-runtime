@@ -17,18 +17,11 @@ import {
   validateControlResponseForRequest,
 } from "@exclave/control-plane";
 import {
-  createResourceReadRangeControlRequest,
-  createResourceReadRangeControlSuccess,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
   RESOURCE_MAP_WINDOW_OPERATION_KEY,
   RESOURCE_OPEN_OPERATION_KEY,
   RESOURCE_READ_CHUNK_OPERATION_KEY,
-  RESOURCE_READ_RANGE_OPERATION_KEY,
-  validateResourceReadRangeReceiptPayload,
-  validateResourceReadRangeRequestPayload,
 } from "@exclave/resource";
 import {
   type AuthorityBinding,
@@ -43,11 +36,21 @@ import {
   WARM_ENVELOPE_VERSION,
 } from "@exclave/warm";
 import { describe, expect, it } from "vitest";
-
 import {
   createDeckRuntimeReader,
   type DeckRuntimeSnapshot,
 } from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-reader";
+import {
+  createResourceReadRangeControlRequest,
+  createResourceReadRangeControlSuccess,
+  RESOURCE_READ_RANGE_OPERATION_KEY,
+} from "../../resource/src/resource-control";
+import {
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  validateResourceReadRangeReceiptPayload,
+  validateResourceReadRangeRequestPayload,
+} from "../../resource/src/resource-range";
 import {
   createHostAuthorityOwnerFromBinding,
   createHostControlPlaneDescriptor,

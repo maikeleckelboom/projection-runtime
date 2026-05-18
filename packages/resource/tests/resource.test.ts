@@ -3,18 +3,20 @@ import type { ResourceDescriptor, ResourceOwner } from "@exclave/resource";
 import {
   createInvalidRangeResourceFailure,
   createResourceDescriptor,
-  createResourceReadRange,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
   createResourceReceiptFailure,
   createStaleBindingResourceFailure,
   validateResourceDescriptor,
   validateResourceOwner,
-  validateResourceReadRange,
   validateResourceReceiptFailure,
 } from "@exclave/resource";
 import type { BindingExpectationMismatchFailure, BindingOpeningFailure } from "@exclave/session";
 import { describe, expect, it } from "vitest";
+import {
+  createResourceReadRange,
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  validateResourceReadRange,
+} from "../src/resource-range";
 
 function validOwner(): ResourceOwner {
   return {

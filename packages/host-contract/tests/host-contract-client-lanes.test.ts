@@ -14,19 +14,13 @@ import {
 } from "@exclave/control-plane";
 import {
   createResourceDescriptor,
-  createResourceReadRangeControlRequest,
-  createResourceReadRangeControlSuccess,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
   createStaleBindingResourceFailure,
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
   RESOURCE_MAP_WINDOW_OPERATION_KEY,
   RESOURCE_OPEN_OPERATION_KEY,
   RESOURCE_READ_CHUNK_OPERATION_KEY,
-  RESOURCE_READ_RANGE_OPERATION_KEY,
   validateResourceDescriptor,
-  validateResourceReadRangeReceiptPayload,
   validateResourceReceiptFailure,
 } from "@exclave/resource";
 import {
@@ -45,6 +39,16 @@ import {
   WARM_ENVELOPE_VERSION,
 } from "@exclave/warm";
 import { describe, expect, it } from "vitest";
+import {
+  createResourceReadRangeControlRequest,
+  createResourceReadRangeControlSuccess,
+  RESOURCE_READ_RANGE_OPERATION_KEY,
+} from "../../resource/src/resource-control";
+import {
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+  validateResourceReadRangeReceiptPayload,
+} from "../../resource/src/resource-range";
 
 import {
   createHostAuthorityOwnerFromBinding,
