@@ -1,6 +1,13 @@
-import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
 import { throwInputRejected } from "./errors";
-import type { HostContractFailure, HostContractValidationResult } from "./host-failure";
+import type { HostContractValidationResult } from "./host-failure";
+import {
+  assertExactRootKeys,
+  assertNonEmptyString,
+  assertPlainObject,
+  validationFailure,
+  validationMessageFromError,
+  validationSuccess,
+} from "./validation";
 
 export const HOST_WARM_STREAM_DESCRIPTOR_VERSION = 1 as const;
 
@@ -13,50 +20,6 @@ export type HostWarmStreamDescriptor = {
 };
 
 const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set(["kind", "descriptorVersion", "streamKey"]);
-
-function assertNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throwInputRejected(`${label} must be a string`);
-  }
-  if (value.length === 0) {
-    throwInputRejected(`${label} must be a non-empty string`);
-  }
-  return value;
-}
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${label} is not a plain data object: ${result.reason}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function validationFailure(
-  code: "host-contract.invalidDescriptor" | "host-contract.rejected",
-  message: string,
-): HostContractValidationResult<never> {
-  return {
-    ok: false as const,
-    failure: { code, message } as HostContractFailure,
-  };
-}
-
-function validationSuccess<T>(value: T): HostContractValidationResult<T> {
-  return { ok: true as const, value };
-}
 
 export function createHostWarmStreamDescriptorThrowing(input: unknown): HostWarmStreamDescriptor {
   const obj = assertPlainObject(input, "host warm stream descriptor");
@@ -95,12 +58,7 @@ export function validateHostWarmStreamDescriptor(
   try {
     return validationSuccess(createHostWarmStreamDescriptorThrowing(value));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }

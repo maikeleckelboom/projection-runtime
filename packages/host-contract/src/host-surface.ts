@@ -1,9 +1,8 @@
-import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
 import type { InvalidationReason } from "@exclave/session";
 import { throwInputRejected } from "./errors";
 import type { HostControlPlaneDescriptor } from "./host-control";
 import { createHostControlPlaneDescriptorThrowing } from "./host-control";
-import type { HostContractFailure, HostContractValidationResult } from "./host-failure";
+import type { HostContractValidationResult } from "./host-failure";
 import type { HostHotRegionDescriptor } from "./host-hot";
 import { createHostHotRegionDescriptorThrowing } from "./host-hot";
 import type { HostAuthorityOwner } from "./host-owner";
@@ -12,6 +11,13 @@ import type { HostResourcePlaneDescriptor } from "./host-resource";
 import { createHostResourcePlaneDescriptorThrowing } from "./host-resource";
 import type { HostWarmStreamDescriptor } from "./host-warm";
 import { createHostWarmStreamDescriptorThrowing } from "./host-warm";
+import {
+  assertExactRootKeys,
+  assertPlainObject,
+  validationFailure,
+  validationMessageFromError,
+  validationSuccess,
+} from "./validation";
 
 export const HOST_CONTRACT_VERSION = 1 as const;
 
@@ -67,40 +73,6 @@ const INVALIDATED_OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
   "reason",
   "rebindRequired",
 ]);
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${label} is not a plain data object: ${result.reason}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function validationFailure(
-  code: "host-contract.invalidDescriptor" | "host-contract.rejected",
-  message: string,
-): HostContractValidationResult<never> {
-  return {
-    ok: false as const,
-    failure: { code, message } as HostContractFailure,
-  };
-}
-
-function validationSuccess<T>(value: T): HostContractValidationResult<T> {
-  return { ok: true as const, value };
-}
 
 function createHostSurfaceDescriptorThrowing(input: unknown): HostSurfaceDescriptor {
   const obj = assertPlainObject(input, "host surface descriptor");
@@ -209,12 +181,7 @@ export function validateHostSurfaceDescriptor(
   try {
     return validationSuccess(createHostSurfaceDescriptorThrowing(value));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
@@ -257,12 +224,7 @@ export function validateHostSurfaceReadyEnvelope(
   try {
     return validationSuccess(createHostSurfaceReadyEnvelopeThrowing(value));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
@@ -320,12 +282,7 @@ export function validateHostSurfaceInvalidatedEnvelope(
   try {
     return validationSuccess(createHostSurfaceInvalidatedEnvelopeThrowing(value));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }

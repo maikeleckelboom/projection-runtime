@@ -1,7 +1,15 @@
-import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
 import type { AuthorityBinding } from "@exclave/session";
 import { throwInputRejected } from "./errors";
-import type { HostContractFailure, HostContractValidationResult } from "./host-failure";
+import type { HostContractValidationResult } from "./host-failure";
+import {
+  assertCanonicalDecimalString,
+  assertExactRootKeys,
+  assertNonEmptyString,
+  assertPlainObject,
+  validationFailure,
+  validationMessageFromError,
+  validationSuccess,
+} from "./validation";
 
 export type HostAuthorityOwner = {
   readonly authorityKey: string;
@@ -9,57 +17,11 @@ export type HostAuthorityOwner = {
   readonly authorityEpoch: string;
 };
 
-const CANONICAL_EPOCH_RE = /^(?:0|[1-9][0-9]*)$/;
-
 const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
   "authorityKey",
   "surfaceKey",
   "authorityEpoch",
 ]);
-
-function assertNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throwInputRejected(`${label} must be a string`);
-  }
-  if (value.length === 0) {
-    throwInputRejected(`${label} must be a non-empty string`);
-  }
-  return value;
-}
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${label} is not a plain data object: ${result.reason}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function validationFailure(
-  code: "host-contract.invalidDescriptor" | "host-contract.rejected",
-  message: string,
-): HostContractValidationResult<never> {
-  return {
-    ok: false as const,
-    failure: { code, message } as HostContractFailure,
-  };
-}
-
-function validationSuccess<T>(value: T): HostContractValidationResult<T> {
-  return { ok: true as const, value };
-}
 
 export function createHostAuthorityOwner(input: {
   readonly authorityKey: string;
@@ -108,15 +70,7 @@ export function validateHostAuthorityOwnerThrowing(owner: unknown): HostAuthorit
   const authorityKey = assertNonEmptyString(obj.authorityKey, "owner.authorityKey");
   const surfaceKey = assertNonEmptyString(obj.surfaceKey, "owner.surfaceKey");
 
-  const authorityEpoch = obj.authorityEpoch;
-  if (typeof authorityEpoch !== "string") {
-    throwInputRejected("owner.authorityEpoch must be a string, not a number or bigint");
-  }
-  if (!CANONICAL_EPOCH_RE.test(authorityEpoch)) {
-    throwInputRejected(
-      'owner.authorityEpoch must be a canonical non-negative decimal string (e.g. "0", "42")',
-    );
-  }
+  const authorityEpoch = assertCanonicalDecimalString(obj.authorityEpoch, "owner.authorityEpoch");
 
   return {
     authorityKey,
@@ -131,12 +85,7 @@ export function validateHostAuthorityOwner(
   try {
     return validationSuccess(validateHostAuthorityOwnerThrowing(owner));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }

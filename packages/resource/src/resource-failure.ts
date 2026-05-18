@@ -1,7 +1,12 @@
 import type { JsonObject } from "@exclave/base";
-import { checkJsonObjectRoot } from "@exclave/base";
 import type { BindingValidityFailure } from "@exclave/session";
 import { throwInputRejected } from "./errors";
+import {
+  assertExactRootKeys,
+  assertJsonObject,
+  assertNonEmptyString,
+  assertPlainObject,
+} from "./validation";
 
 export type ResourceReceiptFailureCode =
   | "resource.invalidHandle"
@@ -26,43 +31,6 @@ const VALID_CODES: ReadonlySet<string> = new Set([
 
 function isFailureCode(value: unknown): value is ResourceReceiptFailureCode {
   return typeof value === "string" && VALID_CODES.has(value);
-}
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${label} is not a plain data object: ${result.reason}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function assertNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throwInputRejected(`${label} must be a string`);
-  }
-  if (value.length === 0) {
-    throwInputRejected(`${label} must be a non-empty string`);
-  }
-  return value;
-}
-
-function assertJsonObject(value: unknown, path: string): void {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${path} is not JSON-safe: ${result.reason}`);
-  }
 }
 
 export function createResourceReceiptFailure(input: {

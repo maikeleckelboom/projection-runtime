@@ -1,6 +1,16 @@
-import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
 import { throwInputRejected } from "./errors";
-import type { HostContractFailure, HostContractValidationResult } from "./host-failure";
+import type { HostContractValidationResult } from "./host-failure";
+import {
+  assertCanonicalDecimalString,
+  assertExactRootKeys,
+  assertNonEmptyString,
+  assertPlainObject,
+  assertSafeNonNegativeInteger,
+  assertSafePositiveInteger,
+  validationFailure,
+  validationMessageFromError,
+  validationSuccess,
+} from "./validation";
 
 export type HostHotBlockAExpectation = {
   readonly contractKey: string;
@@ -22,8 +32,6 @@ export type HostHotRegionDescriptor = {
 
 const COUNTER_BYTE_LENGTH = 8;
 
-const CANONICAL_EPOCH_RE = /^(?:0|[1-9][0-9]*)$/;
-
 const BLOCK_A_OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
   "contractKey",
   "instanceKey",
@@ -42,70 +50,6 @@ const HOT_REGION_OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
   "publicationSequenceOffset",
 ]);
 
-function assertNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throwInputRejected(`${label} must be a string`);
-  }
-  if (value.length === 0) {
-    throwInputRejected(`${label} must be a non-empty string`);
-  }
-  return value;
-}
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  const result = checkJsonObjectRoot(value);
-  if (!result.ok) {
-    throwInputRejected(`${label} is not a plain data object: ${result.reason}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function assertCanonicalDecimalString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throwInputRejected(`${label} must be a string, not a number or bigint`);
-  }
-  if (!CANONICAL_EPOCH_RE.test(value)) {
-    throwInputRejected(`${label} must be a canonical non-negative decimal string (e.g. "0", "42")`);
-  }
-  return value;
-}
-
-function assertSafeNonNegativeInteger(value: unknown, label: string): number {
-  if (typeof value !== "number") {
-    throwInputRejected(`${label} must be a number`);
-  }
-  if (!Number.isFinite(value)) {
-    throwInputRejected(`${label} must be a finite number`);
-  }
-  if (!Number.isSafeInteger(value)) {
-    throwInputRejected(`${label} must be a safe integer`);
-  }
-  if (value < 0) {
-    throwInputRejected(`${label} must be a non-negative integer`);
-  }
-  return value;
-}
-
-function assertSafePositiveInteger(value: unknown, label: string): number {
-  const num = assertSafeNonNegativeInteger(value, label);
-  if (num === 0) {
-    throwInputRejected(`${label} must be a positive integer`);
-  }
-  return num;
-}
-
 function assertCounterOffsetAligned(offset: number, label: string): void {
   if (offset % COUNTER_BYTE_LENGTH !== 0) {
     throwInputRejected(`${label} must be a multiple of ${COUNTER_BYTE_LENGTH}`);
@@ -122,20 +66,6 @@ function assertNoByteFields(
       throwInputRejected(`${label} must not carry byte fields (${key})`);
     }
   }
-}
-
-function validationFailure(
-  code: "host-contract.invalidDescriptor" | "host-contract.rejected",
-  message: string,
-): HostContractValidationResult<never> {
-  return {
-    ok: false as const,
-    failure: { code, message } as HostContractFailure,
-  };
-}
-
-function validationSuccess<T>(value: T): HostContractValidationResult<T> {
-  return { ok: true as const, value };
 }
 
 function createHostHotBlockAExpectationThrowing(input: unknown): HostHotBlockAExpectation {
@@ -249,12 +179,7 @@ export function validateHostHotRegionDescriptor(
   try {
     return validationSuccess(createHostHotRegionDescriptorThrowing(value));
   } catch (error) {
-    const message =
-      error instanceof ExclaveError && typeof error.details.detail === "string"
-        ? error.details.detail
-        : error instanceof Error
-          ? error.message
-          : "Unknown validation error";
+    const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";
     return validationFailure(code, message);
   }
