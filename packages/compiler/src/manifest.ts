@@ -117,4 +117,19 @@ export interface ResolvedProjectionContract {
 
 export interface LaneManifests {
   readonly hot?: HotLayoutManifest;
+  readonly warm?: WarmCodecManifest;
+}
+
+export interface WarmCodecManifest {
+  readonly codec: "framed-snapshot";
+  readonly contractKey: string;
+  readonly semanticVersion: SemanticVersion;
+  readonly fields: readonly WarmFieldEntry[];
+  readonly warmCodecVersion: WarmCodecVersion;
+}
+
+export interface WarmFieldEntry {
+  readonly dotPath: string;
+  readonly fieldId: number;
+  readonly shape: CanonicalFieldShape;
 }

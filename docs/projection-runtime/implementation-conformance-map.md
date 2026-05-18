@@ -40,7 +40,7 @@ intended protocol surface, but current implementation conformance must not be in
 | --- | --- | --- |
 | `@exclave/base` | implemented | Owns JSON-safety checks, `ExclaveError`, error domains, and invariants. It is foundational, not projection runtime behavior. |
 | `@exclave/schema` | implemented | Owns authored contract types, path grammar validation, field-shape syntax, and lane declaration syntax. It does not normalize contracts, derive versions, plan lanes, or generate runtime bindings. |
-| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, and hot layout manifests through `@exclave/hot-codec`. It retains warm and cold declarations but does not derive `warmCodecVersion` or `coldCodecVersion`. |
+| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, hot layout manifests through `@exclave/hot-codec`, and manifest-backed warm lane manifests with `warmCodecVersion` for framed-snapshot warm declarations. It retains cold declarations but does not derive `coldCodecVersion`. |
 | `@exclave/hot-codec` | partially implemented | Implements hot constants, layout planning, `hotLayoutVersion`, Block A and Block B helpers, deterministic hot field byte helpers, complete fixture-region encode/decode, and tests. It does not allocate SABs, run seqlock runtime loops, open handles, or manage lifecycle. |
 | `@exclave/hot-binding` | partially implemented | Validates already-opened SAB-backed regions and returns `BigUint64Array` counter views. It checks Block A expectations and counter offsets but does not own open, close, stale state, generated binding state, or handle lifecycle. |
 | `@exclave/hot-consumer` | partially implemented | Implements the bounded read kernel with atomic sequence loads, separate writer-active and torn-read budgets, last-good fallback, and tests. It is not the generated `HotProjectionBinding<T>` state machine. |
@@ -81,6 +81,7 @@ Implemented in source and tests:
 - `semanticVersion` derivation from canonical manifest bytes
 - hot lane admissibility checks
 - hot layout manifest emission when a hot lane is declared
+- warm lane manifest emission and `warmCodecVersion` derivation for framed-snapshot warm declarations
 - warm and cold lane declarations retained as canonical declarations
 - hot Block A and Block B metadata represented in hot fixture helpers
 
@@ -93,7 +94,6 @@ Gaps:
 - No generated public consumer binding surface exists in package source.
 - Publication metadata exists for the modeled warm subscription path, but not as a full runtime model across hot, warm,
   and cold lanes.
-- `warmCodecVersion` is not derived.
 - `coldCodecVersion` remains reserved and is not derived.
 - Cold materialization semantics are not implemented.
 
@@ -255,6 +255,8 @@ Implemented in source and tests:
 - canonical binary outer frame with `frameByteLength`
 - little-endian metadata fields
 - deterministic encode/decode for the same logical frame
+- compiler-derived `warmCodecVersion` from Warm Codec v1 canonical hash coverage
+- compiler-emitted warm lane manifest for framed-snapshot warm declarations
 - optional `laneSequence` presence and value encoding
 - recoverable decode failures for malformed frame length, malformed payload length, invalid `laneSequencePresent`, and
   invalid UTF-8
@@ -264,15 +266,14 @@ Implemented in source and tests:
 
 Remaining gaps:
 
-- binary payload encoding for canonical field shapes
-- deterministic map ordering checks
-- `warmCodecVersion` derivation
+- binary field-value payload encoding for canonical field shapes
+- deterministic map ordering checks for actual payload values
 - fatal stream mismatch handling
 - shared Rust/TS byte fixture agreement for warm frames
+- production transport and publication runtime integration
 
 The implemented payload is an opaque already-encoded snapshot byte payload for this slice. It is not full field-value
-codec coverage. Compiler tests still explicitly prove warm declarations are retained without producing
-`warmCodecVersion`.
+codec coverage.
 
 ## 10. Publication Subscription Lifecycle Conformance
 
@@ -339,22 +340,17 @@ session, resource, warm codec, and publication subscription foundations.
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-3. `feat(warm): derive warmCodecVersion from manifest-backed codec coverage`
-
-   Derive `warmCodecVersion` from the Warm Codec v1 canonical hash input once a warm manifest artifact exists. Keep this
-   separate from the existing opaque payload-byte subset.
-
-4. `feat(warm): implement manifest-derived field-value payload encoding`
+3. `feat(warm): implement manifest-derived field-value payload encoding`
 
    Add real payload encoding/decoding for canonical field shapes, including bool/enum validation, bounded counts, map
    ordering, duplicate-key rejection, and string UTF-8 checks.
 
-5. `test(conformance): add Rust/TS warm byte fixture agreement`
+4. `test(conformance): add Rust/TS warm byte fixture agreement`
 
    Promote the current TypeScript-only warm frame proof into shared fixture evidence with deterministic expected frame
    bytes across languages.
 
-6. `feat(publication): define production transport attachment points`
+5. `feat(publication): define production transport attachment points`
 
    Define how the modeled subscription lifecycle attaches to a real transport without making control replies carry
    publication frames or resource bodies.

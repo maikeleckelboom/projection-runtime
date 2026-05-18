@@ -47,6 +47,18 @@ function unwrapHotManifest(
   return hotManifest;
 }
 
+function unwrapWarmManifest(
+  resolved: ResolvedProjectionContract,
+): NonNullable<NonNullable<ResolvedProjectionContract["laneManifests"]>["warm"]> {
+  const warmManifest = resolved.laneManifests?.warm;
+  expect(warmManifest).toBeDefined();
+  if (warmManifest === undefined) {
+    throw new Error("expected warm lane manifest");
+  }
+
+  return warmManifest;
+}
+
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const hotBasicFixtureRoot = resolve(repoRoot, "fixtures/projection-runtime/hot-basic-v0");
 
@@ -107,6 +119,40 @@ function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
       hot: {
         reservations: ["lookup", "peaks"],
       },
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+function warmIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "fixture.warm",
+    family: "replaceable-snapshot",
+    fields: {
+      zed: { kind: "variable-string" },
+      transport: {
+        tempo: { kind: "fixed-scalar", type: "f64" },
+        phase: { kind: "fixed-scalar", type: "f64" },
+      },
+      flags: { kind: "fixed-string-encoded", byteLength: 3, encoding: "ascii" },
+    },
+    lanes: {
+      warm: {},
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+function warmHotIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "fixture.warmHot",
+    family: "replaceable-snapshot",
+    fields: {
+      tempo: { kind: "fixed-scalar", type: "f64" },
+      samples: { kind: "bounded-array", elementType: "f32", maxLength: 8 },
+    },
+    lanes: {
+      warm: {},
     },
     ...overrides,
   } satisfies AuthoredProjectionContract;
@@ -699,13 +745,10 @@ describe("@exclave/compiler hot lane manifests", () => {
   it("omits hot layout data when no hot lane is declared", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
-        key: "fixture.warm",
+        key: "fixture.noLane",
         family: "replaceable-snapshot",
         fields: {
           title: { kind: "variable-string" },
-        },
-        lanes: {
-          warm: {},
         },
       }),
     );
@@ -1023,22 +1066,185 @@ describe("@exclave/compiler shared projection-runtime fixtures", () => {
 });
 
 describe("@exclave/compiler warm and cold", () => {
-  it("retains and canonicalizes warm declarations without byte encoding", () => {
-    const resolved = unwrap(
+  it("retains warm declarations and derives warm codec identity", () => {
+    const resolved = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const warmManifest = unwrapWarmManifest(resolved);
+
+    expect(resolved.manifest.lanes.warm).toEqual({ codec: "framed-snapshot" });
+    expectTypeOf(resolved.warmCodecVersion).toEqualTypeOf<bigint | undefined>();
+    expect(resolved.warmCodecVersion).toBe(warmManifest.warmCodecVersion);
+    expect(encodeU64Hex(warmManifest.warmCodecVersion)).toBe("4786106277feb166");
+    expect(warmManifest).toMatchObject({
+      codec: "framed-snapshot",
+      contractKey: resolved.manifest.key,
+      semanticVersion: resolved.semanticVersion,
+    });
+  });
+
+  it("omits warmCodecVersion and warm lane manifest when no warm lane is declared", () => {
+    const hotOnly = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+    const noLane = unwrap(
       compileAuthoredProjectionContract({
-        key: "deck.runtime",
+        key: "fixture.noLane",
         family: "replaceable-snapshot",
         fields: {
           title: { kind: "variable-string" },
         },
-        lanes: {
-          warm: {},
-        },
       }),
     );
 
-    expect(resolved.manifest.lanes.warm).toEqual({ codec: "framed-snapshot" });
-    expect("warmCodecVersion" in resolved).toBe(false);
+    expect("warmCodecVersion" in hotOnly).toBe(false);
+    expect(hotOnly.laneManifests?.warm).toBeUndefined();
+    expect("warmCodecVersion" in noLane).toBe(false);
+    expect("laneManifests" in noLane).toBe(false);
+  });
+
+  it("emits warm lane manifests only when warm is declared", () => {
+    const warmOnly = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const hotOnly = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+
+    expect(warmOnly.laneManifests?.warm).toBeDefined();
+    expect(warmOnly.laneManifests?.hot).toBeUndefined();
+    expect(hotOnly.laneManifests?.warm).toBeUndefined();
+    expect(hotOnly.laneManifests?.hot).toBeDefined();
+  });
+
+  it("sorts warm manifest fields lexicographically by dotPath", () => {
+    const warmManifest = unwrapWarmManifest(
+      unwrap(compileAuthoredProjectionContract(warmIdentityFixture())),
+    );
+
+    expect(warmManifest.fields.map((field) => field.dotPath)).toEqual([
+      "flags",
+      "transport.phase",
+      "transport.tempo",
+      "zed",
+    ]);
+  });
+
+  it("derives deterministic warmCodecVersion across authoring order changes", () => {
+    const left = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const right = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          revisionNote: "object order should not matter",
+          fields: {
+            flags: { encoding: "ascii", byteLength: 3, kind: "fixed-string-encoded" },
+            transport: {
+              phase: { type: "f64", kind: "fixed-scalar" },
+              tempo: { type: "f64", kind: "fixed-scalar" },
+            },
+            zed: { kind: "variable-string" },
+          },
+        }),
+      ),
+    );
+
+    expect(right.warmCodecVersion).toBe(left.warmCodecVersion);
+    expect(right.laneManifests?.warm).toEqual(left.laneManifests?.warm);
+  });
+
+  it("changes warmCodecVersion when a field shape changes", () => {
+    const f32 = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f32" },
+          },
+        }),
+      ),
+    );
+    const f64 = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+
+    expect(f64.warmCodecVersion).not.toBe(f32.warmCodecVersion);
+  });
+
+  it("changes warmCodecVersion when a field dotPath changes", () => {
+    const tempo = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+    const speed = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            speed: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+
+    expect(speed.warmCodecVersion).not.toBe(tempo.warmCodecVersion);
+  });
+
+  it("does not change warmCodecVersion when only hot lane declarations change", () => {
+    const warmOnly = unwrap(compileAuthoredProjectionContract(warmHotIdentityFixture()));
+    const withHot = unwrap(
+      compileAuthoredProjectionContract(
+        warmHotIdentityFixture({
+          lanes: {
+            hot: { reservations: ["samples"] },
+            warm: {},
+          },
+        }),
+      ),
+    );
+
+    expect(withHot.hotLayoutVersion).toBeDefined();
+    expect(withHot.warmCodecVersion).toBe(warmOnly.warmCodecVersion);
+    expect(withHot.laneManifests?.warm).toEqual(warmOnly.laneManifests?.warm);
+  });
+
+  it("does not change warmCodecVersion when authoring-only metadata changes", () => {
+    const left = unwrap(
+      compileAuthoredProjectionContract(warmIdentityFixture({ revisionNote: "left" })),
+    );
+    const right = unwrap(
+      compileAuthoredProjectionContract(warmIdentityFixture({ revisionNote: "right" })),
+    );
+
+    expect(right.warmCodecVersion).toBe(left.warmCodecVersion);
+  });
+
+  it("keeps warmCodecVersion distinct from hotLayoutVersion in a basic fixture", () => {
+    const resolved = unwrap(
+      compileAuthoredProjectionContract(
+        warmHotIdentityFixture({
+          lanes: {
+            hot: { reservations: ["samples"] },
+            warm: {},
+          },
+        }),
+      ),
+    );
+
+    expect(resolved.hotLayoutVersion).toBeDefined();
+    expect(resolved.warmCodecVersion).toBeDefined();
+    expect(resolved.warmCodecVersion).not.toBe(resolved.hotLayoutVersion);
+  });
+
+  it("includes all canonical fields in the warm manifest without lane subsetting", () => {
+    const resolved = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const warmManifest = unwrapWarmManifest(resolved);
+
+    expect(warmManifest.fields.map((field) => field.dotPath)).toEqual(
+      resolved.manifest.fields.map((field) => field.dotPath),
+    );
+    expect(warmManifest.fields).toHaveLength(4);
+    expect(warmManifest.fields.map((field) => field.dotPath)).toContain("zed");
   });
 
   it("retains cold declarations without producing coldCodecVersion", () => {

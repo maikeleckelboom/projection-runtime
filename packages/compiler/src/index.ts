@@ -40,5 +40,7 @@ export type {
   LaneManifests,
   ResolvedProjectionContract,
   SemanticVersion,
+  WarmCodecManifest,
   WarmCodecVersion,
+  WarmFieldEntry,
 } from "./manifest";

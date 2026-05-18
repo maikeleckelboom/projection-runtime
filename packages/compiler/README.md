@@ -18,6 +18,7 @@ The compiler v0 emits:
 - canonical lane declarations
 - a `ResolvedProjectionContract` shell with derived `semanticVersion`
 - a hot lane layout manifest when a hot lane is declared
+- a framed-snapshot warm lane manifest and `warmCodecVersion` when a warm lane is declared
 
 The compiler does not own runtime behavior. Runtime packages consume emitted artifacts; they do not plan layout,
 derive versions, or reinterpret authored contracts during live operation.
@@ -33,9 +34,10 @@ Compiler v0 does not:
 - implement runtime hot readers or writers
 - integrate Electron, SAB lifecycle management, or host adapters
 
-Hot layout planning is delegated to `@exclave/hot-codec`. Warm codec manifests, cold materialization manifests,
-resource lane manifests, generated bindings, conformance fixture emission, runtime readers/writers, and Electron
-adapter behavior belong to later packages or later compiler slices.
+Hot layout planning is delegated to `@exclave/hot-codec`. The compiler derives the current framed-snapshot warm codec
+manifest identity, but warm field-value payload encoding is still outside this slice. Cold materialization manifests,
+resource lane manifests, generated bindings, conformance fixture emission, runtime readers/writers, and Electron adapter
+behavior belong to later packages or later compiler slices.
 
 ## Determinism
 
@@ -73,6 +75,7 @@ type ResolvedProjectionContract = {
   readonly coldCodecVersion?: ColdCodecVersion;
   readonly laneManifests?: {
     readonly hot?: HotLayoutManifest;
+    readonly warm?: WarmCodecManifest;
   };
 };
 ```
@@ -82,6 +85,10 @@ type ResolvedProjectionContract = {
 If hot layout planning rejects the input, compilation returns `ok: false` with compiler issues that preserve the
 `hot-codec` issue source and cause code.
 
+Warm lane declarations are canonicalized to `{ codec: "framed-snapshot" }`. When a warm lane is declared, successful
+compiler output includes `laneManifests.warm` and a top-level `warmCodecVersion` copied from that manifest. The warm
+manifest includes every canonical field in lexicographic dot-path order; it does not subset fields per lane.
+
 ## Error model
 
 Compiler failures are domain-coded `ExclaveError` values with code `compiler.compilationRejected`. The `CompilerError`
@@ -89,9 +96,6 @@ name is a TypeScript alias plus helper factory, not a runtime subclass. Each com
 `details.issues` list of `CompilerIssue` objects with typed issue codes such as `schema.invalid`,
 `lane.hotFieldNotAdmissible`, or `hot-codec.planningFailed`. Issue codes are drawn from a predeclared registry; callers
 can assert specific codes without parsing free-form strings.
-
-Warm declarations are retained as `{ codec: "framed-snapshot" }`, but compiler v0 does not emit warm codec manifests or
-derive `warmCodecVersion`.
 
 Cold declarations are retained as reserved materialization declarations, but compiler v0 does not derive
 `coldCodecVersion` and does not claim that a cold materialization codec is ratified.
