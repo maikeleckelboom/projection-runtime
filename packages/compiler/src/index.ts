@@ -5,6 +5,10 @@ export {
   compileAuthoredProjectionContract,
 } from "./compile";
 export {
+  type EmitTypeScriptProjectionConsumerBindingSourceOptions,
+  emitTypeScriptProjectionConsumerBindingSource,
+} from "./consumer-binding";
+export {
   COMPILER_ERRORS,
   COMPILER_ISSUE_DEFS,
   type CompilerCompilationRejectedDetails,
