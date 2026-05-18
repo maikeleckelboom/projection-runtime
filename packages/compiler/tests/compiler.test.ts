@@ -15,6 +15,7 @@ import {
   compileAuthoredProjectionContract,
   type ResolvedProjectionContract,
 } from "../src/index";
+import { deriveSemanticVersion } from "../src/version";
 
 function unwrap(result: CompileProjectionResult): ResolvedProjectionContract {
   expect(result.ok).toBe(true);
@@ -785,6 +786,7 @@ describe("@exclave/compiler shared projection-runtime fixtures", () => {
     expect(toFixtureJson(resolved.hotLayoutVersion)).toBe(
       toFixtureJson(hotManifest.hotLayoutVersion),
     );
+    expect(toFixtureJson(deriveSemanticVersion(resolved.manifest))).toBe("67b271f31c6b06a0");
     expect(toFixtureJson(resolved.semanticVersion)).toMatch(/^[0-9a-f]{16}$/);
     expect(toFixtureJson(resolved.hotLayoutVersion)).toMatch(/^[0-9a-f]{16}$/);
 

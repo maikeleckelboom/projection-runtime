@@ -433,6 +433,40 @@ describe("@exclave/hot-codec hotLayoutVersion", () => {
 
     expect(withNanSentinel.hotLayoutVersion).not.toBe(withoutNanSentinel.hotLayoutVersion);
   });
+
+  it("keeps the hot-basic-v0 layout version golden stable", () => {
+    expect(deriveHotLayoutVersion(hotBasicLayout())).toBe(0x8f3eb897fd88495cn);
+  });
+
+  it("preserves hot-codec numeric rejection for shared shape serialization", () => {
+    try {
+      deriveHotLayoutVersion({
+        fields: [
+          {
+            dotPath: "peaks",
+            fieldId: 1,
+            shape: { kind: "BoundedArray", elementType: "f64", maxLength: 0x1_0000_0000 },
+            absoluteOffset: 96,
+            byteSpan: 8,
+            alignment: 8,
+          },
+        ],
+        reservations: [],
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(ExclaveError);
+      expect((error as HotCodecError).code).toBe("hotCodec.layoutRejected");
+      expect((error as HotCodecError).details.issues).toEqual([
+        expect.objectContaining({
+          code: "layout.numericOutOfRange",
+          path: "canonicalHotLayout.u32",
+        }),
+      ]);
+      return;
+    }
+
+    throw new Error("expected hot layout version derivation to reject out-of-range shape bytes");
+  });
 });
 
 describe("@exclave/hot-codec byte helpers", () => {
