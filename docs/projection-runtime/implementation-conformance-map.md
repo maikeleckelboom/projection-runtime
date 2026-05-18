@@ -83,7 +83,7 @@ Implemented in source and tests:
 
 Gaps:
 
-- `keysOf(contract)` typed key mirror is not implemented. It is a day-one requirement of the contract/compiler layer and must land before any generated authority writer or consumer reader work that accesses published fields.
+- No generated field identity or binding surface exists. Normal field access must not be hand-authored raw dot-path strings. The compiler must emit generated field identity artifacts (string literal unions, key mirrors, or typed bindings) before any generated authority writer or consumer reader work that accesses published fields.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
 - No full publication metadata model exists across hot, warm, and cold lanes.
@@ -293,12 +293,12 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(compiler): add keysOf typed key mirror`
+1. `feat(compiler): emit generated field identity artifacts`
 
-   Add `keysOf(contract)` — the typed nested mirror of dot-path keys described in the spine section 3.5. This is a
-   day-one requirement of the contract/compiler layer. It must land before any generated authority writer or consumer
-   reader work that accesses published fields. Stringly-typed field access is a defect; `keysOf` is the replacement.
-   This slice must not add compatibility aliases, old key mirrors, or migration paths.
+   Emit generated field identity artifacts derived from the canonical manifest: TypeScript string literal unions for
+   field dot-paths, and/or typed key mirrors, and/or typed bindings. The compiler must not allow hand-authored raw
+   dot-path string literals as the normal access path for published fields. The canonical manifest is the
+   cross-language source of field identity. This slice must not add compatibility aliases or migration paths.
 
 2. `feat(session): add authority session descriptor types`
 

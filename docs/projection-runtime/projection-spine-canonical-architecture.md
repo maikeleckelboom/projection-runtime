@@ -127,8 +127,10 @@ Replay publishes through the same projection contracts and metadata model as liv
 **Law 10: `semanticVersion` is generated from the canonical manifest, never hand-authored.**
 See section 5.
 
-**Law 11: Every published field is accessed through a generated key mirror, never a raw string.**
-`keysOf(contract)` generates the typed nested mirror. Stringly-typed field access is a defect.
+**Law 11: Field identity must derive from the canonical projection manifest and be consumed through generated typed APIs.**
+Hand-authored raw dot-path string literals in authority, consumer, or runtime code are a defect.
+Generated APIs — string literal unions, key mirrors, typed bindings — are permitted implementations.
+The canonical manifest is the cross-language source of field identity.
 
 **Law 12: Hot lane is admissible only for contracts whose every field is hot-admissible.**
 See section 7.
@@ -308,22 +310,24 @@ Properties:
 
 ---
 
-### 3.5 keysOf
+### 3.5 Generated Field Identity
 
-`keysOf(contract)` generates a typed nested mirror of the authored tree where every leaf is the stable dot-path key
-string for that field, typed as a string literal.
+Field identity is authored once in the projection contract and derived into every consumer surface from the canonical
+projection manifest. No hand-authored raw dot-path string literal may serve as the normal access path for a published
+field in authority, consumer, or runtime code.
 
-```ts
-const k = keysOf(deckRuntimeContract)
-k.transport.tempo          // type: "transport.tempo"
-k.transport.sync.enabled   // type: "transport.sync.enabled"
-k.peaks.preFader.left      // type: "peaks.preFader.left"
-```
+The compiler owns generation of field identity artifacts. Possible generated surfaces include:
 
-Accessing a non-existent path is a TypeScript compile error. Hand-typed dot-path strings in authority or consumer code
-are a defect.
+- **TypeScript string literal unions** generated from `manifest.fields[].dotPath`, giving the consumer a compile-time
+  field-path type without exposing a nesting hierarchy.
+- **Generated key mirrors** — typed nested property-access trees produced from the manifest. A key mirror is a
+  convenience helper, not a mandatory public API.
+- **Generated typed bindings** — per-contract reader and writer surfaces that embed field offsets, field IDs, and typed
+  value access. Generated bindings are the preferred end-state consumer and authority access model.
 
-`keysOf` is a day-one requirement of the contract layer.
+Generated code must consume manifests, not authoring input directly. Every generated access surface must be traceable
+to the canonical manifest. The canonical manifest is the cross-language source of field identity for Rust, TypeScript,
+and any future language target.
 
 ---
 
@@ -1376,14 +1380,6 @@ not declare cold publication lanes in v1 implementation examples.
 
 All fields are `FixedScalar` or `FixedEnum`. Hot admissible: yes. Resolver accepts the hot and warm lane declarations.
 
-```ts
-const k = keysOf(deckRuntimeContract)
-k.transport.tempo           // "transport.tempo"
-k.transport.sync.source     // "transport.sync.source"
-k.peaks.preFader.left       // "peaks.preFader.left"
-k.engine.xruns              // "engine.xruns"
-```
-
 ---
 
 ### 12.2 WorkspaceRuntimeProjection
@@ -1522,8 +1518,10 @@ domain's state. In v1, reuse is an error.
 ---
 
 **Reject: consumer or authority code using raw dot-path string literals for field access.**
-Typos compile silently. Field renames produce runtime failures. Replacement: `keysOf(contract)` generates a typed nested
-mirror. All field access is a property access statically verified by TypeScript.
+Typos compile silently. Field renames produce runtime failures. Hand-authored raw dot-path strings must not serve as the
+normal field access path. Acceptable replacement patterns include generated TypeScript string literal unions derived from
+the manifest, generated key mirrors, and generated typed bindings. Generated bindings are the preferred end-state
+consumer and authority access model.
 
 ---
 
@@ -1597,6 +1595,6 @@ segments (`[a-z][a-zA-Z0-9]*`). This is a hard resolver constraint, not a style 
 ---
 
 **Reject: snake_case field names in the TS authoring DSL.**
-The TS authoring surface is the canonical language-specific front-end. camelCase is idiomatic. Generated key mirrors
-produce camelCase property access. Downstream codegen (Rust, SQLite) applies its own convention translation. That is a
-codegen concern, not an authoring concern.
+The TS authoring surface is the canonical language-specific front-end. camelCase is idiomatic. Generated field
+identity artifacts produce camelCase property access. Downstream codegen (Rust, SQLite) applies its own convention
+translation. That is a codegen concern, not an authoring concern.
