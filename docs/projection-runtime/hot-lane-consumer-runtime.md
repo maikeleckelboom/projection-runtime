@@ -74,6 +74,7 @@ type HotBindingState =
     | "unbound"
     | "binding"
     | "ready"
+    | "failed"
     | "stale"
     | "closed"
 ```
@@ -90,13 +91,18 @@ A mapping exists, but bind-time validation is not complete.
 
 Bind-time validation passed and at least one legal read may be attempted.
 
-### 3.4 `stale`
+### 3.4 `failed`
 
-The mapping must no longer be used for field reads.
-A stale binding is revocable and terminal for read purposes.
+Bind-time validation failed. The mapping never became a valid live projection surface. This is a terminal state for
+bind-validation failure. A `failed` binding has never been `ready` and has never published valid projection data.
+
+### 3.5 `stale`
+
+The mapping must no longer be used for field reads. A stale binding is revocable and terminal for read purposes.
+A stale binding was either `ready` or transitioned through a state where a valid mapping existed before revocation.
 A stale binding may still expose identity/debug information for diagnostics.
 
-### 3.5 `closed`
+### 3.6 `closed`
 
 The consumer closed the binding and no further reads are legal.
 
@@ -140,6 +146,7 @@ type HotBindResult =
     state: HotBindingState
     reason:
         | "bindValidationFailed"
+        | "alreadyFailed"
         | "alreadyClosed"
         | "alreadyStale"
         | "alreadyBinding"
@@ -154,11 +161,17 @@ illegal `bind()` call must not cause a state transition. The binding stays in wh
 attempting validation and without changing state:
 
 - `unbound` → performs validation; on success: transitions to `ready`, returns `{ ok: true, state: "ready" }`; on
-  failure: transitions to `stale`, returns `{ ok: false, state: "stale", reason: "bindValidationFailed" }`
+  failure: transitions to `failed`, returns `{ ok: false, state: "failed", reason: "bindValidationFailed" }`
 - `binding` → no transition; returns `{ ok: false, state: "binding", reason: "alreadyBinding" }`
 - `ready` → no transition; returns `{ ok: false, state: "ready", reason: "alreadyReady" }`
+- `failed` → no transition; returns `{ ok: false, state: "failed", reason: "alreadyFailed" }`
 - `stale` → no transition; returns `{ ok: false, state: "stale", reason: "alreadyStale" }`
 - `closed` → no transition; returns `{ ok: false, state: "closed", reason: "alreadyClosed" }`
+
+`bindValidationFailed` is a bind-outcome reason, not an invalidation reason. A binding that fails validation transitions to
+`failed`, a terminal state indicating the mapping never became a valid live projection surface. The `stale` state is
+reserved exclusively for lifecycle revocation of a previously valid or ready binding — for example, authority session
+replacement, hot handle invalidation, or host-declared mapping revocation. A `failed` binding has never been `ready`.
 
 `bind()` does not promise that a semantically good publication has already been observed.
 It only establishes that the mapped region is structurally legal to read from under the hot-lane ABI.
@@ -174,8 +187,9 @@ Returns:
 
 `tryReadLatest(...)` must never expose a torn snapshot.
 
-After `close()` or after the binding is `stale`, `tryReadLatest(...)` must return `readLastGood()` or `null`. It must
-never attempt a live read against the mapped region.
+After `close()`, after the binding becomes `stale`, or after the binding becomes `failed`, `tryReadLatest(...)` must
+return `readLastGood()` or `null`. A `failed` binding has never been `ready` and has no last-good snapshot, so it always
+returns `null`. It must never attempt a live read against the mapped region in any of these states.
 
 ### 4.3 `readLastGood()`
 
@@ -389,6 +403,10 @@ The following conditions must cause the runtime control layer to call `invalidat
 * replacement mapping superseding the current binding
 * any host-level signal declaring the mapped region stale or replaced
 
+Invalidation transitions a binding to `stale`, not to `failed`. The `failed` state is reserved for bind-validation
+failure, which is owned by `HotBindResult`. Invalidation is a lifecycle event that revokes a binding that was at some
+point valid or ready. A `failed` binding has never been valid.
+
 A stale binding must not continue attempting live reads from the old mapping.
 
 The public fallback behavior for a stale binding is:
@@ -407,8 +425,8 @@ rules document. No adapter author should need to invent new nouns.
 
 ```ts
 type HotBindingInvalidationReason =
-    | { kind: "authorityEpochReplaced"; previousAuthorityEpoch: bigint; nextAuthorityEpoch: bigint }
-    | { kind: "authorityUnavailable"; previousAuthorityEpoch: bigint; state: "stopping" | "stopped" }
+    | { kind: "authorityEpochReplaced"; replacedAuthorityEpoch: bigint; replacingAuthorityEpoch: bigint }
+    | { kind: "authorityUnavailable"; replacedAuthorityEpoch: bigint; state: "stopping" | "stopped" }
     | { kind: "hotHandleInvalidated"; authorityEpoch: bigint; detail?: string }
 ```
 
@@ -426,6 +444,12 @@ runtime consumes it without reinventing host-specific classification.
 `HotBindResult`. It is not a session, host, or lifecycle invalidation event and must not be placed in the invalidation
 reason family. The clean owner split is: `HotBindResult` owns bind validation failure; `HotBindingInvalidationReason`
 owns session/lifecycle/host revocation.
+
+`authorityEpoch` fields in invalidation reasons are opaque session identifiers (see control-plane session rules). They
+may be represented as `bigint` in TypeScript for transport and validation convenience, but consumers must not use numeric
+ordering comparisons on `authorityEpoch` values. Equality and inequality are the only legal consumer operations. The
+field names `replacedAuthorityEpoch` and `replacingAuthorityEpoch` identify which epoch was superseded and which
+supersedes it; they must not be interpreted as implying a numeric ordering relationship between the two values.
 
 `closed` is not an invalidation reason. `close()` is a consumer action on the binding surface. Invalidation is a
 runtime/session/lifecycle event with a different owner. These must not be collapsed.

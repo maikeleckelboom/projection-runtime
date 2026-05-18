@@ -350,8 +350,8 @@ At this point, old-session publication ownership is over.
 For planned authority replacement where a successor is standing up before the predecessor dies:
 
 1. The replacement authority session is created with a new `authorityEpoch` and enters `state: "starting"`.
-2. The session/control layer emits `authorityEpochReplaced` carrying both `previousAuthorityEpoch` and
-   `nextAuthorityEpoch`.
+2. The session/control layer emits `authorityEpochReplaced` carrying both `replacedAuthorityEpoch` and
+   `replacingAuthorityEpoch`.
 
 `authorityEpochReplaced` requires both epochs to be known at emission time. The replacement session must exist before
 this event can be emitted.
@@ -360,7 +360,7 @@ this event can be emitted.
 
 For authority crash or unplanned shutdown where no successor yet exists:
 
-1. The session/control layer emits `authorityUnavailable` carrying `previousAuthorityEpoch`.
+1. The session/control layer emits `authorityUnavailable` carrying `replacedAuthorityEpoch`.
 2. The replacement authority session is created later, with a new `authorityEpoch`.
 
 In this case, invalidation events precede replacement session creation.
@@ -691,7 +691,7 @@ authority/domain decision. The two must never be conflated.
 
 ### Rejected: emitting `authorityEpochReplaced` before the replacement session exists
 
-`authorityEpochReplaced` carries `nextAuthorityEpoch`, which cannot be known before the replacement session
+`authorityEpochReplaced` carries `replacingAuthorityEpoch`, which cannot be known before the replacement session
 exists. For crash/shutdown without a successor, use `authorityUnavailable` instead.
 
 ### Rejected: consumers polling for session readiness

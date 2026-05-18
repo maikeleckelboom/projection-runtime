@@ -83,7 +83,7 @@ Implemented in source and tests:
 
 Gaps:
 
-- `keysOf(contract)` typed key mirror is not implemented.
+- `keysOf(contract)` typed key mirror is not implemented. It is a day-one requirement of the contract/compiler layer and must land before any generated authority writer or consumer reader work that accesses published fields.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
 - No full publication metadata model exists across hot, warm, and cold lanes.
@@ -293,46 +293,53 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(session): add authority session descriptor types`
+1. `feat(compiler): add keysOf typed key mirror`
+
+   Add `keysOf(contract)` — the typed nested mirror of dot-path keys described in the spine section 3.5. This is a
+   day-one requirement of the contract/compiler layer. It must land before any generated authority writer or consumer
+   reader work that accesses published fields. Stringly-typed field access is a defect; `keysOf` is the replacement.
+   This slice must not add compatibility aliases, old key mirrors, or migration paths.
+
+2. `feat(session): add authority session descriptor types`
 
    Add the discriminated `AuthoritySessionDescriptor` and the typed session event/failure shapes from the draft without
    building a session manager yet.
 
-2. `feat(resource): add resource byte grant contract`
+3. `feat(resource): add resource byte grant contract`
 
    Add a small read-range byte-transfer metadata slice with `ResourceByteGrant` and byte range descriptors only. This
    slice must not implement resource open, read, map, or close lifecycle.
 
-3. `test(host-contract): prove resource byte grant endpoint crossing`
+4. `test(host-contract): prove resource byte grant endpoint crossing`
 
    Extend host-contract tests to prove a resource grant crosses the host boundary as a descriptor and does not carry
    bytes in a control reply.
 
-4. `feat(resource): add resource handle capability types and open reply contract`
+5. `feat(resource): add resource handle capability types and open reply contract`
 
    Add the v1 resource handle/open reply and 4-case `ResourceCapabilities` discriminated union, including
    `maxMappedWindowBytes` whenever `canMapWindows: true`. This builds on the byte grant slice but does not yet
    implement full resource open/read/map/close lifecycle.
 
-5. `test(hot-binding): prove hot handle lifecycle invalidation`
+6. `test(hot-binding): prove hot handle lifecycle invalidation`
 
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-6. `feat(warm): add framed snapshot byte codec skeleton`
+7. `feat(warm): add framed snapshot byte codec skeleton`
 
    Add a bounded binary frame parser/encoder shell for Warm Codec v1 metadata only, with `frameByteLength`, contract key,
    instance key, versions, publication metadata, optional `laneSequence`, and payload bytes.
 
-7. `test(warm): reject malformed framed snapshot bytes`
+8. `test(warm): reject malformed framed snapshot bytes`
 
    Prove malformed frame length, payload length, and invalid `laneSequencePresent` are recoverable per-frame rejections.
 
-8. `feat(publication): add warm subscribe ack and failure types`
+9. `feat(publication): add warm subscribe ack and failure types`
 
    Add only type-level request/ack/failure shapes for warm subscription, including `subscriptionId`,
    `surfaceDeferredNotReady`, `surfaceUnavailable`, `streamIncompatible`, and `coldLaneNotRatified`.
 
-9. `test(publication): reject cold subscription as not ratified`
+10. `test(publication): reject cold subscription as not ratified`
 
-   Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.
+    Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.
