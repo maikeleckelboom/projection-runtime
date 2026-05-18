@@ -30,6 +30,7 @@ describe("Warm Codec v1 framed-snapshot binary subset", () => {
       | "malformedPayloadLength"
       | "invalidLaneSequencePresent"
       | "invalidUtf8"
+      | "invalidIdentityField"
       | "invalidFrameInput"
     >();
     expectTypeOf<WarmFrameEncodeFailure["reason"]>().toEqualTypeOf<
@@ -141,6 +142,270 @@ describe("Warm Codec v1 framed-snapshot binary subset", () => {
     expect(encoded.ok).toBe(false);
     if (!encoded.ok) {
       expect(encoded.failure.reason).toBe("resourceBodyRejected");
+    }
+  });
+
+  it("encodes a valid fixture without laneSequence deterministically", () => {
+    const minimalFrame: WarmLaneFrame = {
+      contractKey: "deck.runtime",
+      projectionInstanceKey: "deck.a",
+      semanticVersion: 1n,
+      warmCodecVersion: 1n,
+      baselineEpoch: 0,
+      continuityGeneration: 0,
+      publicationSequence: 0n,
+      payload: new Uint8Array([0xff]),
+    };
+
+    const first = unwrapEncode(encodeWarmLaneFrame(minimalFrame));
+    const second = unwrapEncode(encodeWarmLaneFrame(minimalFrame));
+
+    expect(first).toEqual(second);
+  });
+
+  it("rejects encode input with extra authorityEpoch field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      authorityEpoch: 1n,
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("authorityEpoch");
+    }
+  });
+
+  it("rejects encode input with extra body field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      body: "smuggled",
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("body");
+    }
+  });
+
+  it("rejects encode input with extra bytes field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      bytes: new Uint8Array(0),
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("bytes");
+    }
+  });
+
+  it("rejects encode input with extra frame field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      frame: {},
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("frame");
+    }
+  });
+
+  it("rejects encode input with extra resourceVersion field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      resourceVersion: 1,
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("resourceVersion");
+    }
+  });
+
+  it("rejects encode input with arbitrary extra field", () => {
+    const encoded = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      totallyMadeUpField: true,
+    } as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("totallyMadeUpField");
+    }
+  });
+
+  it("rejects encode input with symbol keys", () => {
+    const input = { ...fixtureFrame } as never;
+    (input as Record<symbol, unknown>)[Symbol("hidden")] = "symbol value";
+
+    const encoded = encodeWarmLaneFrame(input);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("symbol");
+    }
+  });
+
+  it("rejects encode input that is a class instance", () => {
+    class WarmFrameLike {
+      contractKey = fixtureFrame.contractKey;
+      projectionInstanceKey = fixtureFrame.projectionInstanceKey;
+      semanticVersion = fixtureFrame.semanticVersion;
+      warmCodecVersion = fixtureFrame.warmCodecVersion;
+      baselineEpoch = fixtureFrame.baselineEpoch;
+      continuityGeneration = fixtureFrame.continuityGeneration;
+      publicationSequence = fixtureFrame.publicationSequence;
+      laneSequence = fixtureFrame.laneSequence;
+      payload = fixtureFrame.payload;
+    }
+
+    const encoded = encodeWarmLaneFrame(new WarmFrameLike() as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("class instance");
+    }
+  });
+
+  it("rejects encode input that is an array", () => {
+    const encoded = encodeWarmLaneFrame([] as never);
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("array");
+    }
+  });
+
+  it("rejects encode input with explicit laneSequence undefined", () => {
+    const encoded = encodeWarmLaneFrame({
+      contractKey: fixtureFrame.contractKey,
+      projectionInstanceKey: fixtureFrame.projectionInstanceKey,
+      semanticVersion: fixtureFrame.semanticVersion,
+      warmCodecVersion: fixtureFrame.warmCodecVersion,
+      baselineEpoch: fixtureFrame.baselineEpoch,
+      continuityGeneration: fixtureFrame.continuityGeneration,
+      publicationSequence: fixtureFrame.publicationSequence,
+      laneSequence: undefined,
+      payload: fixtureFrame.payload,
+    });
+
+    expect(encoded.ok).toBe(false);
+    if (!encoded.ok) {
+      expect(encoded.failure.reason).toBe("invalidFrameInput");
+      expect(encoded.failure.detail).toContain("laneSequence");
+    }
+  });
+
+  it("rejects decode of frame with empty contractKey", () => {
+    const frame = new Uint8Array(8);
+    const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+    view.setUint32(0, 4, true);
+    view.setUint32(4, 0, true);
+
+    const result = decodeWarmLaneFrame(frame);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.reason).toBe("invalidIdentityField");
+      expect(result.failure.detail).toContain("contractKey");
+      expect("frame" in result).toBe(false);
+    }
+  });
+
+  it("rejects decode of frame with empty projectionInstanceKey", () => {
+    const key = new TextEncoder().encode("ab");
+    const dataLength = 4 + key.byteLength + 4;
+    const frame = new Uint8Array(4 + dataLength);
+    const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+
+    let offset = 0;
+    view.setUint32(offset, dataLength, true);
+    offset += 4;
+    view.setUint32(offset, key.byteLength, true);
+    offset += 4;
+    frame.set(key, offset);
+    offset += key.byteLength;
+    view.setUint32(offset, 0, true);
+
+    const result = decodeWarmLaneFrame(frame);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.reason).toBe("invalidIdentityField");
+      expect(result.failure.detail).toContain("projectionInstanceKey");
+      expect("frame" in result).toBe(false);
+    }
+  });
+
+  it("rejects decode of frame with identity length that overruns remaining bytes", () => {
+    const frame = new Uint8Array(8);
+    const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+    view.setUint32(0, 4, true);
+    view.setUint32(4, 200, true);
+
+    const result = decodeWarmLaneFrame(frame);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.reason).toBe("malformedFrameLength");
+      expect("frame" in result).toBe(false);
+    }
+  });
+
+  it("decode failure results do not expose partial frame state", () => {
+    const truncated = new Uint8Array(12);
+    const view = new DataView(truncated.buffer, truncated.byteOffset, truncated.byteLength);
+    view.setUint32(0, 8, true);
+    view.setUint32(4, 4, true);
+    const textEncoder = new TextEncoder();
+    const key = textEncoder.encode("ab");
+    truncated.set(key, 8);
+
+    const result = decodeWarmLaneFrame(truncated);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect("frame" in result).toBe(false);
+      expect(result.failure.kind).toBe("warmFrameDecodeFailure");
+    }
+  });
+
+  it("resourceBodyRejected is only a diagnostic refinement of invalid payload input", () => {
+    const numericPayload = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      payload: 42 as never,
+    });
+    expect(numericPayload.ok).toBe(false);
+    if (!numericPayload.ok) {
+      expect(numericPayload.failure.reason).toBe("invalidFrameInput");
+    }
+
+    const bodyDescriptorPayload = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      payload: { body: "resource" } as never,
+    });
+    expect(bodyDescriptorPayload.ok).toBe(false);
+    if (!bodyDescriptorPayload.ok) {
+      expect(bodyDescriptorPayload.failure.reason).toBe("resourceBodyRejected");
+    }
+
+    const nullPayload = encodeWarmLaneFrame({
+      ...fixtureFrame,
+      payload: null as never,
+    });
+    expect(nullPayload.ok).toBe(false);
+    if (!nullPayload.ok) {
+      expect(nullPayload.failure.reason).toBe("invalidFrameInput");
     }
   });
 });

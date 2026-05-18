@@ -22,6 +22,7 @@ export type WarmFrameDecodeFailureReason =
   | "malformedPayloadLength"
   | "invalidLaneSequencePresent"
   | "invalidUtf8"
+  | "invalidIdentityField"
   | "invalidFrameInput";
 
 export type WarmFrameEncodeFailureReason =
@@ -67,6 +68,18 @@ const RESOURCE_BODY_KEYS: ReadonlySet<string> = new Set([
   "uint8Array",
 ]);
 
+const ACCEPTED_FRAME_KEYS: ReadonlySet<string> = new Set([
+  "contractKey",
+  "projectionInstanceKey",
+  "semanticVersion",
+  "warmCodecVersion",
+  "baselineEpoch",
+  "continuityGeneration",
+  "publicationSequence",
+  "laneSequence",
+  "payload",
+]);
+
 export function encodeWarmLaneFrame(
   input: WarmLaneFrame,
   options: WarmFrameCodecOptions = {},
@@ -78,6 +91,43 @@ export function encodeWarmLaneFrame(
 
   if (typeof input !== "object" || input === null) {
     return encodeFailure("invalidFrameInput", "warm frame input must be a plain object");
+  }
+
+  if (Array.isArray(input)) {
+    return encodeFailure(
+      "invalidFrameInput",
+      "warm frame input must be a plain object, not an array",
+    );
+  }
+
+  const proto = Object.getPrototypeOf(input);
+  if (proto !== null && proto !== Object.prototype) {
+    return encodeFailure(
+      "invalidFrameInput",
+      "warm frame input must be a plain object, not a class instance",
+    );
+  }
+
+  const ownSymbolKeys = Object.getOwnPropertySymbols(input);
+  if (ownSymbolKeys.length > 0) {
+    return encodeFailure("invalidFrameInput", "warm frame input must not contain symbol keys");
+  }
+
+  const ownStringKeys = Object.getOwnPropertyNames(input);
+  for (const key of ownStringKeys) {
+    if (!ACCEPTED_FRAME_KEYS.has(key)) {
+      return encodeFailure(
+        "invalidFrameInput",
+        `warm frame input must not contain extra field "${key}"`,
+      );
+    }
+  }
+
+  if (Object.hasOwn(input, "laneSequence") && input.laneSequence === undefined) {
+    return encodeFailure(
+      "invalidFrameInput",
+      "laneSequence must be omitted when absent, not set to undefined",
+    );
   }
 
   const payloadValue = (input as { readonly payload?: unknown }).payload;
@@ -382,6 +432,10 @@ function readUtf8Field(
 
   const byteLength = view.getUint32(offset, true);
   offset += 4;
+
+  if (byteLength === 0) {
+    return decodeFailure("invalidIdentityField", `${label} must not be empty`);
+  }
 
   if (!hasRemaining(bytes, offset, byteLength)) {
     return decodeFailure("malformedFrameLength", `frame ended before ${label} bytes`);
