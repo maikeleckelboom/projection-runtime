@@ -40,7 +40,7 @@ intended protocol surface, but current implementation conformance must not be in
 | --- | --- | --- |
 | `@exclave/base` | implemented | Owns JSON-safety checks, `ExclaveError`, error domains, and invariants. It is foundational, not projection runtime behavior. |
 | `@exclave/schema` | implemented | Owns authored contract types, path grammar validation, field-shape syntax, and lane declaration syntax. It does not normalize contracts, derive versions, plan lanes, or generate runtime bindings. |
-| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, and hot layout manifests through `@exclave/hot-codec`. It retains warm and cold declarations but does not derive `warmCodecVersion` or `coldCodecVersion`. |
+| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, hot layout manifests through `@exclave/hot-codec`, and manifest-backed warm lane manifests with `warmCodecVersion` for framed-snapshot warm declarations. It retains cold declarations but does not derive `coldCodecVersion`. |
 | `@exclave/hot-codec` | partially implemented | Implements hot constants, layout planning, `hotLayoutVersion`, Block A and Block B helpers, deterministic hot field byte helpers, complete fixture-region encode/decode, and tests. It does not allocate SABs, run seqlock runtime loops, open handles, or manage lifecycle. |
 | `@exclave/hot-binding` | partially implemented | Validates already-opened SAB-backed regions and returns `BigUint64Array` counter views. It checks Block A expectations and counter offsets but does not own open, close, stale state, generated binding state, or handle lifecycle. |
 | `@exclave/hot-consumer` | partially implemented | Implements the bounded read kernel with atomic sequence loads, separate writer-active and torn-read budgets, last-good fallback, and tests. It is not the generated `HotProjectionBinding<T>` state machine. |
@@ -79,19 +79,22 @@ Implemented in source and tests:
 - lexicographic field ordering by dot path
 - deterministic `fieldId` derivation
 - `semanticVersion` derivation from canonical manifest bytes
+- checked canonical byte writers in `@exclave/base` (`AbiCanonicalByteWriter`) reject out-of-range numeric values instead of silently truncating; `semanticVersion` and `warmCodecVersion` derivation use checked writers
 - hot lane admissibility checks
 - hot layout manifest emission when a hot lane is declared
+- warm lane manifest emission and `warmCodecVersion` derivation for framed-snapshot warm declarations
 - warm and cold lane declarations retained as canonical declarations
 - hot Block A and Block B metadata represented in hot fixture helpers
 
 Gaps:
 
-- No generated field identity or binding surface exists. Normal field access must not be hand-authored raw dot-path strings. The compiler must emit generated field identity artifacts (string literal unions, key mirrors, or typed bindings) before any generated authority writer or consumer reader work that accesses published fields.
+- The compiler emits field identity artifacts and deterministic TypeScript field identity modules derived from the
+  canonical manifest. Generated public hot/warm consumer bindings remain future work, and normal field access still must
+  not rely on hand-authored raw dot-path strings.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
 - Publication metadata exists for the modeled warm subscription path, but not as a full runtime model across hot, warm,
   and cold lanes.
-- `warmCodecVersion` is not derived.
 - `coldCodecVersion` remains reserved and is not derived.
 - Cold materialization semantics are not implemented.
 
@@ -106,7 +109,7 @@ Implemented in source and tests:
 
 - hot ABI constants: 72-byte Block A, Block B at 72, seqlock at 72, publication header at 80/84/88, field data at 96
 - deterministic planner, alignment, byte-span, reservation, and region-size logic
-- `hotLayoutVersion` derivation
+- `hotLayoutVersion` derivation with domain-specific numeric rejection preserving `hotCodec.layoutRejected` error identity
 - Block A identity hashes, version fields, field count, mutable-region byte length, and reserved-byte validation
 - Block B header encode/decode/validation for fixture bytes
 - field byte helpers for fixed scalars, enums, vectors, fixed strings, bounded arrays, and bounded maps
@@ -253,6 +256,8 @@ Implemented in source and tests:
 - canonical binary outer frame with `frameByteLength`
 - little-endian metadata fields
 - deterministic encode/decode for the same logical frame
+- compiler-derived `warmCodecVersion` from Warm Codec v1 canonical hash coverage
+- compiler-emitted warm lane manifest for framed-snapshot warm declarations
 - optional `laneSequence` presence and value encoding
 - recoverable decode failures for malformed frame length, malformed payload length, invalid `laneSequencePresent`, and
   invalid UTF-8
@@ -262,15 +267,14 @@ Implemented in source and tests:
 
 Remaining gaps:
 
-- binary payload encoding for canonical field shapes
-- deterministic map ordering checks
-- `warmCodecVersion` derivation
+- binary field-value payload encoding for canonical field shapes
+- deterministic map ordering checks for actual payload values
 - fatal stream mismatch handling
 - shared Rust/TS byte fixture agreement for warm frames
+- production transport and publication runtime integration
 
 The implemented payload is an opaque already-encoded snapshot byte payload for this slice. It is not full field-value
-codec coverage. Compiler tests still explicitly prove warm declarations are retained without producing
-`warmCodecVersion`.
+codec coverage.
 
 ## 10. Publication Subscription Lifecycle Conformance
 
@@ -326,34 +330,28 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(compiler): emit generated field identity artifacts`
+1. `feat(compiler): generate public projection consumer bindings`
 
-   Emit generated field identity artifacts derived from the canonical manifest: TypeScript string literal unions for
-   field dot-paths, and/or typed key mirrors, and/or typed bindings. The compiler must not allow hand-authored raw
-   dot-path string literals as the normal access path for published fields. The canonical manifest is the
-   cross-language source of field identity. This slice must not add compatibility aliases or migration paths.
+   Build on compiler-emitted field identity artifacts to generate public consumer binding surfaces. Generated bindings
+   must remain derived from the canonical manifest, must not rely on hand-authored raw dot-path string literals as the
+   normal access path for published fields, and must not add compatibility aliases or migration paths.
 
 2. `test(hot-binding): prove hot handle lifecycle invalidation`
 
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-3. `feat(warm): derive warmCodecVersion from manifest-backed codec coverage`
-
-   Derive `warmCodecVersion` from the Warm Codec v1 canonical hash input once a warm manifest artifact exists. Keep this
-   separate from the existing opaque payload-byte subset.
-
-4. `feat(warm): implement manifest-derived field-value payload encoding`
+3. `feat(warm): implement manifest-derived field-value payload encoding`
 
    Add real payload encoding/decoding for canonical field shapes, including bool/enum validation, bounded counts, map
    ordering, duplicate-key rejection, and string UTF-8 checks.
 
-5. `test(conformance): add Rust/TS warm byte fixture agreement`
+4. `test(conformance): add Rust/TS warm byte fixture agreement`
 
    Promote the current TypeScript-only warm frame proof into shared fixture evidence with deterministic expected frame
    bytes across languages.
 
-6. `feat(publication): define production transport attachment points`
+5. `feat(publication): define production transport attachment points`
 
    Define how the modeled subscription lifecycle attaches to a real transport without making control replies carry
    publication frames or resource bodies.

@@ -8,11 +8,15 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { compileAuthoredProjectionContractWithOptions } from "../src/compile";
 import * as compiler from "../src/index";
 import {
+  buildProjectionFieldIdentityMirror,
   type CanonicalFieldShape,
   type CompileProjectionResult,
   type CompileProjectionSuccess,
   type CompilerError,
   compileAuthoredProjectionContract,
+  deriveProjectionFieldIdentityArtifact,
+  deriveProjectionFieldIdentityArtifactFromManifest,
+  emitTypeScriptFieldIdentityModule,
   type ResolvedProjectionContract,
 } from "../src/index";
 import { deriveSemanticVersion } from "../src/version";
@@ -41,6 +45,18 @@ function unwrapHotManifest(
   }
 
   return hotManifest;
+}
+
+function unwrapWarmManifest(
+  resolved: ResolvedProjectionContract,
+): NonNullable<NonNullable<ResolvedProjectionContract["laneManifests"]>["warm"]> {
+  const warmManifest = resolved.laneManifests?.warm;
+  expect(warmManifest).toBeDefined();
+  if (warmManifest === undefined) {
+    throw new Error("expected warm lane manifest");
+  }
+
+  return warmManifest;
 }
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -106,6 +122,87 @@ function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
     },
     ...overrides,
   } satisfies AuthoredProjectionContract;
+}
+
+function warmIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "fixture.warm",
+    family: "replaceable-snapshot",
+    fields: {
+      zed: { kind: "variable-string" },
+      transport: {
+        tempo: { kind: "fixed-scalar", type: "f64" },
+        phase: { kind: "fixed-scalar", type: "f64" },
+      },
+      flags: { kind: "fixed-string-encoded", byteLength: 3, encoding: "ascii" },
+    },
+    lanes: {
+      warm: {},
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+function warmHotIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "fixture.warmHot",
+    family: "replaceable-snapshot",
+    fields: {
+      tempo: { kind: "fixed-scalar", type: "f64" },
+      samples: { kind: "bounded-array", elementType: "f32", maxLength: 8 },
+    },
+    lanes: {
+      warm: {},
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+const fieldIdentityIds = new Map([
+  ["peaks.postFader.left", 101],
+  ["peaks.postFader.right", 102],
+  ["transport.phase", 201],
+  ["transport.tempo", 202],
+]);
+
+function fieldIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "deck.runtime",
+    family: "replaceable-snapshot",
+    fields: {
+      transport: {
+        tempo: { kind: "fixed-scalar", type: "f64" },
+        phase: { kind: "fixed-scalar", type: "f64" },
+      },
+      peaks: {
+        postFader: {
+          right: { kind: "fixed-scalar", type: "f32" },
+          left: { kind: "fixed-scalar", type: "f32" },
+        },
+      },
+    },
+    lanes: {
+      hot: {},
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+function compileFieldIdentityFixture(
+  contract: AuthoredProjectionContract = fieldIdentityFixture(),
+): ResolvedProjectionContract {
+  return unwrap(
+    compileAuthoredProjectionContractWithOptions(contract, {
+      fieldIdDeriver: (_contractKey, dotPath) => {
+        const fieldId = fieldIdentityIds.get(dotPath);
+        if (fieldId === undefined) {
+          throw new Error(`missing test field id for ${dotPath}`);
+        }
+
+        return fieldId;
+      },
+    }),
+  );
 }
 
 describe("@exclave/compiler happy path", () => {
@@ -310,6 +407,155 @@ describe("@exclave/compiler field ids", () => {
   });
 });
 
+describe("@exclave/compiler field identity artifacts", () => {
+  it("emits artifact entries sorted lexicographically by dotPath", () => {
+    const resolved = compileFieldIdentityFixture();
+    const artifact = deriveProjectionFieldIdentityArtifact(resolved);
+
+    expect(artifact.contractKey).toBe("deck.runtime");
+    expect(artifact.semanticVersion).toBe(resolved.semanticVersion);
+    expect(artifact.fields).toEqual([
+      { dotPath: "peaks.postFader.left", fieldId: 101 },
+      { dotPath: "peaks.postFader.right", fieldId: 102 },
+      { dotPath: "transport.phase", fieldId: 201 },
+      { dotPath: "transport.tempo", fieldId: 202 },
+    ]);
+  });
+
+  it("can derive the same artifact from a canonical manifest", () => {
+    const resolved = compileFieldIdentityFixture();
+
+    expect(deriveProjectionFieldIdentityArtifactFromManifest(resolved.manifest)).toEqual(
+      deriveProjectionFieldIdentityArtifact(resolved),
+    );
+  });
+
+  it("builds a nested mirror with leaves equal to exact canonical dot paths", () => {
+    const artifact = deriveProjectionFieldIdentityArtifact(compileFieldIdentityFixture());
+
+    expect(buildProjectionFieldIdentityMirror(artifact.fields)).toEqual({
+      peaks: {
+        postFader: {
+          left: "peaks.postFader.left",
+          right: "peaks.postFader.right",
+        },
+      },
+      transport: {
+        phase: "transport.phase",
+        tempo: "transport.tempo",
+      },
+    });
+  });
+
+  it("emits deterministic TypeScript field identity modules", () => {
+    const first = compileFieldIdentityFixture();
+    const second = compileFieldIdentityFixture(
+      fieldIdentityFixture({
+        revisionNote: "authoring order should not affect field identity output",
+        fields: {
+          peaks: {
+            postFader: {
+              left: { kind: "fixed-scalar", type: "f32" },
+              right: { kind: "fixed-scalar", type: "f32" },
+            },
+          },
+          transport: {
+            phase: { kind: "fixed-scalar", type: "f64" },
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+
+    const options = {
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+    };
+
+    const firstSource = emitTypeScriptFieldIdentityModule({ resolved: first, ...options });
+    const secondSource = emitTypeScriptFieldIdentityModule({ resolved: second, ...options });
+
+    expect(secondSource).toBe(firstSource);
+    expect(firstSource).toBe(`export const deckRuntimeFields = {
+  peaks: {
+    postFader: {
+      left: "peaks.postFader.left",
+      right: "peaks.postFader.right",
+    },
+  },
+  transport: {
+    phase: "transport.phase",
+    tempo: "transport.tempo",
+  },
+} as const;
+
+export type DeckRuntimeFieldPath =
+  | "peaks.postFader.left"
+  | "peaks.postFader.right"
+  | "transport.phase"
+  | "transport.tempo";
+
+export const deckRuntimeFieldIds = {
+  "peaks.postFader.left": 101,
+  "peaks.postFader.right": 102,
+  "transport.phase": 201,
+  "transport.tempo": 202,
+} as const;
+`);
+  });
+
+  it("carries semanticVersion from the resolved contract when emitting metadata", () => {
+    const resolved = compileFieldIdentityFixture();
+    const pinnedResolved = {
+      ...resolved,
+      semanticVersion: 42n,
+    } satisfies ResolvedProjectionContract;
+
+    const artifact = deriveProjectionFieldIdentityArtifact(pinnedResolved);
+    const source = emitTypeScriptFieldIdentityModule({
+      resolved: pinnedResolved,
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+      metadataConstName: "deckRuntimeFieldIdentity",
+    });
+
+    expect(artifact.semanticVersion).toBe(42n);
+    expect(source).toContain('contractKey: "deck.runtime"');
+    expect(source).toContain("semanticVersion: 42n");
+  });
+
+  it("does not emit aliases or lane-specific version data", () => {
+    const resolved = compileFieldIdentityFixture();
+    expect(resolved.hotLayoutVersion).toBeDefined();
+
+    const resolvedWithIgnoredMetadata = {
+      ...resolved,
+      aliases: {
+        tempoBpm: "transport.tempo",
+      },
+    } as ResolvedProjectionContract;
+
+    const source = emitTypeScriptFieldIdentityModule({
+      resolved: resolvedWithIgnoredMetadata,
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+      metadataConstName: "deckRuntimeFieldIdentity",
+    });
+
+    expect(source).not.toContain("alias");
+    expect(source).not.toContain("tempoBpm");
+    expect(source).not.toContain("hotLayoutVersion");
+    expect(source).not.toContain("warmCodecVersion");
+    expect(source).not.toContain("coldCodecVersion");
+  });
+});
+
 describe("@exclave/compiler lane admissibility", () => {
   it("accepts a hot lane for a fixed scalar field", () => {
     const resolved = unwrap(
@@ -499,13 +745,10 @@ describe("@exclave/compiler hot lane manifests", () => {
   it("omits hot layout data when no hot lane is declared", () => {
     const resolved = unwrap(
       compileAuthoredProjectionContract({
-        key: "fixture.warm",
+        key: "fixture.noLane",
         family: "replaceable-snapshot",
         fields: {
           title: { kind: "variable-string" },
-        },
-        lanes: {
-          warm: {},
         },
       }),
     );
@@ -823,22 +1066,185 @@ describe("@exclave/compiler shared projection-runtime fixtures", () => {
 });
 
 describe("@exclave/compiler warm and cold", () => {
-  it("retains and canonicalizes warm declarations without byte encoding", () => {
-    const resolved = unwrap(
+  it("retains warm declarations and derives warm codec identity", () => {
+    const resolved = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const warmManifest = unwrapWarmManifest(resolved);
+
+    expect(resolved.manifest.lanes.warm).toEqual({ codec: "framed-snapshot" });
+    expectTypeOf(resolved.warmCodecVersion).toEqualTypeOf<bigint | undefined>();
+    expect(resolved.warmCodecVersion).toBe(warmManifest.warmCodecVersion);
+    expect(encodeU64Hex(warmManifest.warmCodecVersion)).toBe("4786106277feb166");
+    expect(warmManifest).toMatchObject({
+      codec: "framed-snapshot",
+      contractKey: resolved.manifest.key,
+      semanticVersion: resolved.semanticVersion,
+    });
+  });
+
+  it("omits warmCodecVersion and warm lane manifest when no warm lane is declared", () => {
+    const hotOnly = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+    const noLane = unwrap(
       compileAuthoredProjectionContract({
-        key: "deck.runtime",
+        key: "fixture.noLane",
         family: "replaceable-snapshot",
         fields: {
           title: { kind: "variable-string" },
         },
-        lanes: {
-          warm: {},
-        },
       }),
     );
 
-    expect(resolved.manifest.lanes.warm).toEqual({ codec: "framed-snapshot" });
-    expect("warmCodecVersion" in resolved).toBe(false);
+    expect("warmCodecVersion" in hotOnly).toBe(false);
+    expect(hotOnly.laneManifests?.warm).toBeUndefined();
+    expect("warmCodecVersion" in noLane).toBe(false);
+    expect("laneManifests" in noLane).toBe(false);
+  });
+
+  it("emits warm lane manifests only when warm is declared", () => {
+    const warmOnly = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const hotOnly = unwrap(compileAuthoredProjectionContract(hotLayoutFixture()));
+
+    expect(warmOnly.laneManifests?.warm).toBeDefined();
+    expect(warmOnly.laneManifests?.hot).toBeUndefined();
+    expect(hotOnly.laneManifests?.warm).toBeUndefined();
+    expect(hotOnly.laneManifests?.hot).toBeDefined();
+  });
+
+  it("sorts warm manifest fields lexicographically by dotPath", () => {
+    const warmManifest = unwrapWarmManifest(
+      unwrap(compileAuthoredProjectionContract(warmIdentityFixture())),
+    );
+
+    expect(warmManifest.fields.map((field) => field.dotPath)).toEqual([
+      "flags",
+      "transport.phase",
+      "transport.tempo",
+      "zed",
+    ]);
+  });
+
+  it("derives deterministic warmCodecVersion across authoring order changes", () => {
+    const left = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const right = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          revisionNote: "object order should not matter",
+          fields: {
+            flags: { encoding: "ascii", byteLength: 3, kind: "fixed-string-encoded" },
+            transport: {
+              phase: { type: "f64", kind: "fixed-scalar" },
+              tempo: { type: "f64", kind: "fixed-scalar" },
+            },
+            zed: { kind: "variable-string" },
+          },
+        }),
+      ),
+    );
+
+    expect(right.warmCodecVersion).toBe(left.warmCodecVersion);
+    expect(right.laneManifests?.warm).toEqual(left.laneManifests?.warm);
+  });
+
+  it("changes warmCodecVersion when a field shape changes", () => {
+    const f32 = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f32" },
+          },
+        }),
+      ),
+    );
+    const f64 = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+
+    expect(f64.warmCodecVersion).not.toBe(f32.warmCodecVersion);
+  });
+
+  it("changes warmCodecVersion when a field dotPath changes", () => {
+    const tempo = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+    const speed = unwrap(
+      compileAuthoredProjectionContract(
+        warmIdentityFixture({
+          fields: {
+            speed: { kind: "fixed-scalar", type: "f64" },
+          },
+        }),
+      ),
+    );
+
+    expect(speed.warmCodecVersion).not.toBe(tempo.warmCodecVersion);
+  });
+
+  it("does not change warmCodecVersion when only hot lane declarations change", () => {
+    const warmOnly = unwrap(compileAuthoredProjectionContract(warmHotIdentityFixture()));
+    const withHot = unwrap(
+      compileAuthoredProjectionContract(
+        warmHotIdentityFixture({
+          lanes: {
+            hot: { reservations: ["samples"] },
+            warm: {},
+          },
+        }),
+      ),
+    );
+
+    expect(withHot.hotLayoutVersion).toBeDefined();
+    expect(withHot.warmCodecVersion).toBe(warmOnly.warmCodecVersion);
+    expect(withHot.laneManifests?.warm).toEqual(warmOnly.laneManifests?.warm);
+  });
+
+  it("does not change warmCodecVersion when authoring-only metadata changes", () => {
+    const left = unwrap(
+      compileAuthoredProjectionContract(warmIdentityFixture({ revisionNote: "left" })),
+    );
+    const right = unwrap(
+      compileAuthoredProjectionContract(warmIdentityFixture({ revisionNote: "right" })),
+    );
+
+    expect(right.warmCodecVersion).toBe(left.warmCodecVersion);
+  });
+
+  it("keeps warmCodecVersion distinct from hotLayoutVersion in a basic fixture", () => {
+    const resolved = unwrap(
+      compileAuthoredProjectionContract(
+        warmHotIdentityFixture({
+          lanes: {
+            hot: { reservations: ["samples"] },
+            warm: {},
+          },
+        }),
+      ),
+    );
+
+    expect(resolved.hotLayoutVersion).toBeDefined();
+    expect(resolved.warmCodecVersion).toBeDefined();
+    expect(resolved.warmCodecVersion).not.toBe(resolved.hotLayoutVersion);
+  });
+
+  it("includes all canonical fields in the warm manifest without lane subsetting", () => {
+    const resolved = unwrap(compileAuthoredProjectionContract(warmIdentityFixture()));
+    const warmManifest = unwrapWarmManifest(resolved);
+
+    expect(warmManifest.fields.map((field) => field.dotPath)).toEqual(
+      resolved.manifest.fields.map((field) => field.dotPath),
+    );
+    expect(warmManifest.fields).toHaveLength(4);
+    expect(warmManifest.fields.map((field) => field.dotPath)).toContain("zed");
   });
 
   it("retains cold declarations without producing coldCodecVersion", () => {
@@ -876,9 +1282,13 @@ describe("@exclave/compiler public surface", () => {
     expect(Object.keys(compiler).sort()).toEqual([
       "COMPILER_ERRORS",
       "COMPILER_ISSUE_DEFS",
+      "buildProjectionFieldIdentityMirror",
       "compileAuthoredProjectionContract",
       "createCompilerError",
       "createCompilerIssue",
+      "deriveProjectionFieldIdentityArtifact",
+      "deriveProjectionFieldIdentityArtifactFromManifest",
+      "emitTypeScriptFieldIdentityModule",
     ]);
     expect("CompilerError" in compiler).toBe(false);
 

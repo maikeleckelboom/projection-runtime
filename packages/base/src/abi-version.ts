@@ -24,6 +24,44 @@ export interface AbiByteWriter {
   writeUtf8(value: string): void;
 }
 
+function rejectOutOfRange(value: number, max: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0 || value > max) {
+    panic(`canonical byte writer: ${label} value out of range: ${value}`);
+  }
+}
+
+export class AbiCanonicalByteWriter implements AbiByteWriter {
+  private readonly chunks: number[] = [];
+
+  writeU8(value: number): void {
+    rejectOutOfRange(value, 0xff, "u8");
+    this.chunks.push(value);
+  }
+
+  writeU16Le(value: number): void {
+    rejectOutOfRange(value, 0xffff, "u16");
+    this.chunks.push(value & 0xff, (value >>> 8) & 0xff);
+  }
+
+  writeU32Le(value: number): void {
+    rejectOutOfRange(value, 0xffffffff, "u32");
+    this.chunks.push(
+      value & 0xff,
+      (value >>> 8) & 0xff,
+      (value >>> 16) & 0xff,
+      (value >>> 24) & 0xff,
+    );
+  }
+
+  writeUtf8(value: string): void {
+    this.chunks.push(...new TextEncoder().encode(value));
+  }
+
+  toUint8Array(): Uint8Array {
+    return Uint8Array.from(this.chunks);
+  }
+}
+
 export type AbiShape =
   | AbiFixedScalarShape
   | AbiFixedEnumShape

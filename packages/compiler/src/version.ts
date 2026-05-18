@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { readU64PrefixBigEndian, writeAbiShapeBytes } from "@exclave/base";
+import {
+  type AbiByteWriter,
+  AbiCanonicalByteWriter,
+  readU64PrefixBigEndian,
+  writeAbiShapeBytes,
+} from "@exclave/base";
 
 import { compareUtf8 } from "./fields";
 import type { CanonicalField, CanonicalProjectionManifest, SemanticVersion } from "./manifest";
@@ -13,7 +18,7 @@ export function deriveSemanticVersion(manifest: CanonicalProjectionManifest): Se
 }
 
 export function canonicalSemanticBytes(manifest: CanonicalProjectionManifest): Uint8Array {
-  const writer = new ByteWriter();
+  const writer = new AbiCanonicalByteWriter();
   writer.writeUtf8(manifest.key);
   writer.writeU8(0);
   writer.writeU8(familyId(manifest.family));
@@ -29,7 +34,7 @@ export function canonicalSemanticBytes(manifest: CanonicalProjectionManifest): U
   return writer.toUint8Array();
 }
 
-function writeField(field: CanonicalField, writer: ByteWriter): void {
+function writeField(field: CanonicalField, writer: AbiByteWriter): void {
   writer.writeUtf8(field.dotPath);
   writer.writeU8(0);
   writeAbiShapeBytes(field.shape, writer);
@@ -39,33 +44,5 @@ function familyId(family: CanonicalProjectionManifest["family"]): number {
   switch (family) {
     case "replaceable-snapshot":
       return FAMILY_REPLACEABLE_SNAPSHOT;
-  }
-}
-
-class ByteWriter {
-  private readonly chunks: number[] = [];
-
-  writeU8(value: number): void {
-    this.chunks.push(value & 0xff);
-  }
-
-  writeU16Le(value: number): void {
-    this.writeU8(value);
-    this.writeU8(value >> 8);
-  }
-
-  writeU32Le(value: number): void {
-    this.writeU8(value);
-    this.writeU8(value >> 8);
-    this.writeU8(value >> 16);
-    this.writeU8(value >> 24);
-  }
-
-  writeUtf8(value: string): void {
-    this.chunks.push(...Buffer.from(value, "utf8"));
-  }
-
-  toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.chunks);
   }
 }

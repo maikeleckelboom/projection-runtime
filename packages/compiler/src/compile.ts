@@ -14,8 +14,9 @@ import type { FieldIdDeriver } from "./field-id";
 import { flattenAuthoredFields } from "./fields";
 import { compileHotLayoutManifest } from "./hot";
 import { canonicalizeLanes } from "./lanes";
-import type { ResolvedProjectionContract } from "./manifest";
+import type { LaneManifests, ResolvedProjectionContract } from "./manifest";
 import { deriveSemanticVersion } from "./version";
+import { deriveWarmCodecManifest } from "./warm";
 
 export type CompileProjectionResult = CompileProjectionSuccess | CompileProjectionFailure;
 
@@ -72,6 +73,16 @@ export function compileAuthoredProjectionContractWithOptions(
   if (hotLayout?.ok === false) {
     return failure(hotLayout.issues);
   }
+  const warmManifest =
+    manifest.lanes.warm === undefined
+      ? undefined
+      : deriveWarmCodecManifest(manifest, semanticVersion);
+
+  const laneManifests: LaneManifests = {
+    ...(hotLayout === undefined ? {} : { hot: hotLayout.value }),
+    ...(warmManifest === undefined ? {} : { warm: warmManifest }),
+  };
+  const hasLaneManifests = hotLayout !== undefined || warmManifest !== undefined;
 
   return {
     ok: true,
@@ -82,8 +93,17 @@ export function compileAuthoredProjectionContractWithOptions(
         ? {}
         : {
             hotLayoutVersion: hotLayout.value.hotLayoutVersion,
-            laneManifests: { hot: hotLayout.value },
           }),
+      ...(warmManifest === undefined
+        ? {}
+        : {
+            warmCodecVersion: warmManifest.warmCodecVersion,
+          }),
+      ...(hasLaneManifests
+        ? {
+            laneManifests,
+          }
+        : {}),
     },
   };
 }

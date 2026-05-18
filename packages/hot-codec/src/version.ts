@@ -48,6 +48,11 @@ function canonicalHotLayoutBytes(input: HotLayoutVersionInput): Uint8Array {
   return writer.toUint8Array();
 }
 
+// Hot-codec deliberately preserves hot-codec error identity for out-of-range
+// numeric values by throwing hotCodec.layoutRejected rather than using the
+// shared base panic. Compiler semantic/warm version writers use the shared
+// AbiCanonicalByteWriter from @exclave/base instead.
+
 class ByteWriter {
   private readonly chunks: number[] = [];
 
