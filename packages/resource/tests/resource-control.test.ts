@@ -188,6 +188,18 @@ describe("Resource Control Envelopes", () => {
     expect(RESOURCE_READ_RANGE_OPERATION_KEY).toBe("resource.readRange");
   });
 
+  it("resource.readRange is not part of Resource Plane v1 operation keys", () => {
+    const v1Keys = [...resourceModule.RESOURCE_PLANE_V1_OPERATION_KEYS];
+    expect(v1Keys).not.toContain("resource.readRange");
+    expect(v1Keys).toEqual([
+      "resource.open",
+      "resource.readChunk",
+      "resource.mapWindow",
+      "resource.closeMapping",
+      "resource.closeHandle",
+    ]);
+  });
+
   it("createResourceReadRangeControlRequest rejects empty handleKey payload", () => {
     expect(() =>
       createResourceReadRangeControlRequest({
@@ -310,6 +322,7 @@ describe("Public API exports", () => {
       "createResourceCapabilities",
       "createResourceDescriptor",
       "createResourceHandleInvalidatedEvent",
+      "defineResourceContract",
       "createResourceReadRange",
       "createResourceReadRangeRequestPayload",
       "createResourceReadRangeReceiptPayload",

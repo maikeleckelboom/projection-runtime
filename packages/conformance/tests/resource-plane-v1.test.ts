@@ -7,6 +7,7 @@ import {
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
   RESOURCE_MAP_WINDOW_OPERATION_KEY,
   RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_PLANE_V1_OPERATION_KEYS,
   RESOURCE_READ_CHUNK_OPERATION_KEY,
   validateMapResourceWindowRequest,
   validateReadResourceChunkRequest,
@@ -117,6 +118,23 @@ describe("Resource Plane v1 conformance", () => {
       "resource.closeMapping",
       "resource.closeHandle",
     ]);
+    expect(JSON.stringify(operationKeys)).not.toMatch(/bytes|buffer|base64|blob/i);
+  });
+
+  it("resource.readRange is not a Resource Plane v1 operation", () => {
+    const v1Keys = [...RESOURCE_PLANE_V1_OPERATION_KEYS];
+    expect(v1Keys).not.toContain("resource.readRange");
+    expect(v1Keys).toEqual([
+      "resource.open",
+      "resource.readChunk",
+      "resource.mapWindow",
+      "resource.closeMapping",
+      "resource.closeHandle",
+    ]);
+  });
+
+  it("v1 operation metadata does not carry byte bodies", () => {
+    const operationKeys = [...RESOURCE_PLANE_V1_OPERATION_KEYS];
     expect(JSON.stringify(operationKeys)).not.toMatch(/bytes|buffer|base64|blob/i);
   });
 });

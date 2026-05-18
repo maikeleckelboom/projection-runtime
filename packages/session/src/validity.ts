@@ -1,7 +1,6 @@
 export type AuthorityKey = string;
 export type SurfaceKey = string;
 export type AuthorityEpoch = bigint;
-export type SessionHandleId = string;
 
 export type InvalidationReason =
   | "authorityRestarted"
@@ -82,12 +81,6 @@ export type SessionMismatchFailure = {
   readonly providedAuthorityEpoch: AuthorityEpoch;
 };
 
-export type SessionHandleInvalidFailure = {
-  readonly kind: "handleInvalid";
-  readonly handleId: SessionHandleId;
-  readonly reason: "revoked" | "expired" | "staleEpoch";
-};
-
 export type AuthorityUnavailableFailure = {
   readonly kind: "authorityUnavailable";
 };
@@ -109,7 +102,6 @@ export type RequestIllegalInCurrentProductStateFailure = {
 
 export type SessionBoundFailure =
   | SessionMismatchFailure
-  | SessionHandleInvalidFailure
   | AuthorityUnavailableFailure
   | AuthorityNotReadyFailure
   | RequestIllegalByContractFailure
@@ -125,19 +117,6 @@ export type SessionInvalidationEvent =
       readonly kind: "authorityUnavailable";
       readonly replacedAuthorityEpoch: AuthorityEpoch;
       readonly state: "stopping" | "stopped";
-    }
-  | {
-      readonly kind: "resourceHandleInvalidated";
-      readonly authorityEpoch: AuthorityEpoch;
-      readonly handleId: SessionHandleId;
-      readonly reason: "authorityRestart" | "resourceReplaced" | "revoked" | "expired";
-    }
-  | {
-      readonly kind: "hotHandleInvalidated";
-      readonly authorityEpoch: AuthorityEpoch;
-      readonly handleId: SessionHandleId;
-      readonly projectionInstanceKey: string;
-      readonly reason: "authorityRestart" | "projectionReplaced" | "revoked";
     };
 
 export type SessionStateEvent =

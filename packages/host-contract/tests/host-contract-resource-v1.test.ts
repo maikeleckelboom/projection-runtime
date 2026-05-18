@@ -5,6 +5,7 @@ import {
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
   RESOURCE_MAP_WINDOW_OPERATION_KEY,
   RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_PLANE_V1_OPERATION_KEYS,
   RESOURCE_READ_CHUNK_OPERATION_KEY,
 } from "@exclave/resource";
 import { describe, expect, it } from "vitest";
@@ -29,13 +30,13 @@ function assertNoByteCarrier(value: unknown, path: string): void {
 }
 
 describe("host-contract resource v1 crossing", () => {
-  it("carries resource-plane grants as operation metadata, never bytes", () => {
-    const owner = createHostAuthorityOwner({
-      authorityKey: "authority.fixture",
-      surfaceKey: "surface.fixture",
-      authorityEpoch: "7",
-    });
+  const owner = createHostAuthorityOwner({
+    authorityKey: "authority.fixture",
+    surfaceKey: "surface.fixture",
+    authorityEpoch: "7",
+  });
 
+  it("carries resource-plane grants as operation metadata, never bytes", () => {
     const surface = createHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -88,5 +89,56 @@ describe("host-contract resource v1 crossing", () => {
         descriptor: { ...reply.descriptor, bytes: new Uint8Array([1, 2, 3]) },
       }),
     ).toThrow();
+  });
+
+  it("host resource-plane grants do not advertise resource.readRange", () => {
+    const grant = createHostSurfaceGrant(
+      createHostSurfaceDescriptor({
+        kind: "host.surface",
+        contractVersion: HOST_CONTRACT_VERSION,
+        owner,
+        resourcePlane: createHostResourcePlaneDescriptor({
+          kind: "host.resourcePlane",
+          openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+          readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+          mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+          closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+          closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+        }),
+      }),
+    );
+
+    expect(grant.resourcePlane).toBeDefined();
+    if (!grant.resourcePlane) throw new Error("expected resourcePlane");
+    const rpKeys = Object.keys(grant.resourcePlane);
+    expect(rpKeys).not.toContain("readRangeOperationKey");
+    expect(rpKeys).not.toContain("readRangeOperation");
+
+    const v1Keys = [...RESOURCE_PLANE_V1_OPERATION_KEYS];
+    expect(v1Keys).not.toContain("resource.readRange");
+  });
+
+  it("host resource-plane grants advertise only v1 operation keys", () => {
+    const grant = createHostSurfaceGrant(
+      createHostSurfaceDescriptor({
+        kind: "host.surface",
+        contractVersion: HOST_CONTRACT_VERSION,
+        owner,
+        resourcePlane: createHostResourcePlaneDescriptor({
+          kind: "host.resourcePlane",
+          openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+          readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+          mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+          closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+          closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+        }),
+      }),
+    );
+
+    expect(grant.resourcePlane?.openOperationKey).toBe("resource.open");
+    expect(grant.resourcePlane?.readChunkOperationKey).toBe("resource.readChunk");
+    expect(grant.resourcePlane?.mapWindowOperationKey).toBe("resource.mapWindow");
+    expect(grant.resourcePlane?.closeMappingOperationKey).toBe("resource.closeMapping");
+    expect(grant.resourcePlane?.closeHandleOperationKey).toBe("resource.closeHandle");
   });
 });

@@ -12,11 +12,24 @@ export type ResourceHandleId = string;
 export type ResourceVersion = bigint;
 export type ResourceMappingId = string;
 
+declare const RESOURCE_OPEN_INPUT_TYPE: unique symbol;
+declare const RESOURCE_DESCRIPTOR_TYPE: unique symbol;
+
 export type ResourceContract<TOpen, TDescriptor> = {
   readonly resourceKind: ResourceKind;
-  readonly openShape: TOpen;
-  readonly descriptorShape: TDescriptor;
+  readonly [RESOURCE_OPEN_INPUT_TYPE]?: TOpen;
+  readonly [RESOURCE_DESCRIPTOR_TYPE]?: TDescriptor;
 };
+
+export function defineResourceContract<TOpen, TDescriptor>(input: {
+  readonly resourceKind: ResourceKind;
+}): ResourceContract<TOpen, TDescriptor> {
+  const obj = assertPlainObject(input, "resource contract");
+  assertExactRootKeys(obj, new Set(["resourceKind"]), "resource contract");
+  return {
+    resourceKind: assertNonEmptyString(obj.resourceKind, "contract.resourceKind"),
+  } as ResourceContract<TOpen, TDescriptor>;
+}
 
 export type ResourceCapabilities =
   | {
@@ -216,20 +229,28 @@ export type ResourceHandleLifecycleState =
   | { readonly kind: "closed"; readonly handle: ResourceHandle };
 
 const U32_MAX = 0xffffffff;
-const FORBIDDEN_BODY_KEYS = new Set([
+
+const FORBIDDEN_BODY_KEY_NORMALIZED = new Set([
   "arraybuffer",
-  "base64",
   "blob",
   "body",
   "buffer",
   "bytearray",
   "bytes",
-  "data",
   "payload",
   "raw",
   "sharedarraybuffer",
   "uint8array",
 ]);
+
+function normalizeDescriptorKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function isForbiddenBodyKey(key: string): boolean {
+  const normalized = normalizeDescriptorKey(key);
+  return FORBIDDEN_BODY_KEY_NORMALIZED.has(normalized) || normalized.endsWith("base64");
+}
 
 function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -483,9 +504,9 @@ function scanDescriptorValue(value: unknown, path: string, stack: object[]): voi
     if (typeof key === "symbol") {
       throwInputRejected(`${path} must not have symbol keys`);
     }
-    const lowerKey = key.toLowerCase();
-    if ([...FORBIDDEN_BODY_KEYS].some((forbidden) => lowerKey.includes(forbidden))) {
-      throwInputRejected(`${path} must not carry byte-like field: ${key}`);
+    const lowerKey = String(key);
+    if (isForbiddenBodyKey(lowerKey)) {
+      throwInputRejected(`${path} must not carry byte-like field: ${String(key)}`);
     }
     scanDescriptorValue(obj[key], `${path}.${key}`, stack);
   }

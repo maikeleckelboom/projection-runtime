@@ -68,6 +68,7 @@ export {
   createResourceBackpressure,
   createResourceCapabilities,
   createResourceHandleInvalidatedEvent,
+  defineResourceContract,
   invalidateResourceHandle,
   validateCloseResourceHandleForState,
   validateCloseResourceMappingForState,

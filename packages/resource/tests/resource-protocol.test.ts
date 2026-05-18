@@ -17,6 +17,7 @@ import {
   createResourceBackpressure,
   createResourceCapabilities,
   createResourceHandleInvalidatedEvent,
+  defineResourceContract,
   invalidateResourceHandle,
   validateCloseResourceHandleForState,
   validateCloseResourceMappingForState,
@@ -38,19 +39,9 @@ type WaveformDescriptor = {
   readonly summary: string;
 };
 
-const waveformContract: ResourceContract<WaveformOpenInput, WaveformDescriptor> = {
+const waveformContract = defineResourceContract<WaveformOpenInput, WaveformDescriptor>({
   resourceKind: "fixture.waveform",
-  openShape: {
-    trackId: "track-1",
-    resolution: "overview",
-    channelMode: "stereo",
-  },
-  descriptorShape: {
-    sampleRateHz: 48_000,
-    channelCount: 2,
-    summary: "metadata only",
-  },
-};
+});
 
 function validHandle(capabilities?: ResourceCapabilities): ResourceHandle {
   return {
@@ -188,6 +179,27 @@ describe("Resource Plane v1 boundedness and no-body rules", () => {
         capabilities: { canReadChunks: false, canMapWindows: false },
       }),
     ).toThrow();
+  });
+
+  it("descriptors allow valid metadata names that contain data-like substrings", () => {
+    expect(() =>
+      assertResourceDescriptorHasNoBody({
+        metadata: { source: "analysis" },
+        databaseId: "db-1",
+        dataRate: 48000,
+        materializationMetadata: { profile: "overview" },
+        encodedDataFormat: "float32-lod",
+      }),
+    ).not.toThrow();
+  });
+
+  it("descriptors reject real body smuggling by exact key match and base64 suffix", () => {
+    expect(() => assertResourceDescriptorHasNoBody({ bytes: new Uint8Array([1]) })).toThrow();
+    expect(() => assertResourceDescriptorHasNoBody({ payload: "x".repeat(4097) })).toThrow();
+    expect(() => assertResourceDescriptorHasNoBody({ waveformBase64: "AAAA" })).toThrow();
+    expect(() => assertResourceDescriptorHasNoBody({ body: "content" })).toThrow();
+    expect(() => assertResourceDescriptorHasNoBody({ raw: "stuff" })).toThrow();
+    expect(() => assertResourceDescriptorHasNoBody({ buffer: {} })).toThrow();
   });
 
   it("control replies reject resource bodies before they become payloads", () => {
@@ -411,5 +423,55 @@ describe("Resource Plane v1 failures and lifecycle", () => {
         reason: "parentHandleInvalid",
       });
     }
+  });
+});
+
+describe("ResourceContract type identity", () => {
+  it("defineResourceContract does not require fake openShape or descriptorShape sample values", () => {
+    const contract = defineResourceContract<WaveformOpenInput, WaveformDescriptor>({
+      resourceKind: "fixture.waveform",
+    });
+
+    expect(contract.resourceKind).toBe("fixture.waveform");
+    expectTypeOf(contract).toMatchTypeOf<ResourceContract<WaveformOpenInput, WaveformDescriptor>>();
+
+    expect("openShape" in contract).toBe(false);
+    expect("descriptorShape" in contract).toBe(false);
+  });
+
+  it("defineResourceContract rejects extra keys", () => {
+    expect(() =>
+      defineResourceContract({
+        resourceKind: "fixture.waveform",
+        openShape: { trackId: "t" },
+      } as unknown as { readonly resourceKind: string }),
+    ).toThrow();
+  });
+});
+
+describe("ResourceHandleInvalidatedEvent ownership", () => {
+  it("ResourceHandleInvalidatedEvent is owned by @exclave/resource, not @exclave/session", () => {
+    const event = createResourceHandleInvalidatedEvent({
+      kind: "resourceHandleInvalidated",
+      authorityEpoch: 7n,
+      handleId: "handle-1",
+      reason: "authorityRestart",
+    });
+
+    expect(event.kind).toBe("resourceHandleInvalidated");
+    expect(event.authorityEpoch).toBe(7n);
+    expect(event.handleId).toBe("handle-1");
+    expect(event.reason).toBe("authorityRestart");
+  });
+
+  it("resource invalidation reasons include resourceUnavailable", () => {
+    const event = createResourceHandleInvalidatedEvent({
+      kind: "resourceHandleInvalidated",
+      authorityEpoch: 3n,
+      handleId: "handle-2",
+      reason: "resourceUnavailable",
+    });
+
+    expect(event.reason).toBe("resourceUnavailable");
   });
 });

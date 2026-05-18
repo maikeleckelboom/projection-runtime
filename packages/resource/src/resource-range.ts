@@ -182,26 +182,32 @@ export function validateResourceReadRangeReceiptPayload(
   );
 }
 
-const FORBIDDEN_BYTE_LIKE = [
-  "bytes",
-  "data",
-  "buffer",
-  "arrayBuffer",
-  "sharedArrayBuffer",
-  "uint8Array",
+const FORBIDDEN_BYTE_LIKE_NORMALIZED = new Set([
+  "arraybuffer",
   "blob",
-  "base64",
-  "byteArray",
+  "body",
+  "buffer",
+  "bytearray",
+  "bytes",
+  "payload",
   "raw",
-] as const;
+  "sharedarraybuffer",
+  "uint8array",
+]);
+
+function normalizeByteLikeKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function isByteLikeKey(key: string): boolean {
+  const normalized = normalizeByteLikeKey(key);
+  return FORBIDDEN_BYTE_LIKE_NORMALIZED.has(normalized) || normalized.endsWith("base64");
+}
 
 function assertNoByteFields(obj: Record<string, unknown>, label: string): void {
   for (const key of Object.keys(obj)) {
-    const lower = key.toLowerCase();
-    for (const forbidden of FORBIDDEN_BYTE_LIKE) {
-      if (lower === forbidden || lower.includes(forbidden)) {
-        throwInputRejected(`${label} must not carry byte-like field: ${key}`);
-      }
+    if (isByteLikeKey(key)) {
+      throwInputRejected(`${label} must not carry byte-like field: ${key}`);
     }
   }
 }

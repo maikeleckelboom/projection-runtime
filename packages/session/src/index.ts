@@ -23,8 +23,6 @@ export {
   type RequestIllegalByContractFailure,
   type RequestIllegalInCurrentProductStateFailure,
   type SessionBoundFailure,
-  type SessionHandleId,
-  type SessionHandleInvalidFailure,
   type SessionInvalidationEvent,
   type SessionMismatchFailure,
   type SessionStateEvent,
