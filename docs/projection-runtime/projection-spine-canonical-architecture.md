@@ -370,13 +370,13 @@ const deckRuntimeContract = defineProjectionContract({
     lanes: {
         hot: {codec: "mapped-fixed"},
         warm: {codec: "framed-snapshot"},
-        cold: {codec: "sqlite-materialized-snapshot"},
     },
 })
 ```
 
 Note: top-level authoring key is `fields`. No `params`/`meters` split. All fields in a projection contract are published
-consumer surface.
+consumer surface. The cold lane is not declared in this example because `coldCodecVersion` is reserved and unratified.
+Cold materialization remains a future capability blocked on a cold materialization codec spec.
 
 ---
 
@@ -463,14 +463,17 @@ Each shape is encoded as a single type byte followed by type-specific payload:
 semanticVersion = first_8_bytes_big_endian(SHA-256(canonical_byte_format))
 ```
 
-SHA-256 over the canonical byte representation defined in section 4.3. First 8 bytes interpreted as a big-endian u64.
+SHA-256 over the canonical byte representation defined in section 4.3. The first 8 bytes of the SHA-256 digest are
+interpreted as a big-endian u64 to produce the numeric value. Once derived, the value is encoded on the lane as u64
+little-endian (see section 8.6).
 
 ---
 
 ### 4.7 Per-Lane Version Hashes
 
 Lane version hashes follow the same algorithm but over lane-specific byte formats. All lane version hashes produce **u64
-** values (first 8 bytes of SHA-256, interpreted as big-endian u64), consistent with `semanticVersion`.
+** values using the same derivation: the first 8 bytes of the SHA-256 digest are interpreted as a big-endian u64 to
+produce the numeric value. Once derived, the value is encoded on the lane as u64 little-endian.
 
 **Structural minimum inputs** (defined here):
 
@@ -892,12 +895,13 @@ required to write the unused tail.
 
 Authority writes `count` on every publication. Unused entry slots are unspecified.
 
-**Live-entry ordering invariant**: the `count` live entries (indices 0 through count−1) must be sorted **lexicographically by
-their encoded key bytes** (raw byte-order comparison, identical to `memcmp`). The authority is responsible for
-maintaining this order on every publication. Consumers may rely on this ordering for binary search, deterministic
-comparison, checkpoint diffing, and cross-lane consistency checks. An authority that writes entries in arbitrary order
-is in violation of the ABI. The ordering applies to the live prefix only; unused tail slots are unspecified and their
-content is irrelevant to ordering.
+**Live-entry ordering invariant**: the `count` live entries (indices 0 through count−1) must be in strictly increasing
+order by their encoded key bytes (raw byte-order comparison, equivalent to `memcmp`). Duplicate keys are malformed and
+constitute a contract violation. The authority is responsible for maintaining this order on every publication. Consumers
+may rely on this ordering for binary search, deterministic comparison, checkpoint diffing, and cross-lane consistency
+checks. An authority that writes entries in arbitrary order, or that writes duplicate keys, is in violation of the ABI.
+The ordering applies to the live prefix only; unused tail slots are unspecified and their content is irrelevant to
+ordering.
 
 ---
 
@@ -933,16 +937,18 @@ Offset  Size  Field
 4       4     hotAbiVersion            (u32 LE, value 0x00000001 = 1; current hot lane ABI generation)
 8       16    contractKeyHash          (bytes 0–15 of SHA-256(contractKey UTF-8); 128-bit bind-time identity)
 24      16    instanceKeyHash          (bytes 0–15 of SHA-256(instanceKey UTF-8); 128-bit bind-time identity)
-40      8     semanticVersion          (u64 LE; first 8 bytes of SHA-256 over canonical manifest, big-endian interpreted)
-48      8     hotLayoutVersion         (u64 LE; first 8 bytes of SHA-256 over hot layout byte format, big-endian interpreted)
+40      8     semanticVersion          (u64 LE)
+48      8     hotLayoutVersion         (u64 LE)
 56      4     fieldCount               (u32 LE; count of hot-admissible fields in layout)
 60      4     mutableRegionByteLength  (u32 LE; = totalRegionByteLength − 72)
 64      8     reserved                 (must be 0x00 × 8 on write; all 8 bytes must be zero)
 ```
 
 Version fields `semanticVersion` and `hotLayoutVersion` are **u64**, consistent with section 5.2. They are stored little-endian
-and may be compared against the u64 values emitted by the compiler. The 8-byte reserved block enforces 8-byte alignment
-of Block B from region byte 0.
+and may be compared against the u64 values emitted by the compiler. Their numeric values are derived from SHA-256 digests
+(see sections 4.6 and 4.7): the first 8 bytes of the digest are interpreted as a big-endian u64 to produce the numeric
+value, and that numeric value is then encoded on the lane as u64 little-endian. The 8-byte reserved block enforces 8-byte
+alignment of Block B from region byte 0.
 
 **Bind-time identity validation**: a consumer binding to this region must perform all of the following checks before
 treating any Block B data as valid:
@@ -1063,7 +1069,7 @@ Every publication has the following logical identity fields. Their meanings are 
 interface ConceptualPublicationMetadata {
     readonly contractKey: string
     readonly projectionInstanceKey: string
-    readonly semanticVersion: u64         // derived from canonical manifest hash; first 8 bytes of SHA-256, big-endian u64
+    readonly semanticVersion: u64         // derived from canonical manifest hash; see sections 4.6 and 4.7 for derivation
     readonly laneVersionKey: u64          // hotLayoutVersion | warmCodecVersion | coldCodecVersion; same derivation method
     readonly baselineEpoch: u32
     readonly continuityGeneration: u32
@@ -1354,21 +1360,21 @@ const deckRuntimeContract = defineProjectionContract({
         },
     },
 
-    lanes: {
+lanes: {
         hot: {codec: "mapped-fixed"},
         warm: {codec: "framed-snapshot"},
-        cold: {codec: "sqlite-materialized-snapshot"},
     },
 })
-```
 
 **Authority**: Rust audio engine.
 **Instances**: `"deck.a"`, `"deck.b"`. Independent publication streams.
 **Hot lane**: primary renderer waveform and transport display.
 **Warm lane**: auxiliary tool windows, secondary deck surfaces.
-**Cold lane**: periodic checkpoint for crash recovery (latest-snapshot materialization).
+**Cold lane**: not declared. `coldCodecVersion` is reserved and unratified. Cold materialization remains a future
+capability blocked on a cold materialization codec spec. Until `coldCodecVersion` is ratified, product contracts must
+not declare cold publication lanes in v1 implementation examples.
 
-All fields are `FixedScalar` or `FixedEnum`. Hot admissible: yes. Resolver accepts all three lane declarations.
+All fields are `FixedScalar` or `FixedEnum`. Hot admissible: yes. Resolver accepts the hot and warm lane declarations.
 
 ```ts
 const k = keysOf(deckRuntimeContract)

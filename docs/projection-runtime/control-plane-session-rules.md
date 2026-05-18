@@ -61,6 +61,11 @@ It is runtime/session validity.
 Unless a separate document explicitly requires numeric ordering of authority epochs, `authorityEpoch` must be treated as
 an opaque session identifier.
 
+`authorityEpoch` may be represented as `bigint` in TypeScript for transport and validation convenience, but consumers
+must not use numeric ordering comparisons on `authorityEpoch` values. Equality and inequality are the only legal consumer
+operations. Unless a separate document explicitly requires numeric ordering of authority epochs, `authorityEpoch` must be
+treated as an opaque session identifier.
+
 ---
 
 ## 3. What authorityEpoch is not
@@ -256,12 +261,12 @@ At minimum, the following invalidation event kinds must exist:
 type SessionInvalidationEvent =
     | {
     kind: "authorityEpochReplaced"
-    previousAuthorityEpoch: bigint
-    nextAuthorityEpoch: bigint
+    replacedAuthorityEpoch: bigint
+    replacingAuthorityEpoch: bigint
 }
     | {
     kind: "authorityUnavailable"
-    previousAuthorityEpoch: bigint
+    replacedAuthorityEpoch: bigint
     state: "stopping" | "stopped"
 }
     | {

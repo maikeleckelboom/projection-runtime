@@ -696,6 +696,7 @@ Owns:
 - lane planning orchestration
 - artifact emission (canonical manifests, lane manifests, conformance fixtures)
 - generated binding orchestration (delegates to lane codec packages)
+- `keysOf(contract)` typed key mirror generation
 - determinism enforcement over generated artifacts
 
 Examples of compiler-owned rejection:
