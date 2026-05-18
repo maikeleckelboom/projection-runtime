@@ -12,6 +12,16 @@ export {
 } from "./host-failure";
 
 export {
+  createBindingExpectationFromHostOwner,
+  createHostSurfaceGrant,
+  type HostControlEndpointCapability,
+  type HostHotRegionCapability,
+  type HostResourcePlaneCapability,
+  type HostSurfaceGrant,
+  type HostWarmStreamCapability,
+} from "./host-grant";
+
+export {
   createHostHotRegionDescriptor,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,

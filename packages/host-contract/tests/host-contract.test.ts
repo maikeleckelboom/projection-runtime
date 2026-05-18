@@ -1,10 +1,12 @@
 import type { JsonObject } from "@exclave/base";
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
 import { RESOURCE_READ_RANGE_OPERATION_KEY } from "@exclave/resource";
-import { type AuthorityBinding, createAuthorityBinding } from "@exclave/session";
+import type { AuthorityBinding } from "@exclave/session";
+import { createAuthorityBinding } from "@exclave/session";
 import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
+  createBindingExpectationFromHostOwner,
   createHostAuthorityOwner,
   createHostAuthorityOwnerFromBinding,
   createHostContractFailure,
@@ -12,6 +14,7 @@ import {
   createHostHotRegionDescriptor,
   createHostResourcePlaneDescriptor,
   createHostSurfaceDescriptor,
+  createHostSurfaceGrant,
   createHostSurfaceInvalidatedEnvelope,
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
@@ -1098,5 +1101,394 @@ describe("HostContractValidationResult", () => {
       expect(typeof result.failure.message).toBe("string");
       expect(result.failure.message.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ─── Surface grant projection tests ───────────────────────────────
+
+describe("createHostSurfaceGrant", () => {
+  it("projects owner and expectedBinding from a validated surface descriptor", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.kind).toBe("host.surfaceGrant");
+    expect(grant.owner.authorityKey).toBe("auth-1");
+    expect(grant.owner.surfaceKey).toBe("surf-1");
+    expect(grant.owner.authorityEpoch).toBe("42");
+
+    expect(grant.expectedBinding.authorityKey).toBe("auth-1");
+    expect(grant.expectedBinding.surfaceKey).toBe("surf-1");
+    expect(grant.expectedBinding.authorityEpoch).toBe(42n);
+  });
+
+  it("projects hot capabilities from surface.hotRegions", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.kind).toBe("host.surfaceGrant");
+    expect(grant.hot).toHaveLength(1);
+    expect(grant.hot[0].kind).toBe("surface.hotRegionCapability");
+    expect(grant.hot[0].hotRegionKey).toBe("hr-1");
+    expect(grant.hot[0].expectedBlockA.contractKey).toBe("contract-1");
+    expect(grant.hot[0].expectedByteLength).toBe(4096);
+    expect(grant.hot[0].seqlockOffset).toBe(0);
+  });
+
+  it("projects control capability from surface.control when present", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.control).toBeDefined();
+    expect(grant.control?.kind).toBe("surface.controlEndpointCapability");
+    expect(grant.control?.endpointKey).toBe("ep-1");
+    expect(grant.control?.supportedOperationKeys).toEqual(["op.1", "op.2"]);
+  });
+
+  it("omits control capability when surface has no control lane", () => {
+    const surface = createHostSurfaceDescriptor({
+      kind: "host.surface",
+      contractVersion: HOST_CONTRACT_VERSION,
+      owner: validOwner(),
+      hotRegions: [validHotRegion()],
+    });
+    const grant = createHostSurfaceGrant(surface);
+    expect(grant.control).toBeUndefined();
+  });
+
+  it("projects resourcePlane capability from surface.resourcePlane when present", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.resourcePlane).toBeDefined();
+    expect(grant.resourcePlane?.kind).toBe("surface.resourcePlaneCapability");
+    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.resourcePlane?.owner.authorityKey).toBe("auth-1");
+  });
+
+  it("omits resourcePlane capability when surface has no resource plane", () => {
+    const surface = createHostSurfaceDescriptor({
+      kind: "host.surface",
+      contractVersion: HOST_CONTRACT_VERSION,
+      owner: validOwner(),
+      hotRegions: [validHotRegion()],
+    });
+    const grant = createHostSurfaceGrant(surface);
+    expect(grant.resourcePlane).toBeUndefined();
+  });
+
+  it("projects warm capabilities from surface.warmStreams", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.warm).toHaveLength(1);
+    expect(grant.warm[0].kind).toBe("surface.warmStreamCapability");
+    expect(grant.warm[0].streamKey).toBe("ws-1");
+    expect(grant.warm[0].owner.authorityKey).toBe("auth-1");
+  });
+
+  it("returns empty hot and warm arrays when surface has no optional lanes", () => {
+    const surface = createHostSurfaceDescriptor({
+      kind: "host.surface",
+      contractVersion: HOST_CONTRACT_VERSION,
+      owner: validOwner(),
+      control: validControl(),
+    });
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.hot).toEqual([]);
+    expect(grant.warm).toEqual([]);
+    expect(grant.control).toBeDefined();
+    expect(grant.resourcePlane).toBeUndefined();
+  });
+
+  it("does not expose source, descriptor, raw, original, or surface fields on the grant", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    const grantKeys = Object.keys(grant);
+    for (const key of grantKeys) {
+      expect(key).not.toBe("source");
+      expect(key).not.toBe("descriptor");
+      expect(key).not.toBe("raw");
+      expect(key).not.toBe("original");
+      expect(key).not.toBe("surface");
+    }
+
+    const hotKeys = Object.keys(grant.hot[0] ?? {});
+    for (const key of hotKeys) {
+      expect(key).not.toBe("source");
+      expect(key).not.toBe("descriptor");
+      expect(key).not.toBe("raw");
+      expect(key).not.toBe("original");
+      expect(key).not.toBe("surface");
+    }
+
+    if (grant.control) {
+      for (const key of Object.keys(grant.control)) {
+        expect(key).not.toBe("source");
+        expect(key).not.toBe("descriptor");
+      }
+    }
+
+    if (grant.resourcePlane) {
+      for (const key of Object.keys(grant.resourcePlane)) {
+        expect(key).not.toBe("source");
+        expect(key).not.toBe("descriptor");
+      }
+    }
+
+    for (const warmCap of grant.warm) {
+      for (const key of Object.keys(warmCap)) {
+        expect(key).not.toBe("source");
+        expect(key).not.toBe("descriptor");
+      }
+    }
+  });
+
+  it("does not contain byte-like fields in projected grants", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    const FORBIDDEN_BYTE_KEYS = new Set([
+      "bytes",
+      "buffer",
+      "data",
+      "region",
+      "view",
+      "SharedArrayBuffer",
+    ]);
+
+    function assertNoForbiddenKeys(value: unknown, path: string): void {
+      if (typeof value !== "object" || value === null) {
+        return;
+      }
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          assertNoForbiddenKeys(value[i], `${path}[${i}]`);
+        }
+        return;
+      }
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        expect(FORBIDDEN_BYTE_KEYS.has(key)).toBe(false);
+        assertNoForbiddenKeys((value as Record<string, unknown>)[key], `${path}.${key}`);
+      }
+    }
+
+    assertNoForbiddenKeys(grant, "grant");
+  });
+
+  it("projects publicationSequenceOffset when present in hot region", () => {
+    const surface = createHostSurfaceDescriptor({
+      kind: "host.surface",
+      contractVersion: HOST_CONTRACT_VERSION,
+      owner: validOwner(),
+      hotRegions: [
+        {
+          ...validHotRegion(),
+          publicationSequenceOffset: 16,
+        },
+      ],
+    });
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.hot[0].publicationSequenceOffset).toBe(16);
+  });
+
+  it("omits publicationSequenceOffset when not present in hot region", () => {
+    const surface = createHostSurfaceDescriptor({
+      kind: "host.surface",
+      contractVersion: HOST_CONTRACT_VERSION,
+      owner: validOwner(),
+      hotRegions: [validHotRegion()],
+    });
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.hot[0].publicationSequenceOffset).toBeUndefined();
+  });
+
+  it("is deterministic: same descriptor produces same grant", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant1 = createHostSurfaceGrant(surface);
+    const grant2 = createHostSurfaceGrant(surface);
+
+    expect(grant1).toEqual(grant2);
+  });
+
+  it("does not change when the validated descriptor is mutated after projection", () => {
+    const surface = createHostSurfaceDescriptor(validSurface());
+    const grant = createHostSurfaceGrant(surface);
+
+    expect(grant.owner.authorityKey).toBe("auth-1");
+    expect(grant.owner.surfaceKey).toBe("surf-1");
+    expect(grant.owner.authorityEpoch).toBe("42");
+    expect(grant.expectedBinding.authorityEpoch).toBe(42n);
+    expect(grant.hot[0].hotRegionKey).toBe("hr-1");
+    expect(grant.hot[0].expectedBlockA.contractKey).toBe("contract-1");
+    expect(grant.hot[0].expectedBlockA.instanceKey).toBe("instance-1");
+    expect(grant.hot[0].expectedByteLength).toBe(4096);
+    expect(grant.control?.endpointKey).toBe("ep-1");
+    expect(grant.control?.supportedOperationKeys).toEqual(["op.1", "op.2"]);
+    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.warm[0].streamKey).toBe("ws-1");
+
+    const surfaceAny = surface as Record<string, unknown>;
+    const ownerAny = surfaceAny.owner as Record<string, unknown>;
+    ownerAny.authorityKey = "tampered";
+    ownerAny.surfaceKey = "tampered";
+    ownerAny.authorityEpoch = "999";
+
+    const hotRegionsAny = surfaceAny.hotRegions as Record<string, unknown>[];
+    const blockAAny = hotRegionsAny[0].blockA as Record<string, unknown>;
+    blockAAny.contractKey = "tampered";
+    blockAAny.instanceKey = "tampered";
+    const hotRegionAny = hotRegionsAny[0] as Record<string, unknown>;
+    hotRegionAny.hotRegionKey = "tampered";
+    hotRegionAny.totalRegionByteLength = 99999;
+
+    const controlAny = surfaceAny.control as Record<string, unknown>;
+    controlAny.endpointKey = "tampered";
+    controlAny.operationKeys = ["tampered"];
+
+    const warmStreamsAny = surfaceAny.warmStreams as Record<string, unknown>[];
+    warmStreamsAny[0].streamKey = "tampered";
+
+    const resourcePlaneAny = surfaceAny.resourcePlane as Record<string, unknown>;
+    resourcePlaneAny.readRangeOperationKey = "tampered";
+
+    expect(grant.owner.authorityKey).toBe("auth-1");
+    expect(grant.owner.surfaceKey).toBe("surf-1");
+    expect(grant.owner.authorityEpoch).toBe("42");
+    expect(grant.expectedBinding.authorityEpoch).toBe(42n);
+    expect(grant.hot[0].hotRegionKey).toBe("hr-1");
+    expect(grant.hot[0].expectedBlockA.contractKey).toBe("contract-1");
+    expect(grant.hot[0].expectedBlockA.instanceKey).toBe("instance-1");
+    expect(grant.hot[0].expectedByteLength).toBe(4096);
+    expect(grant.control?.endpointKey).toBe("ep-1");
+    expect(grant.control?.supportedOperationKeys).toEqual(["op.1", "op.2"]);
+    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.warm[0].streamKey).toBe("ws-1");
+  });
+
+  it("re-validates owner through validateHostAuthorityOwnerThrowing when projecting", () => {
+    expect(() =>
+      createHostSurfaceGrant({
+        kind: "host.surface",
+        contractVersion: HOST_CONTRACT_VERSION,
+        owner: { authorityKey: "auth-1", surfaceKey: "surf-1", authorityEpoch: "42", extra: true },
+      } as HostSurfaceDescriptor),
+    ).toThrow();
+
+    expect(() =>
+      createHostSurfaceGrant({
+        kind: "host.surface",
+        contractVersion: HOST_CONTRACT_VERSION,
+        owner: { authorityKey: "", surfaceKey: "surf-1", authorityEpoch: "42" },
+      } as HostSurfaceDescriptor),
+    ).toThrow();
+  });
+});
+
+describe("createBindingExpectationFromHostOwner", () => {
+  it("converts canonical decimal string authorityEpoch to bigint", () => {
+    const binding: AuthorityBinding = createAuthorityBinding({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: 42n,
+    });
+    const owner = createHostAuthorityOwnerFromBinding(binding);
+    const expectation = createBindingExpectationFromHostOwner(owner);
+
+    expect(expectation.authorityKey).toBe("auth-1");
+    expect(expectation.surfaceKey).toBe("surf-1");
+    expect(expectation.authorityEpoch).toBe(42n);
+  });
+
+  it("handles epoch 0", () => {
+    const owner = createHostAuthorityOwner({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: "0",
+    });
+    const expectation = createBindingExpectationFromHostOwner(owner);
+
+    expect(expectation.authorityEpoch).toBe(0n);
+  });
+
+  it("handles epoch exceeding Number.MAX_SAFE_INTEGER", () => {
+    const owner = createHostAuthorityOwner({
+      authorityKey: "auth-1",
+      surfaceKey: "surf-1",
+      authorityEpoch: "9007199254740993",
+    });
+    const expectation = createBindingExpectationFromHostOwner(owner);
+
+    expect(expectation.authorityEpoch).toBe(9007199254740993n);
+  });
+
+  it("rejects non-canonical epoch strings", () => {
+    const invalidEpochs = ["", "-1", "+1", "01", "1.0", "1n", "abc", " "];
+    for (const epoch of invalidEpochs) {
+      expect(() =>
+        createBindingExpectationFromHostOwner({
+          authorityKey: "auth-1",
+          surfaceKey: "surf-1",
+          authorityEpoch: epoch,
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("rejects non-string authorityEpoch", () => {
+    expect(() =>
+      createBindingExpectationFromHostOwner({
+        authorityKey: "auth-1",
+        surfaceKey: "surf-1",
+        authorityEpoch: 42 as unknown as string,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects empty authorityKey", () => {
+    expect(() =>
+      createBindingExpectationFromHostOwner({
+        authorityKey: "",
+        surfaceKey: "surf-1",
+        authorityEpoch: "1",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects empty surfaceKey", () => {
+    expect(() =>
+      createBindingExpectationFromHostOwner({
+        authorityKey: "auth-1",
+        surfaceKey: "",
+        authorityEpoch: "1",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects owner with extra keys via validateHostAuthorityOwnerThrowing", () => {
+    expect(() =>
+      createBindingExpectationFromHostOwner({
+        authorityKey: "auth-1",
+        surfaceKey: "surf-1",
+        authorityEpoch: "1",
+        extra: true,
+      } as HostAuthorityOwner),
+    ).toThrow();
+  });
+});
+
+describe("HostSurfaceGrant type exports", () => {
+  it("exports intended grant types and functions", () => {
+    expect(typeof createHostSurfaceGrant).toBe("function");
+    expect(typeof createBindingExpectationFromHostOwner).toBe("function");
+  });
+
+  it("does not leak decimalStringToBigInt or canonicalEpochToBigInt", () => {
+    const exported = hostContract as Record<string, unknown>;
+    expect(exported.decimalStringToBigInt).toBeUndefined();
+    expect(exported.canonicalEpochToBigInt).toBeUndefined();
   });
 });
