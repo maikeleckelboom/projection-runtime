@@ -192,9 +192,6 @@ pub fn hot_publish(
     handle.publish(block_a, publication, write_fields)
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 fn validate_layout(layout: &HotPublicationLayout) -> Result<(), HotPublicationError> {
     let total = layout.total_region_byte_length;
@@ -356,9 +353,6 @@ fn write_u32_le(region: &mut [u8], offset: usize, value: u32) {
     region[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -390,9 +384,6 @@ mod tests {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 1. bind returns a region handle for a valid layout
-    // -----------------------------------------------------------------------
     #[test]
     fn bind_returns_region_handle_for_valid_layout() {
         let layout = test_layout();
@@ -408,9 +399,6 @@ mod tests {
         assert_eq!(result.publication_sequence, 1);
     }
 
-    // -----------------------------------------------------------------------
-    // 2. repeated publish through HotPublicationRegion increments seqlock by 2
-    // -----------------------------------------------------------------------
     #[test]
     fn repeated_publish_through_region_increments_seqlock_by_two() {
         let layout = test_layout();
@@ -428,10 +416,6 @@ mod tests {
         assert_eq!(r3.seqlock_counter, 6);
     }
 
-    // -----------------------------------------------------------------------
-    // 3. repeated publish through HotPublicationRegion increments
-    //    publication sequence by 1
-    // -----------------------------------------------------------------------
     #[test]
     fn repeated_publish_through_region_increments_publication_sequence_by_one() {
         let layout = test_layout();
@@ -449,9 +433,6 @@ mod tests {
         assert_eq!(r3.publication_sequence, 3);
     }
 
-    // -----------------------------------------------------------------------
-    // 4. invalid seqlock offset rejects deterministically before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn invalid_seqlock_offset_rejects_deterministically_before_mutation() {
         let layout = HotPublicationLayout {
@@ -479,9 +460,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 5. invalid baseline epoch offset rejects deterministically before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn invalid_baseline_epoch_offset_rejects_deterministically_before_mutation() {
         let layout = HotPublicationLayout {
@@ -509,9 +487,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 6. invalid continuity generation offset rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn invalid_continuity_generation_offset_rejects_deterministically_before_mutation() {
         let layout = HotPublicationLayout {
@@ -539,9 +514,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 7. invalid publication sequence offset rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn invalid_publication_sequence_offset_rejects_deterministically_before_mutation() {
         let layout = HotPublicationLayout {
@@ -569,9 +541,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 8. invalid Block A range rejects deterministically before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn invalid_block_a_range_rejects_deterministically_before_mutation() {
         let layout = HotPublicationLayout {
@@ -599,9 +568,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 9. offset arithmetic overflow rejects deterministically
-    // -----------------------------------------------------------------------
     #[test]
     fn offset_arithmetic_overflow_rejects_deterministically() {
         let layout = HotPublicationLayout {
@@ -629,9 +595,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 10. seqlock offset before Block A rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn seqlock_offset_before_block_a_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -659,9 +622,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 11. baseline epoch offset before Block A rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn baseline_epoch_offset_before_block_a_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -689,9 +649,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 12. continuity generation offset before Block A rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn continuity_generation_offset_before_block_a_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -719,9 +676,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 13. publication sequence offset before Block A rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn publication_sequence_offset_before_block_a_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -749,9 +703,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 14. baseline_epoch_offset overlapping seqlock rejects before mutation
-    // -----------------------------------------------------------------------
     #[test]
     fn baseline_epoch_offset_overlapping_seqlock_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -781,9 +732,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 15. continuity_generation_offset overlapping baseline_epoch rejects
-    // -----------------------------------------------------------------------
     #[test]
     fn continuity_generation_offset_overlapping_baseline_epoch_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -813,9 +761,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 16. publication_sequence_offset overlapping seqlock rejects
-    // -----------------------------------------------------------------------
     #[test]
     fn publication_sequence_offset_overlapping_seqlock_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -845,9 +790,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 17. publication_sequence_offset overlapping continuity_generation rejects
-    // -----------------------------------------------------------------------
     #[test]
     fn publication_sequence_offset_overlapping_continuity_generation_rejects_before_mutation() {
         let layout = HotPublicationLayout {
@@ -877,9 +819,6 @@ mod tests {
         assert_eq!(region, snapshot, "region must not be mutated on error");
     }
 
-    // -----------------------------------------------------------------------
-    // 18. field writer receives only the logical region slice
-    // -----------------------------------------------------------------------
     #[test]
     fn field_writer_receives_only_logical_region() {
         let layout = test_layout();
@@ -905,9 +844,6 @@ mod tests {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 19. field writer cannot corrupt Block A in final publication
-    // -----------------------------------------------------------------------
     #[test]
     fn field_writer_cannot_corrupt_block_a_in_final_publication() {
         let layout = test_layout();
@@ -931,9 +867,6 @@ mod tests {
         assert_eq!(region[..4], [0x53, 0x51, 0x4c, 0x4b]);
     }
 
-    // -----------------------------------------------------------------------
-    // 20. field writer cannot corrupt baseline_epoch in final publication
-    // -----------------------------------------------------------------------
     #[test]
     fn field_writer_cannot_corrupt_baseline_epoch_in_final_publication() {
         let layout = test_layout();
@@ -953,9 +886,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 21. field writer cannot corrupt continuity_generation in final publication
-    // -----------------------------------------------------------------------
     #[test]
     fn field_writer_cannot_corrupt_continuity_generation_in_final_publication() {
         let layout = test_layout();
@@ -975,9 +905,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 22. existing writer-active odd seqlock rejection still passes
-    // -----------------------------------------------------------------------
     #[test]
     fn writer_active_odd_seqlock_rejects_before_mutation() {
         let layout = test_layout();
@@ -1000,9 +927,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 23. existing region-too-short rejection still passes
-    // -----------------------------------------------------------------------
     #[test]
     fn region_too_short_rejects_deterministically() {
         let layout = test_layout();
@@ -1026,9 +950,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 24. existing Block A length mismatch rejection still passes
-    // -----------------------------------------------------------------------
     #[test]
     fn block_a_length_mismatch_rejects_deterministically() {
         let layout = test_layout();
@@ -1052,9 +973,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 25. existing sequence overflow tests still pass
-    // -----------------------------------------------------------------------
     #[test]
     fn publication_sequence_overflow_rejects_deterministically() {
         let layout = test_layout();
@@ -1094,10 +1012,6 @@ mod tests {
         );
     }
 
-    // -----------------------------------------------------------------------
-    // Additional coverage – block A bytes and block B metadata written
-    // correctly via the region handle.
-    // -----------------------------------------------------------------------
     #[test]
     fn publish_via_region_writes_block_a_bytes() {
         let layout = test_layout();

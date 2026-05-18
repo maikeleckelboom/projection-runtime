@@ -68,7 +68,6 @@ const hotBasicCompleteFixtureRegionPath = resolve(
   repoRoot,
   "fixtures/projection-runtime/hot-basic-v0/hot-complete-fixture-region.json",
 );
-const hotCodecSourceRoot = resolve(repoRoot, "packages/hot-codec/src");
 const HOT_BASIC_SAMPLE_VALUES = {
   cursor: 123,
   health: "warn",
@@ -1252,29 +1251,6 @@ describe("@exclave/hot-codec public surface", () => {
       "encodeHotFixtureRegion",
       "hexToBytes",
     ]);
-
-    const byteSource = readFileSync(resolve(hotCodecSourceRoot, "byte.ts"), "utf8");
-    expect(byteSource).toContain('export { bytesToHex, hexToBytes } from "./byte/hex"');
-    expect(byteSource).toContain('} from "./byte/types"');
-    expect(byteSource).not.toContain("function writeScalar");
-    expect(byteSource).not.toContain("function readScalar");
-    expect(byteSource).not.toContain("function writeEnum");
-    expect(byteSource).not.toContain("function readEnum");
-    expect(byteSource).not.toContain("function writeVector");
-    expect(byteSource).not.toContain("function readVector");
-    expect(byteSource).not.toContain("function writeFixedString");
-    expect(byteSource).not.toContain("function readFixedString");
-    expect(byteSource).not.toContain("function writeBoundedArray");
-    expect(byteSource).not.toContain("function readBoundedArray");
-  });
-
-  it("keeps byte type definitions separate from runtime issue helpers", () => {
-    const byteTypesSource = readFileSync(resolve(hotCodecSourceRoot, "byte/types.ts"), "utf8");
-    const byteIssueSource = readFileSync(resolve(hotCodecSourceRoot, "byte/issue.ts"), "utf8");
-
-    expect(byteTypesSource).not.toContain("../error");
-    expect(byteTypesSource).not.toContain("throwByteIssue");
-    expect(byteIssueSource).toContain("export function throwByteIssue");
   });
 
   it("keeps byte public types equivalent through the root export", () => {

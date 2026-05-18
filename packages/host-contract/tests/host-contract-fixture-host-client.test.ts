@@ -66,8 +66,6 @@ import {
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURES_ROOT = resolve(__dirname, "../../../fixtures/projection-runtime/deck-runtime-v0");
 
-// ─── Fixture loading ───────────────────────────────────────────────
-
 function loadFixtureJson(filename: string): unknown {
   const raw = readFileSync(resolve(FIXTURES_ROOT, filename), "utf-8");
   return JSON.parse(raw);
@@ -111,9 +109,9 @@ function hexToUint8Array(hex: string): Uint8Array {
   return bytes;
 }
 
-function assertNoForbiddenDescriptorKeys(
+function assertDescriptorCarriesOnlyMetadata(
   value: unknown,
-  forbiddenKeys: ReadonlySet<string>,
+  localFieldKeys: ReadonlySet<string>,
   path: string,
 ): void {
   if (typeof value !== "object" || value === null) {
@@ -121,17 +119,17 @@ function assertNoForbiddenDescriptorKeys(
   }
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      assertNoForbiddenDescriptorKeys(value[i], forbiddenKeys, `${path}[${i}]`);
+      assertDescriptorCarriesOnlyMetadata(value[i], localFieldKeys, `${path}[${i}]`);
     }
     return;
   }
   for (const key of Object.keys(value)) {
-    if (forbiddenKeys.has(key)) {
-      throw new Error(`forbidden descriptor key "${key}" found at ${path}`);
+    if (localFieldKeys.has(key)) {
+      throw new Error(`descriptor-local field "${key}" found at ${path}`);
     }
-    assertNoForbiddenDescriptorKeys(
+    assertDescriptorCarriesOnlyMetadata(
       (value as Record<string, unknown>)[key],
-      forbiddenKeys,
+      localFieldKeys,
       `${path}.${key}`,
     );
   }
@@ -300,7 +298,7 @@ function deriveExpectedDeckRuntimeSnapshot(): DeckRuntimeSnapshot {
   };
 }
 
-const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
+const DESCRIPTOR_LOCAL_FIELD_KEYS = new Set([
   "blockABytesHex",
   "completeFixtureRegionBytesHex",
   "hotRegionBytesHex",
@@ -314,14 +312,12 @@ const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
 ]);
 
 function assertNoBytePayloadFields(value: unknown, path: string): void {
-  assertNoForbiddenDescriptorKeys(
+  assertDescriptorCarriesOnlyMetadata(
     value,
     new Set(["bytes", "buffer", "view", "region", "SharedArrayBuffer", "arrayBuffer"]),
     path,
   );
 }
-
-// ─── FixtureHost ───────────────────────────────────────────────────
 
 type FixtureHostConfig = {
   readonly authorityKey: string;
@@ -339,8 +335,6 @@ type ControlRequestResult =
 class FixtureHost {
   private readonly _binding: AuthorityBinding;
   private readonly _config: FixtureHostConfig;
-  private _invalidated = false;
-  private _invalidationReason: string | null = null;
 
   constructor(config: FixtureHostConfig) {
     this._config = config;
@@ -484,9 +478,6 @@ class FixtureHost {
   }
 
   invalidateAuthority(reason: "authorityRestarted"): HostSurfaceInvalidatedEnvelope {
-    this._invalidated = true;
-    this._invalidationReason = reason;
-
     const invalidated = invalidateAuthorityBinding(this._binding, reason);
     const owner = createHostAuthorityOwnerFromBinding(invalidated);
 
@@ -498,17 +489,7 @@ class FixtureHost {
       rebindRequired: true,
     });
   }
-
-  get invalidated(): boolean {
-    return this._invalidated;
-  }
-
-  get invalidationReason(): string | null {
-    return this._invalidationReason;
-  }
 }
-
-// ─── FixtureClient ─────────────────────────────────────────────────
 
 type HotReadFailure =
   | { ok: false; reason: "bindingInvalidated"; rebindRequired: true; invalidationReason: string }
@@ -806,8 +787,6 @@ class FixtureClient {
   private _lastReadSpyCallCount = 0;
 }
 
-// ─── Host/Client factory ────────────────────────────────────────────
-
 function createDeckRuntimeFixtureHost(): FixtureHost {
   const identity = deriveFixtureIdentity();
   const hotRegion = createFixtureHotRegion();
@@ -826,12 +805,8 @@ function createDeckRuntimeFixtureClient(): FixtureClient {
   return new FixtureClient();
 }
 
-// ─── Tests ──────────────────────────────────────────────────────────
-
-describe("In-process fixture host/client lifecycle proof", () => {
-  // ─── Proof 1: Client opens host surface and creates HostSurfaceGrant ──
-
-  describe("Proof 1: Client opens host surface and creates HostSurfaceGrant", () => {
+describe("In-process fixture host/client lifecycle", () => {
+  describe("Client opens host surface and creates HostSurfaceGrant", () => {
     it("validates surfaceReady envelope and projects HostSurfaceGrant from validated surface", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -876,13 +851,11 @@ describe("In-process fixture host/client lifecycle proof", () => {
       expect(grant.warm[0].owner.authorityKey).toBe(grant.owner.authorityKey);
 
       assertNoBytePayloadFields(grant, "grant");
-      assertNoForbiddenDescriptorKeys(grant, FORBIDDEN_DESCRIPTOR_KEYS, "grant");
+      assertDescriptorCarriesOnlyMetadata(grant, DESCRIPTOR_LOCAL_FIELD_KEYS, "grant");
     });
   });
 
-  // ─── Proof 2: Client performs guarded hot read through HostSurfaceGrant ──
-
-  describe("Proof 2: Client performs guarded hot read through HostSurfaceGrant", () => {
+  describe("Client performs guarded hot read through HostSurfaceGrant", () => {
     it("reads hot region using grant-derived capabilities", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -918,9 +891,7 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 3: Client sends descriptor-driven supported control request ──
-
-  describe("Proof 3: Client sends descriptor-driven supported control request and host returns correlated response", () => {
+  describe("Client sends descriptor-driven supported control request and host returns correlated response", () => {
     it("creates control request from grant.control.supportedOperationKeys and receives correlated response", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -957,9 +928,7 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 4: Unsupported operation returns control.unsupportedOperation ──
-
-  describe("Proof 4: Unsupported operation returns control.unsupportedOperation", () => {
+  describe("Unsupported operation returns control.unsupportedOperation", () => {
     it("request shape validity is separate from operation support; no dispatcher registry exists", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -997,10 +966,8 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 5: Client performs descriptor-driven resource read-range request ──
-
-  describe("Proof 5: Client performs descriptor-driven resource read-range request and receives receipt only", () => {
-    it("uses grant.resourcePlane.readRangeOperationKey; no bytes cross fixture harness", () => {
+  describe("Client performs descriptor-driven resource read-range request and receives receipt only", () => {
+    it("uses grant.resourcePlane.readRangeOperationKey and returns receipt metadata", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
@@ -1041,10 +1008,8 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 6: Client consumes warm frame from advertised warm stream ──
-
-  describe("Proof 6: Client consumes warm frame from advertised warm stream", () => {
-    it("validates warm frame using grant.warm stream descriptor; no subscription mechanism", () => {
+  describe("Client consumes warm frame from advertised warm stream", () => {
+    it("validates warm frame against the grant.warm stream descriptor", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
@@ -1065,14 +1030,12 @@ describe("In-process fixture host/client lifecycle proof", () => {
 
       const frameJson = JSON.stringify(frame);
       const frameParsed = JSON.parse(frameJson);
-      assertNoForbiddenDescriptorKeys(frameParsed, FORBIDDEN_DESCRIPTOR_KEYS, "warm frame");
+      assertDescriptorCarriesOnlyMetadata(frameParsed, DESCRIPTOR_LOCAL_FIELD_KEYS, "warm frame");
       expect(frameJson).not.toContain("SharedArrayBuffer");
     });
   });
 
-  // ─── Proof 7: Host invalidation prevents later hot read before reader.tryRead ──
-
-  describe("Proof 7: Host invalidation prevents later hot read before reader.tryRead", () => {
+  describe("Host invalidation prevents later hot read before reader.tryRead", () => {
     it("structurally readable hot region is not enough; session validity gates access", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -1106,9 +1069,7 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 8: Stale owner epoch in grant prevents hot read ──
-
-  describe("Proof 8: Stale owner epoch in grant prevents hot read before reader.tryRead", () => {
+  describe("Stale owner epoch in grant prevents hot read before reader.tryRead", () => {
     it("epoch 2 grant vs epoch 1 binding fails with authorityEpochMismatch; tryRead not called", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -1142,9 +1103,7 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 9: Foreign/stale invalidation envelope does not invalidate client binding ──
-
-  describe("Proof 9: Foreign/stale invalidation envelope does not invalidate client binding", () => {
+  describe("Foreign/stale invalidation envelope does not invalidate client binding", () => {
     it("rejects invalidation from mismatched owner and preserves binding", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
