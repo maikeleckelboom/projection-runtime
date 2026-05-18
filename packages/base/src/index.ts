@@ -23,6 +23,8 @@ export {
 } from "./error";
 export type { InvariantErrorFactory } from "./invariant";
 export { invariant } from "./invariant";
+export type { IssueLike } from "./issue-helpers";
+export { compareIssue, compareString, formatIssueDetail, sortIssues } from "./issue-helpers";
 export type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from "./json";
 export type { JsonSafetyResult } from "./json-safety";
 export { checkJsonObjectRoot, checkJsonSafe, safeIsArray } from "./json-safety";

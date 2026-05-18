@@ -7,9 +7,11 @@ import {
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
   type ExclaveError,
+  formatIssueDetail,
   isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
+  sortIssues,
 } from "@exclave/base";
 
 export const HOT_CODEC_ISSUE_DEFS = {
@@ -200,7 +202,7 @@ export function createHotLayoutRejectedError(
     "layoutRejected",
     {
       where: "planHotLayoutManifest",
-      detail: formatHotCodecDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -217,7 +219,7 @@ export function createHotByteRejectedError(
     "byteRejected",
     {
       where: "hotByteCodec",
-      detail: formatHotCodecDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -234,35 +236,5 @@ export function isHotCodecError(value: unknown): value is HotCodecPackageError {
 }
 
 export function sortHotCodecIssues(issues: readonly HotCodecIssue[]): readonly HotCodecIssue[] {
-  return [...issues].sort(compareIssue);
-}
-
-function compareIssue(left: HotCodecIssue, right: HotCodecIssue): number {
-  const pathOrder = compareString(left.path, right.path);
-  if (pathOrder !== 0) {
-    return pathOrder;
-  }
-
-  return compareString(left.code, right.code);
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function formatHotCodecDetail(issues: readonly HotCodecIssue[]): string {
-  const countLabel = issues.length === 1 ? "1 issue" : `${issues.length} issues`;
-  const issueSummary = issues
-    .map((issue) => `${issue.code}@${issue.path.length === 0 ? "<root>" : issue.path}`)
-    .join("; ");
-
-  return `${countLabel}: ${issueSummary}`;
+  return sortIssues(issues);
 }

@@ -7,9 +7,11 @@ import {
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
   type ExclaveError,
+  formatIssueDetail,
   isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
+  sortIssues,
 } from "@exclave/base";
 
 export const HOT_BINDING_ISSUE_DEFS = {
@@ -113,7 +115,7 @@ export function createHotBindingInputRejectedError(
     "inputRejected",
     {
       where,
-      detail: formatHotBindingDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -128,35 +130,5 @@ export function isHotBindingError(value: unknown): value is HotBindingError {
 export function sortHotBindingIssues(
   issues: readonly HotBindingIssue[],
 ): readonly HotBindingIssue[] {
-  return [...issues].sort(compareIssue);
-}
-
-function compareIssue(left: HotBindingIssue, right: HotBindingIssue): number {
-  const pathOrder = compareString(left.path, right.path);
-  if (pathOrder !== 0) {
-    return pathOrder;
-  }
-
-  return compareString(left.code, right.code);
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function formatHotBindingDetail(issues: readonly HotBindingIssue[]): string {
-  const countLabel = issues.length === 1 ? "1 issue" : `${issues.length} issues`;
-  const issueSummary = issues
-    .map((issue) => `${issue.code}@${issue.path.length === 0 ? "<root>" : issue.path}`)
-    .join("; ");
-
-  return `${countLabel}: ${issueSummary}`;
+  return sortIssues(issues);
 }

@@ -7,9 +7,11 @@ import {
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
   type ExclaveError,
+  formatIssueDetail,
   isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
+  sortIssues,
 } from "@exclave/base";
 
 export const HOT_PUBLISHER_ISSUE_DEFS = {
@@ -109,7 +111,7 @@ export function createHotPublisherInputRejectedError(
     "inputRejected",
     {
       where: "publishHotRegion",
-      detail: formatHotPublisherDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -124,35 +126,5 @@ export function isHotPublisherError(value: unknown): value is HotPublisherError 
 export function sortHotPublisherIssues(
   issues: readonly HotPublisherIssue[],
 ): readonly HotPublisherIssue[] {
-  return [...issues].sort(compareIssue);
-}
-
-function compareIssue(left: HotPublisherIssue, right: HotPublisherIssue): number {
-  const pathOrder = compareString(left.path, right.path);
-  if (pathOrder !== 0) {
-    return pathOrder;
-  }
-
-  return compareString(left.code, right.code);
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function formatHotPublisherDetail(issues: readonly HotPublisherIssue[]): string {
-  const countLabel = issues.length === 1 ? "1 issue" : `${issues.length} issues`;
-  const issueSummary = issues
-    .map((issue) => `${issue.code}@${issue.path.length === 0 ? "<root>" : issue.path}`)
-    .join("; ");
-
-  return `${countLabel}: ${issueSummary}`;
+  return sortIssues(issues);
 }

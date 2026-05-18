@@ -7,9 +7,11 @@ import {
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
   type ExclaveError,
+  formatIssueDetail,
   isExclaveError,
   type JsonObject,
   type KeyedErrorFactoryOf,
+  sortIssues,
 } from "@exclave/base";
 
 export const HOT_CONSUMER_ISSUE_DEFS = {
@@ -103,7 +105,7 @@ export function createHotConsumerInputRejectedError(
     "inputRejected",
     {
       where: "tryReadHotSnapshot",
-      detail: formatHotConsumerDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -118,35 +120,5 @@ export function isHotConsumerError(value: unknown): value is HotConsumerError {
 export function sortHotConsumerIssues(
   issues: readonly HotConsumerIssue[],
 ): readonly HotConsumerIssue[] {
-  return [...issues].sort(compareIssue);
-}
-
-function compareIssue(left: HotConsumerIssue, right: HotConsumerIssue): number {
-  const pathOrder = compareString(left.path, right.path);
-  if (pathOrder !== 0) {
-    return pathOrder;
-  }
-
-  return compareString(left.code, right.code);
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function formatHotConsumerDetail(issues: readonly HotConsumerIssue[]): string {
-  const countLabel = issues.length === 1 ? "1 issue" : `${issues.length} issues`;
-  const issueSummary = issues
-    .map((issue) => `${issue.code}@${issue.path.length === 0 ? "<root>" : issue.path}`)
-    .join("; ");
-
-  return `${countLabel}: ${issueSummary}`;
+  return sortIssues(issues);
 }

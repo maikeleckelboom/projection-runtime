@@ -6,8 +6,10 @@ import {
   type ErrorDomainWithFactory,
   type ErrorKeyFromCode,
   type ExclaveError,
+  formatIssueDetail,
   type JsonObject,
   type KeyedErrorFactoryOf,
+  sortIssues,
 } from "@exclave/base";
 import type { HotCodecIssueCode } from "@exclave/hot-codec";
 
@@ -138,7 +140,7 @@ export function createCompilerError(
   return createCompilerDomainError(
     "compilationRejected",
     {
-      detail: formatCompilerDetail(sortedIssues),
+      detail: formatIssueDetail(sortedIssues),
       issueCount: sortedIssues.length,
       issues: sortedIssues,
     },
@@ -147,35 +149,5 @@ export function createCompilerError(
 }
 
 export function sortCompilerIssues(issues: readonly CompilerIssue[]): readonly CompilerIssue[] {
-  return [...issues].sort(compareIssue);
-}
-
-function compareIssue(left: CompilerIssue, right: CompilerIssue): number {
-  const pathOrder = compareString(left.path, right.path);
-  if (pathOrder !== 0) {
-    return pathOrder;
-  }
-
-  return compareString(left.code, right.code);
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function formatCompilerDetail(issues: readonly CompilerIssue[]): string {
-  const countLabel = issues.length === 1 ? "1 issue" : `${issues.length} issues`;
-  const issueSummary = issues
-    .map((issue) => `${issue.code}@${issue.path.length === 0 ? "<root>" : issue.path}`)
-    .join("; ");
-
-  return `${countLabel}: ${issueSummary}`;
+  return sortIssues(issues);
 }

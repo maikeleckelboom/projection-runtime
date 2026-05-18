@@ -58,7 +58,7 @@ function readSourceFiles(dir: string): SourceFile[] {
 
   const files: SourceFile[] = [];
   const entries = readdirSync(dir, { withFileTypes: true }).sort((left, right) =>
-    compareString(left.name, right.name),
+    left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
   );
 
   for (const entry of entries) {
@@ -98,18 +98,6 @@ function assertNotContains(
       }
     }
   }
-}
-
-function compareString(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-
-  if (left > right) {
-    return 1;
-  }
-
-  return 0;
 }
 
 run("typecheck", "pnpm", ["typecheck"]);
