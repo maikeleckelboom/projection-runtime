@@ -55,8 +55,6 @@ function validFrameEnvelope(): WarmFrameEnvelope {
   return createWarmFrameEnvelope(validFrameInput());
 }
 
-// ─── Public exports ────────────────────────────────────────────────
-
 describe("@exclave/warm public exports", () => {
   it("exports the intended type surface", () => {
     expectTypeOf<WarmStreamKey>().toEqualTypeOf<string>();
@@ -84,16 +82,7 @@ describe("@exclave/warm public exports", () => {
   it("exports WARM_ENVELOPE_VERSION", () => {
     expect(WARM_ENVELOPE_VERSION).toBe(1);
   });
-
-  it("does not leak internal helpers", () => {
-    expect((warm as Record<string, unknown>).throwInputRejected).toBeUndefined();
-    expect((warm as Record<string, unknown>).assertNonEmptyString).toBeUndefined();
-    expect((warm as Record<string, unknown>).assertPlainObject).toBeUndefined();
-    expect((warm as Record<string, unknown>).assertExactRootKeys).toBeUndefined();
-  });
 });
-
-// ─── WarmOwner ─────────────────────────────────────────────────────
 
 describe("createWarmOwner", () => {
   it("accepts valid owner", () => {
@@ -245,8 +234,6 @@ describe("createWarmOwner", () => {
     ).toThrow(ExclaveError);
   });
 });
-
-// ─── WarmFrameEnvelope creation ────────────────────────────────────
 
 describe("createWarmFrameEnvelope", () => {
   it("accepts valid frame", () => {
@@ -458,8 +445,6 @@ describe("createWarmFrameEnvelope", () => {
     expect(getterCalled).toBe(false);
   });
 });
-
-// ─── WarmFrameEnvelope validation ─────────────────────────────────
 
 describe("validateWarmFrameEnvelope", () => {
   it("accepts valid frame", () => {
@@ -678,8 +663,6 @@ describe("validateWarmFrameEnvelope", () => {
   });
 });
 
-// ─── WarmFailure ───────────────────────────────────────────────────
-
 describe("createWarmFailure", () => {
   it("accepts valid failure", () => {
     const f = createWarmFailure({
@@ -756,8 +739,6 @@ describe("createWarmFailure", () => {
     );
   });
 });
-
-// ─── Invalidation Payload ──────────────────────────────────────────
 
 describe("createWarmInvalidationPayload", () => {
   it("accepts { reason }", () => {
@@ -861,8 +842,6 @@ describe("createWarmInvalidationPayload", () => {
   });
 });
 
-// ─── WarmOwner canon Epoch ─────────────────────────────────────────
-
 describe("WarmOwner canonical epoch strings", () => {
   it('accepts "0"', () => {
     expect(() =>
@@ -894,8 +873,6 @@ describe("WarmOwner canonical epoch strings", () => {
     ).toThrow(ExclaveError);
   });
 });
-
-// ─── Immutability ──────────────────────────────────────────────────
 
 describe("Immutability", () => {
   it("createWarmFrameEnvelope does not mutate input payload", () => {

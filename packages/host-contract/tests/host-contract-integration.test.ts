@@ -58,9 +58,9 @@ function decimalStringToBigInt(value: unknown, label: string): bigint {
   return BigInt(value);
 }
 
-function assertNoForbiddenDescriptorKeys(
+function assertDescriptorCarriesOnlyMetadata(
   value: unknown,
-  forbiddenKeys: ReadonlySet<string>,
+  localFieldKeys: ReadonlySet<string>,
   path: string,
 ): void {
   if (typeof value !== "object" || value === null) {
@@ -68,17 +68,17 @@ function assertNoForbiddenDescriptorKeys(
   }
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      assertNoForbiddenDescriptorKeys(value[i], forbiddenKeys, `${path}[${i}]`);
+      assertDescriptorCarriesOnlyMetadata(value[i], localFieldKeys, `${path}[${i}]`);
     }
     return;
   }
   for (const key of Object.keys(value)) {
-    if (forbiddenKeys.has(key)) {
-      throw new Error(`forbidden descriptor key "${key}" found at ${path}`);
+    if (localFieldKeys.has(key)) {
+      throw new Error(`descriptor-local field "${key}" found at ${path}`);
     }
-    assertNoForbiddenDescriptorKeys(
+    assertDescriptorCarriesOnlyMetadata(
       (value as Record<string, unknown>)[key],
-      forbiddenKeys,
+      localFieldKeys,
       `${path}.${key}`,
     );
   }
@@ -199,9 +199,7 @@ function createFixtureHotRegion(): HostHotRegionDescriptor {
   };
 }
 
-// ─── Proof 1: ready surface composition from fixture-derived inputs ──
-
-describe("HostSurfaceDescriptor integration proof — ready composition", () => {
+describe("HostSurfaceDescriptor ready composition integration", () => {
   it("composes a ready host surface descriptor from fixture-derived inputs and survives JSON round-trip", () => {
     const identity = deriveFixtureIdentity();
 
@@ -295,7 +293,7 @@ describe("HostSurfaceDescriptor integration proof — ready composition", () => 
     expect(vSurface.resourcePlane).toBeDefined();
     expect(vSurface.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
 
-    const forbiddenKeys = new Set([
+    const localFieldKeys = new Set([
       "blockABytesHex",
       "completeFixtureRegionBytesHex",
       "hotRegionBytesHex",
@@ -306,14 +304,12 @@ describe("HostSurfaceDescriptor integration proof — ready composition", () => 
       "region",
       "view",
     ]);
-    assertNoForbiddenDescriptorKeys(parsed, forbiddenKeys, "root");
+    assertDescriptorCarriesOnlyMetadata(parsed, localFieldKeys, "root");
     expect(json).not.toContain("SharedArrayBuffer");
   });
 });
 
-// ─── Proof 2: invalidated envelope from session invalidation ──
-
-describe("HostSurfaceInvalidatedEnvelope integration proof — invalidation composition", () => {
+describe("HostSurfaceInvalidatedEnvelope invalidation composition integration", () => {
   it("composes a host surface invalidated envelope from session invalidation and survives JSON round-trip", () => {
     const identity = deriveFixtureIdentity();
     const binding = createAuthorityBinding(identity);
@@ -351,9 +347,7 @@ describe("HostSurfaceInvalidatedEnvelope integration proof — invalidation comp
   });
 });
 
-// ─── Proof 3: negative — stale epoch passes host-contract validation but fails session binding check ──
-
-describe("HostSurfaceDescriptor integration proof — negative: stale epoch", () => {
+describe("HostSurfaceDescriptor stale epoch integration", () => {
   it("a stale owner epoch survives host-contract surfaceReady validation but fails session binding validation", () => {
     const identity = deriveFixtureIdentity();
     const binding = createAuthorityBinding(identity);

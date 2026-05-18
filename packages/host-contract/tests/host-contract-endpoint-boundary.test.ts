@@ -78,7 +78,7 @@ const HOT_REGION: HostHotRegionDescriptor = {
   seqlockOffset: 0,
 };
 
-const FORBIDDEN_BYTE_KEYS = new Set([
+const ENDPOINT_LOCAL_BYTE_KEYS = new Set([
   "bytes",
   "buffer",
   "view",
@@ -89,15 +89,17 @@ const FORBIDDEN_BYTE_KEYS = new Set([
   "raw",
 ]);
 
-function assertNoByteFields(value: unknown, path: string): void {
+function assertEndpointCarriesOnlyMetadata(value: unknown, path: string): void {
   if (typeof value !== "object" || value === null) return;
   if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) assertNoByteFields(value[i], `${path}[${i}]`);
+    for (let i = 0; i < value.length; i++)
+      assertEndpointCarriesOnlyMetadata(value[i], `${path}[${i}]`);
     return;
   }
   for (const key of Object.keys(value as Record<string, unknown>)) {
-    if (FORBIDDEN_BYTE_KEYS.has(key)) throw new Error(`forbidden byte key "${key}" at ${path}`);
-    assertNoByteFields((value as Record<string, unknown>)[key], `${path}.${key}`);
+    if (ENDPOINT_LOCAL_BYTE_KEYS.has(key))
+      throw new Error(`endpoint-local byte field "${key}" at ${path}`);
+    assertEndpointCarriesOnlyMetadata((value as Record<string, unknown>)[key], `${path}.${key}`);
   }
 }
 
@@ -110,8 +112,6 @@ function createAuthorityBindingReady(): AuthorityBinding {
     }),
   );
 }
-
-// ─── Test-local boundary types ──────────────────────────────────────
 
 type TransferredHandle = {
   readonly handleKey: string;
@@ -136,8 +136,6 @@ class EndpointTransportFailure extends Error {
     this.name = "EndpointTransportFailure";
   }
 }
-
-// ─── TransportBoundary ──────────────────────────────────────────────
 
 class TransportBoundary {
   private _hostToClient: EndpointMessage[] = [];
@@ -178,8 +176,6 @@ class TransportBoundary {
 function jsonRoundtrip<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
-
-// ─── HostEndpoint ───────────────────────────────────────────────────
 
 class HostEndpoint {
   private _binding: AuthorityBinding;
@@ -362,8 +358,6 @@ class HostEndpoint {
     this._transport.hostSend({ kind: "surfaceInvalidated", envelope });
   }
 }
-
-// ─── ClientEndpoint ─────────────────────────────────────────────────
 
 class ClientEndpoint {
   private _transport: TransportBoundary;
@@ -614,8 +608,6 @@ class ClientEndpoint {
   }
 }
 
-// ─── Fixture factory ────────────────────────────────────────────────
-
 function createEndpointBoundaryFixture(): {
   transport: TransportBoundary;
   host: HostEndpoint;
@@ -631,8 +623,6 @@ function createEndpointBoundaryFixture(): {
   const client = new ClientEndpoint(transport);
   return { transport, host, client };
 }
-
-// ─── Tests ──────────────────────────────────────────────────────────
 
 describe("endpoint surface readiness", () => {
   it("validates a host.surfaceReady envelope and creates a HostSurfaceGrant only through createHostSurfaceGrant", () => {
@@ -654,7 +644,7 @@ describe("endpoint surface readiness", () => {
     expect(grant.warm[0].streamKey).toBe("warm.deck-runtime");
     expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
 
-    assertNoByteFields(grant, "grant");
+    assertEndpointCarriesOnlyMetadata(grant, "grant");
     expect((grant as Record<string, unknown>).endpoint).toBeUndefined();
     expect((grant as Record<string, unknown>).transport).toBeUndefined();
     expect((grant as Record<string, unknown>).surface).toBeUndefined();
@@ -778,7 +768,7 @@ describe("endpoint resource receipts", () => {
       expect(receiptPayload.byteLength).toBe(receiptPayload.range.byteLength);
     }
 
-    assertNoByteFields(response, "resource read-range response");
+    assertEndpointCarriesOnlyMetadata(response, "resource read-range response");
     const responseJson = JSON.stringify(response);
     expect(responseJson).not.toContain("SharedArrayBuffer");
     expect(responseJson).not.toContain("ArrayBuffer");
@@ -815,7 +805,7 @@ describe("endpoint warm frames", () => {
     expect(consumed.payload.status).toBe("nominal");
 
     const frameJson = JSON.stringify(received);
-    assertNoByteFields(JSON.parse(frameJson), "warm frame");
+    assertEndpointCarriesOnlyMetadata(JSON.parse(frameJson), "warm frame");
     expect(frameJson).not.toContain("SharedArrayBuffer");
   });
 });

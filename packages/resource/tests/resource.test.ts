@@ -34,8 +34,6 @@ function validDescriptor(): ResourceDescriptor {
   };
 }
 
-// ─── Descriptor Tests ──────────────────────────────────────────────
-
 describe("ResourceDescriptor", () => {
   it("createResourceDescriptor accepts valid descriptor", () => {
     const d = createResourceDescriptor({
@@ -343,8 +341,6 @@ describe("ResourceDescriptor", () => {
   });
 });
 
-// ─── Range Validation Tests ────────────────────────────────────────
-
 describe("ResourceReadRange", () => {
   const descriptor = validDescriptor();
 
@@ -483,8 +479,6 @@ describe("ResourceReadRange", () => {
     ).not.toThrow();
   });
 });
-
-// ─── Request / Receipt Payload Tests ───────────────────────────────
 
 describe("Read Range Request / Receipt Payloads", () => {
   it("createResourceReadRangeRequestPayload returns JSON-safe payload", () => {
@@ -635,8 +629,6 @@ describe("Read Range Request / Receipt Payloads", () => {
     ).toThrow();
   });
 });
-
-// ─── Failure Tests ─────────────────────────────────────────────────
 
 describe("ResourceFailure", () => {
   it("createResourceFailure accepts valid resource failure", () => {
@@ -850,8 +842,6 @@ describe("ResourceFailure", () => {
     ).toThrow();
   });
 });
-
-// ─── Immutability Tests ────────────────────────────────────────────
 
 describe("Immutability", () => {
   it("no helper mutates descriptor input", () => {

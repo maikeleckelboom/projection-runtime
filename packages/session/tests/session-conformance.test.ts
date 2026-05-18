@@ -42,7 +42,7 @@ function loadDeckRuntimeFixtureIdentity(): DeckRuntimeFixtureIdentity {
   };
 }
 
-describe("@exclave/session conformance guard proof", () => {
+describe("@exclave/session guarded fixture read conformance", () => {
   it("ready binding guard invokes DeckRuntimeReader.tryRead and returns the result", () => {
     const { contractKey, instanceKey, region } = loadDeckRuntimeFixtureIdentity();
     const reader = createDeckRuntimeReader(region, { instanceKey });
