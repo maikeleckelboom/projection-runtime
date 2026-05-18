@@ -130,6 +130,7 @@ const guardedRoots = [
   resolve(root, "packages/control-plane/src"),
   resolve(root, "packages/resource/src"),
   resolve(root, "packages/warm/src"),
+  resolve(root, "packages/publication/src"),
   resolve(root, "packages/host-contract/src"),
 ];
 

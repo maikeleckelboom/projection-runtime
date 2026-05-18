@@ -22,6 +22,7 @@ Currently landed:
 - `@exclave/control-plane`
 - `@exclave/resource`
 - `@exclave/warm`
+- `@exclave/publication`
 - `@exclave/host-contract`
 
 No `@exclave/core` package is required for public v1. If it exists later, it must be either a tiny convenience

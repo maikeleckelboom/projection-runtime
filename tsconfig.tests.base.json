@@ -26,6 +26,7 @@
       "@exclave/control-plane": ["./packages/control-plane/src/index.ts"],
       "@exclave/resource": ["./packages/resource/src/index.ts"],
       "@exclave/warm": ["./packages/warm/src/index.ts"],
+      "@exclave/publication": ["./packages/publication/src/index.ts"],
       "@exclave/host-contract": ["./packages/host-contract/src/index.ts"]
     }
   },

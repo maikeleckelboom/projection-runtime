@@ -123,6 +123,18 @@ importers:
         specifier: workspace:*
         version: link:../base
 
+  packages/publication:
+    dependencies:
+      '@exclave/base':
+        specifier: workspace:*
+        version: link:../base
+      '@exclave/session':
+        specifier: workspace:*
+        version: link:../session
+      '@exclave/warm':
+        specifier: workspace:*
+        version: link:../warm
+
   packages/resource:
     dependencies:
       '@exclave/base':

@@ -48,23 +48,25 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/session` | partially implemented | Owns type-level authority session descriptor, session state events, authority invalidation events, and session-bound failure vocabulary. It also provides a product-neutral binding validity fence with `authorityEpoch`, ready/opening/invalidated/closed states, and guard helpers. It does not implement a session manager, epoch issuer, non-reuse enforcement, authority lifecycle runtime, or transport. It does not own resource-handle or hot-handle invalidation events. |
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
 | `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
-| `@exclave/warm` | partially implemented | Provides JSON-safe warm frame envelopes, owner validation, invalidation payloads, and stale-binding failure projection. It is not the `framed-snapshot` binary warm codec from Warm Codec v1. |
+| `@exclave/warm` | partially implemented | Provides legacy JSON-safe warm frame envelopes and the first Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and opaque already-encoded snapshot payload bytes. It does not implement full manifest-derived field-value payload encoding or `warmCodecVersion` derivation. |
+| `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
 | `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors, grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
-| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance and includes generated TS/Rust fixture proofs for hot exchange. It is not yet a full shared runtime conformance harness across all drafted planes. |
+| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, and includes the first modeled live warm projection path proof. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
 
 Classification: partially implemented.
 
-The repository follows the boundary model at the package boundary level. Control envelopes, warm envelopes, resource
-descriptors, hot codec/binding/consumer/publisher kernels, session guards, and host-contract descriptors are separate
-packages. Tests prove JSON-safe control and warm payload boundaries, resource receipts that do not carry byte bodies,
-and guarded hot reads that fail before reading when session validity fails.
+The repository follows the boundary model at the package boundary level. Control envelopes, publication subscriptions,
+warm frames, resource descriptors, hot codec/binding/consumer/publisher kernels, session guards, and host-contract
+descriptors are separate packages. Tests prove JSON-safe control and warm payload boundaries, resource receipts that do
+not carry byte bodies, publication acks that do not carry snapshot bodies, and guarded hot reads that fail before
+reading when session validity fails.
 
 This is not full boundary model conformance. There is no service/authority runtime, no transport layer, no product
-authority ownership model, and no publication subscription implementation. Resource-plane v1 protocol and modeled
-lifecycle helpers exist, but no runtime resource authority/registry/transport/lifecycle manager exists. The current code
-proves separation of selected envelope and kernel responsibilities, not an end-to-end boundary runtime.
+authority ownership model, and no production publication transport. Resource-plane v1 protocol and modeled lifecycle
+helpers exist, but no runtime resource authority/registry/transport/lifecycle manager exists. The current code proves
+separation of selected envelope, subscription, and kernel responsibilities, not an end-to-end boundary runtime.
 
 ## 3. Projection Spine Conformance
 
@@ -87,7 +89,8 @@ Gaps:
 - No generated field identity or binding surface exists. Normal field access must not be hand-authored raw dot-path strings. The compiler must emit generated field identity artifacts (string literal unions, key mirrors, or typed bindings) before any generated authority writer or consumer reader work that accesses published fields.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
-- No full publication metadata model exists across hot, warm, and cold lanes.
+- Publication metadata exists for the modeled warm subscription path, but not as a full runtime model across hot, warm,
+  and cold lanes.
 - `warmCodecVersion` is not derived.
 - `coldCodecVersion` remains reserved and is not derived.
 - Cold materialization semantics are not implemented.
@@ -194,7 +197,8 @@ Gaps:
 - No runtime authority lifecycle state machine exists.
 - No transport dispatch binds these events to real process boundaries.
 - Existing binding validity helpers remain separate from full authority lifecycle management.
-- Epoch-establishing resource open reply is implemented; subscribe/hot open epoch-establishing replies remain future work.
+- Epoch-establishing resource open reply and publication subscribe ack are implemented; hot open epoch-establishing
+  replies remain future work.
 
 The session/control packages implement a useful validity fence, envelope layer, and session event vocabulary. The draft
 session protocol's runtime authority lifecycle and transport remain ahead of implementation.
@@ -239,55 +243,78 @@ Remaining gaps:
 
 ## 9. Warm Codec Conformance
 
-Classification: not implemented.
+Classification: partially implemented.
 
-Current `@exclave/warm` is a JSON-safe warm frame envelope package. It does not implement Warm Codec v1's binary
-`framed-snapshot` codec.
+Current `@exclave/warm` includes legacy JSON-safe warm frame envelope support and the first Warm Codec v1 binary
+framed-snapshot outer frame subset.
 
-Implemented adjacent pieces:
+Implemented in source and tests:
 
 - warm owner shape with authority epoch as canonical decimal string
 - warm frame envelope with stream key, frame key, sequence, frame kind, owner, and JSON-safe payload
 - payload and owner validation
 - stale binding failure projection
-
-Missing from Warm Codec v1:
-
 - canonical binary outer frame with `frameByteLength`
 - little-endian metadata fields
+- deterministic encode/decode for the same logical frame
+- optional `laneSequence` presence and value encoding
+- recoverable decode failures for malformed frame length, malformed payload length, invalid `laneSequencePresent`, and
+  invalid UTF-8
+- maximum warm frame byte-size enforcement before decode
+- `authorityEpoch` absent from `WarmLaneFrame` bytes and decoded logical frame
+- rejection of obvious resource-body descriptor shapes as framed-snapshot payload input
+
+Remaining gaps:
+
 - binary payload encoding for canonical field shapes
 - deterministic map ordering checks
-- optional `laneSequence` semantics
 - `warmCodecVersion` derivation
-- recoverable malformed-frame rejection
 - fatal stream mismatch handling
-- maximum warm frame byte-size enforcement
+- shared Rust/TS byte fixture agreement for warm frames
 
-Compiler tests explicitly prove warm declarations are retained without producing `warmCodecVersion`.
+The implemented payload is an opaque already-encoded snapshot byte payload for this slice. It is not full field-value
+codec coverage. Compiler tests still explicitly prove warm declarations are retained without producing
+`warmCodecVersion`.
 
 ## 10. Publication Subscription Lifecycle Conformance
 
-Classification: not implemented.
+Classification: partially implemented.
 
-Current source has warm stream descriptors and warm frame envelopes, but no publication subscription protocol.
+Current source has a new `@exclave/publication` package with protocol types and a modeled warm subscription lifecycle.
 
-Missing from the draft lifecycle:
+Implemented in source and tests:
 
 - `PublicationSurfaceReadyEvent`
 - `SubscribePublicationRequest`
 - `SubscribePublicationAck`
 - `PublicationSubscribeFailure`
 - `subscriptionId`
-- ack commitment to an initial complete snapshot
 - `coldLaneNotRatified` rejection path
 - `WarmFrameRejectedEvent`
 - `WarmStreamFatalEvent`
-- unsubscribe request/result
 - per-subscription invalidation
-- rebind after `authorityReady`
+- unsubscribe request/result type shapes
+- ack commitment to an initial complete snapshot in the modeled authority helper
+- consumer states for no subscription, subscribed waiting for initial snapshot, live, stale, failed, and closed
+- applying a complete warm snapshot as latest state
+- invalidating subscriptions on `authorityEpochReplaced` and `authorityUnavailable`
+- rejecting frames after invalidation
+- rebind after replacement readiness with a new `subscriptionId`
+- rejection of old authority-epoch traffic against a new subscription
 - explicit separation between hot handle open and warm/cold subscription in runtime protocol
 
-Host-contract tests show descriptor-driven warm frame consumption, but that is not subscription lifecycle conformance.
+Remaining gaps:
+
+- no real transport
+- no production authority runtime or session manager
+- no product authority
+- no hot handle lifecycle
+- no cold reopen runtime
+- no cold subscription runtime
+- no bounded delivery/timeout policy for missing initial snapshots
+
+Host-contract tests still only show descriptor-driven warm stream metadata; subscription lifecycle conformance now lives
+in `@exclave/publication` tests and the shared conformance proof.
 
 ## 11. Cold Reopen Conformance
 
@@ -315,20 +342,22 @@ session, resource, warm codec, and publication subscription foundations.
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-3. `feat(warm): add framed snapshot byte codec skeleton`
+3. `feat(warm): derive warmCodecVersion from manifest-backed codec coverage`
 
-   Add a bounded binary frame parser/encoder shell for Warm Codec v1 metadata only, with `frameByteLength`, contract key,
-   instance key, versions, publication metadata, optional `laneSequence`, and payload bytes.
+   Derive `warmCodecVersion` from the Warm Codec v1 canonical hash input once a warm manifest artifact exists. Keep this
+   separate from the existing opaque payload-byte subset.
 
-4. `test(warm): reject malformed framed snapshot bytes`
+4. `feat(warm): implement manifest-derived field-value payload encoding`
 
-   Prove malformed frame length, payload length, and invalid `laneSequencePresent` are recoverable per-frame rejections.
+   Add real payload encoding/decoding for canonical field shapes, including bool/enum validation, bounded counts, map
+   ordering, duplicate-key rejection, and string UTF-8 checks.
 
-5. `feat(publication): add warm subscribe ack and failure types`
+5. `test(conformance): add Rust/TS warm byte fixture agreement`
 
-   Add only type-level request/ack/failure shapes for warm subscription, including `subscriptionId`,
-   `surfaceDeferredNotReady`, `surfaceUnavailable`, `streamIncompatible`, and `coldLaneNotRatified`.
+   Promote the current TypeScript-only warm frame proof into shared fixture evidence with deterministic expected frame
+   bytes across languages.
 
-6. `test(publication): reject cold subscription as not ratified`
+6. `feat(publication): define production transport attachment points`
 
-    Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.
+   Define how the modeled subscription lifecycle attaches to a real transport without making control replies carry
+   publication frames or resource bodies.
