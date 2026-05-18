@@ -331,11 +331,12 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(compiler): generate public projection consumer bindings`
+1. `test(conformance): wire generated consumer binding source into projection-runtime fixtures`
 
-   Build on compiler-emitted field identity artifacts to generate public consumer binding surfaces. Generated bindings
-   must remain derived from the canonical manifest, must not rely on hand-authored raw dot-path string literals as the
-   normal access path for published fields, and must not add compatibility aliases or migration paths.
+   The compiler can now emit generated consumer binding source/API shape. The generated source is not yet emitted into
+   fixture artifacts. The generated source is not yet part of conformance fixture agreement. Live runtime binding
+   (`bind()`, transport, session, control) remains future work. This slice wires the generated consumer binding source
+   into fixture artifacts so that conformance proofs can typecheck and golden-compare the generated output.
 
 2. `test(hot-binding): prove hot handle lifecycle invalidation`
 

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { AuthoredProjectionContract } from "@exclave/schema";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -108,6 +109,7 @@ export type HotBasicConsumerBinding = {
   readonly fields: typeof hotBasicFields;
   readonly fieldIds: typeof hotBasicFieldIds;
   readonly metadata: typeof hotBasicConsumerBindingMetadata;
+  readonly runtimeStatus: typeof hotBasicConsumerBindingRuntimeStatus;
   readonly hot: HotBasicHotReadSurface;
 };
 `);
@@ -143,5 +145,96 @@ export type HotBasicConsumerBinding = {
     expect(source).toContain("export type WarmOnlyWarmSnapshot = {");
     expect(source).toContain("readonly snapshot: WarmOnlyWarmSnapshot;");
     expect(source).toContain("warmCodecVersion:");
+  });
+
+  it("generates hot binding source that typechecks against real @exclave/hot-consumer exports", () => {
+    const authoredContract = readFixtureJson(
+      "authored-contract.json",
+    ) as AuthoredProjectionContract;
+    const resolved = unwrap(compileAuthoredProjectionContract(authoredContract));
+
+    const source = emitTypeScriptProjectionConsumerBindingSource({
+      resolved,
+      symbolStem: "HotBasic",
+    });
+
+    const generatedFileName = resolve(
+      repoRoot,
+      "packages/compiler/tests/__generated_hot_basic_binding__.ts",
+    );
+    const hotConsumerIndexPath = resolve(repoRoot, "packages/hot-consumer/src/index.ts");
+    const baseIndexPath = resolve(repoRoot, "packages/base/src/index.ts");
+
+    const compilerHost = ts.createCompilerHost({
+      strict: true,
+      noEmit: true,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2024,
+      paths: {
+        "@exclave/hot-consumer": [hotConsumerIndexPath],
+        "@exclave/base": [baseIndexPath],
+      },
+      baseUrl: repoRoot,
+    });
+
+    const originalGetSourceFile = compilerHost.getSourceFile;
+    compilerHost.getSourceFile = (
+      fileName: string,
+      languageVersionOrOptions: ts.ScriptTarget | ts.CreateSourceFileOptions,
+      onError?: (message: string) => void,
+      shouldCreateNewSourceFile?: boolean,
+    ): ts.SourceFile | undefined => {
+      if (fileName === generatedFileName) {
+        return ts.createSourceFile(
+          fileName,
+          source,
+          languageVersionOrOptions as ts.ScriptTarget,
+          true,
+        );
+      }
+
+      return originalGetSourceFile(
+        fileName,
+        languageVersionOrOptions,
+        onError,
+        shouldCreateNewSourceFile,
+      );
+    };
+
+    const program = ts.createProgram({
+      rootNames: [generatedFileName],
+      options: {
+        strict: true,
+        noEmit: true,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2024,
+        paths: {
+          "@exclave/hot-consumer": [hotConsumerIndexPath],
+          "@exclave/base": [baseIndexPath],
+        },
+        baseUrl: repoRoot,
+      },
+      host: compilerHost,
+    });
+
+    const diagnostics = ts
+      .getPreEmitDiagnostics(program)
+      .filter(
+        (diagnostic) =>
+          diagnostic.file !== undefined && diagnostic.file.fileName === generatedFileName,
+      );
+
+    const diagnosticMessages = diagnostics.map((diagnostic) => {
+      const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+      const lineAndChar =
+        diagnostic.file !== undefined && diagnostic.start !== undefined
+          ? `:${ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start).line + 1}`
+          : "";
+      return `${diagnostic.file?.fileName ?? "<unknown>"}${lineAndChar}: ${message}`;
+    });
+
+    expect(diagnosticMessages).toEqual([]);
   });
 });

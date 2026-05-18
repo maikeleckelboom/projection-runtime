@@ -169,6 +169,7 @@ function emitConsumerBindingType(
     readonly fieldsConstName: string;
     readonly fieldIdConstName: string;
     readonly metadataConstName: string;
+    readonly runtimeStatusConstName: string;
     readonly hotReadSurfaceTypeName: string;
     readonly warmSnapshotSurfaceTypeName: string;
   },
@@ -179,6 +180,7 @@ function emitConsumerBindingType(
     `  readonly fields: typeof ${names.fieldsConstName};`,
     `  readonly fieldIds: typeof ${names.fieldIdConstName};`,
     `  readonly metadata: typeof ${names.metadataConstName};`,
+    `  readonly runtimeStatus: typeof ${names.runtimeStatusConstName};`,
   ];
 
   if (resolved.laneManifests?.hot !== undefined) {
