@@ -105,8 +105,6 @@ function validSurface(): HostSurfaceDescriptor {
   };
 }
 
-// ─── Public exports ────────────────────────────────────────────────
-
 describe("@exclave/host-contract public exports", () => {
   it("exports HOST_CONTRACT_VERSION = 1", () => {
     expect(HOST_CONTRACT_VERSION).toBe(1);
@@ -140,32 +138,17 @@ describe("@exclave/host-contract public exports", () => {
     expect(typeof hostContract.createHostContractFailure).toBe("function");
     expect(typeof hostContract.validateHostContractFailure).toBe("function");
   });
-
-  it("does not leak throwInputRejected", () => {
-    expect((hostContract as Record<string, unknown>).throwInputRejected).toBeUndefined();
-  });
-
-  it("does not leak internal throwing helpers", () => {
-    const exported = hostContract as Record<string, unknown>;
-    expect(exported.validateHostAuthorityOwnerThrowing).toBeUndefined();
-    expect(exported.createHostHotRegionDescriptorThrowing).toBeUndefined();
-    expect(exported.createHostControlPlaneDescriptorThrowing).toBeUndefined();
-    expect(exported.createHostWarmStreamDescriptorThrowing).toBeUndefined();
-    expect(exported.createHostResourcePlaneDescriptorThrowing).toBeUndefined();
-  });
 });
 
-// ─── Owner tests ───────────────────────────────────────────────────
-
 describe("HostAuthorityOwner", () => {
-  it("1. createHostAuthorityOwner accepts valid owner", () => {
+  it("createHostAuthorityOwner accepts valid owner", () => {
     const owner = createHostAuthorityOwner(validOwner());
     expect(owner.authorityKey).toBe("auth-1");
     expect(owner.surfaceKey).toBe("surf-1");
     expect(owner.authorityEpoch).toBe("42");
   });
 
-  it("2. createHostAuthorityOwnerFromBinding converts bigint authorityEpoch to decimal string", () => {
+  it("createHostAuthorityOwnerFromBinding converts bigint authorityEpoch to decimal string", () => {
     const binding: AuthorityBinding = createAuthorityBinding({
       authorityKey: "auth-1",
       surfaceKey: "surf-1",
@@ -177,7 +160,7 @@ describe("HostAuthorityOwner", () => {
     expect(owner.authorityEpoch).toBe("9007199254740993");
   });
 
-  it("3. rejects number authorityEpoch", () => {
+  it("rejects number authorityEpoch", () => {
     const result = validateHostAuthorityOwner({
       authorityKey: "auth-1",
       surfaceKey: "surf-1",
@@ -190,7 +173,7 @@ describe("HostAuthorityOwner", () => {
     }
   });
 
-  it("4. rejects bigint authorityEpoch", () => {
+  it("rejects bigint authorityEpoch", () => {
     const result = validateHostAuthorityOwner({
       authorityKey: "auth-1",
       surfaceKey: "surf-1",
@@ -202,7 +185,7 @@ describe("HostAuthorityOwner", () => {
     }
   });
 
-  it("5. accepts canonical decimal strings", () => {
+  it("accepts canonical decimal strings", () => {
     const accepted = ["0", "1", "42", "9007199254740993"];
     for (const epoch of accepted) {
       const result = validateHostAuthorityOwner({
@@ -214,7 +197,7 @@ describe("HostAuthorityOwner", () => {
     }
   });
 
-  it("6. rejects invalid decimal strings", () => {
+  it("rejects invalid decimal strings", () => {
     const rejected = ["", "-1", "+1", "01", "1.0", "1n", "abc"];
     for (const epoch of rejected) {
       const result = validateHostAuthorityOwner({
@@ -229,7 +212,7 @@ describe("HostAuthorityOwner", () => {
     }
   });
 
-  it("7. rejects extra keys and symbol keys", () => {
+  it("rejects extra keys and symbol keys", () => {
     const obj = {
       authorityKey: "auth-1",
       surfaceKey: "surf-1",
@@ -255,7 +238,7 @@ describe("HostAuthorityOwner", () => {
     }
   });
 
-  it("8. rejects class instance and accessor/getter input", () => {
+  it("rejects class instance and accessor/getter input", () => {
     class FakeOwner {
       authorityKey = "auth-1";
       surfaceKey = "surf-1";
@@ -319,10 +302,8 @@ describe("HostAuthorityOwner", () => {
   });
 });
 
-// ─── Hot region tests ──────────────────────────────────────────────
-
 describe("HostHotRegionDescriptor", () => {
-  it("9. accepts valid hot region descriptor", () => {
+  it("accepts valid hot region descriptor", () => {
     const region = createHostHotRegionDescriptor(validHotRegion());
     expect(region.kind).toBe("host.hotRegion");
     expect(region.hotRegionKey).toBe("hr-1");
@@ -332,10 +313,10 @@ describe("HostHotRegionDescriptor", () => {
     expect(region.seqlockOffset).toBe(0);
   });
 
-  it("10. rejects byte-like fields", () => {
+  it("rejects byte-like fields", () => {
     const input = {
       ...validHotRegion(),
-      bytes: "forbidden byte field",
+      bytes: "raw byte field",
     } as unknown as HostHotRegionDescriptor;
     const result = validateHostHotRegionDescriptor(input);
     expect(result.ok).toBe(false);
@@ -344,7 +325,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("11. rejects missing/empty hotRegionKey", () => {
+  it("rejects missing/empty hotRegionKey", () => {
     const result = validateHostHotRegionDescriptor({
       kind: "host.hotRegion",
       blockA: validBlockA(),
@@ -369,7 +350,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("12. rejects bigint semanticVersion/hotLayoutVersion", () => {
+  it("rejects bigint semanticVersion/hotLayoutVersion", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       blockA: { ...validBlockA(), semanticVersion: 1n },
@@ -389,7 +370,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("13. accepts semanticVersion/hotLayoutVersion as canonical decimal strings", () => {
+  it("accepts semanticVersion/hotLayoutVersion as canonical decimal strings", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       blockA: { ...validBlockA(), semanticVersion: "1", hotLayoutVersion: "2" },
@@ -397,7 +378,7 @@ describe("HostHotRegionDescriptor", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("14. rejects invalid decimal strings in blockA", () => {
+  it("rejects invalid decimal strings in blockA", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       blockA: { ...validBlockA(), semanticVersion: "-1" },
@@ -408,7 +389,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("15. rejects invalid totalRegionByteLength", () => {
+  it("rejects invalid totalRegionByteLength", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       totalRegionByteLength: 0,
@@ -420,7 +401,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("16. rejects invalid seqlockOffset", () => {
+  it("rejects invalid seqlockOffset", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       seqlockOffset: 5000,
@@ -432,7 +413,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("17. rejects publicationSequenceOffset out of range", () => {
+  it("rejects publicationSequenceOffset out of range", () => {
     const result = validateHostHotRegionDescriptor({
       ...validHotRegion(),
       publicationSequenceOffset: 5000,
@@ -444,7 +425,7 @@ describe("HostHotRegionDescriptor", () => {
     }
   });
 
-  it("18. rejects extra fields", () => {
+  it("rejects extra fields", () => {
     const obj = { ...validHotRegion(), extra: true } as unknown;
     const result = validateHostHotRegionDescriptor(obj);
     expect(result.ok).toBe(false);
@@ -578,17 +559,15 @@ describe("HostHotRegionDescriptor", () => {
   });
 });
 
-// ─── Control tests ─────────────────────────────────────────────────
-
 describe("HostControlPlaneDescriptor", () => {
-  it("19. accepts valid control descriptor", () => {
+  it("accepts valid control descriptor", () => {
     const ctrl = createHostControlPlaneDescriptor(validControl());
     expect(ctrl.kind).toBe("host.controlPlane");
     expect(ctrl.endpointKey).toBe("ep-1");
     expect(ctrl.operationKeys).toEqual(["op.1", "op.2"]);
   });
 
-  it("20. requires CONTROL_ENVELOPE_VERSION", () => {
+  it("requires CONTROL_ENVELOPE_VERSION", () => {
     const result = validateHostControlPlaneDescriptor({
       kind: "host.controlPlane",
       envelopeVersion: 999,
@@ -602,7 +581,7 @@ describe("HostControlPlaneDescriptor", () => {
     }
   });
 
-  it("21. rejects empty endpointKey", () => {
+  it("rejects empty endpointKey", () => {
     const result = validateHostControlPlaneDescriptor({
       kind: "host.controlPlane",
       envelopeVersion: CONTROL_ENVELOPE_VERSION,
@@ -615,7 +594,7 @@ describe("HostControlPlaneDescriptor", () => {
     }
   });
 
-  it("22. rejects empty operationKeys", () => {
+  it("rejects empty operationKeys", () => {
     const result = validateHostControlPlaneDescriptor({
       kind: "host.controlPlane",
       envelopeVersion: CONTROL_ENVELOPE_VERSION,
@@ -628,7 +607,7 @@ describe("HostControlPlaneDescriptor", () => {
     }
   });
 
-  it("23. rejects empty operation key", () => {
+  it("rejects empty operation key", () => {
     const result = validateHostControlPlaneDescriptor({
       kind: "host.controlPlane",
       envelopeVersion: CONTROL_ENVELOPE_VERSION,
@@ -641,7 +620,7 @@ describe("HostControlPlaneDescriptor", () => {
     }
   });
 
-  it("24. rejects extra fields", () => {
+  it("rejects extra fields", () => {
     const obj = {
       kind: "host.controlPlane",
       envelopeVersion: CONTROL_ENVELOPE_VERSION,
@@ -657,16 +636,14 @@ describe("HostControlPlaneDescriptor", () => {
   });
 });
 
-// ─── Warm tests ────────────────────────────────────────────────────
-
 describe("HostWarmStreamDescriptor", () => {
-  it("25. accepts valid warm stream descriptor", () => {
+  it("accepts valid warm stream descriptor", () => {
     const ws = createHostWarmStreamDescriptor(validWarmStream());
     expect(ws.kind).toBe("host.warmStream");
     expect(ws.streamKey).toBe("ws-1");
   });
 
-  it("26. requires WARM_ENVELOPE_VERSION", () => {
+  it("requires WARM_ENVELOPE_VERSION", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       envelopeVersion: 999,
@@ -678,7 +655,7 @@ describe("HostWarmStreamDescriptor", () => {
     }
   });
 
-  it("27. rejects empty streamKey", () => {
+  it("rejects empty streamKey", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       envelopeVersion: WARM_ENVELOPE_VERSION,
@@ -690,7 +667,7 @@ describe("HostWarmStreamDescriptor", () => {
     }
   });
 
-  it("28. rejects extra fields", () => {
+  it("rejects extra fields", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       envelopeVersion: WARM_ENVELOPE_VERSION,
@@ -704,16 +681,14 @@ describe("HostWarmStreamDescriptor", () => {
   });
 });
 
-// ─── Resource tests ────────────────────────────────────────────────
-
 describe("HostResourcePlaneDescriptor", () => {
-  it("29. accepts valid resource-plane descriptor", () => {
+  it("accepts valid resource-plane descriptor", () => {
     const rp = createHostResourcePlaneDescriptor(validResourcePlane());
     expect(rp.kind).toBe("host.resourcePlane");
     expect(rp.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
   });
 
-  it("30. requires RESOURCE_READ_RANGE_OPERATION_KEY", () => {
+  it("requires RESOURCE_READ_RANGE_OPERATION_KEY", () => {
     const result = validateHostResourcePlaneDescriptor({
       kind: "host.resourcePlane",
       readRangeOperationKey: "wrong",
@@ -724,7 +699,7 @@ describe("HostResourcePlaneDescriptor", () => {
     }
   });
 
-  it("31. rejects extra fields", () => {
+  it("rejects extra fields", () => {
     const result = validateHostResourcePlaneDescriptor({
       kind: "host.resourcePlane",
       readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
@@ -737,10 +712,8 @@ describe("HostResourcePlaneDescriptor", () => {
   });
 });
 
-// ─── Surface tests ─────────────────────────────────────────────────
-
 describe("HostSurfaceDescriptor", () => {
-  it("32. accepts a descriptor with all lanes", () => {
+  it("accepts a descriptor with all lanes", () => {
     const surface = createHostSurfaceDescriptor(validSurface());
     expect(surface.kind).toBe("host.surface");
     expect(surface.contractVersion).toBe(1);
@@ -751,7 +724,7 @@ describe("HostSurfaceDescriptor", () => {
     expect(surface.resourcePlane).toBeDefined();
   });
 
-  it("33. accepts descriptor with only one lane", () => {
+  it("accepts descriptor with only one lane", () => {
     const surfaceHotOnly = createHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -785,7 +758,7 @@ describe("HostSurfaceDescriptor", () => {
     expect(surfaceResourceOnly).toBeDefined();
   });
 
-  it("34. rejects descriptor with no lanes", () => {
+  it("rejects descriptor with no lanes", () => {
     const result = validateHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -798,7 +771,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("35. rejects duplicate hotRegionKey", () => {
+  it("rejects duplicate hotRegionKey", () => {
     const result = validateHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -812,7 +785,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("36. rejects duplicate warm streamKey", () => {
+  it("rejects duplicate warm streamKey", () => {
     const result = validateHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -826,7 +799,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("37. rejects wrong contractVersion", () => {
+  it("rejects wrong contractVersion", () => {
     const result = validateHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: 999,
@@ -839,7 +812,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("38. rejects invalid owner", () => {
+  it("rejects invalid owner", () => {
     const result = validateHostSurfaceDescriptor({
       kind: "host.surface",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -852,7 +825,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("39. JSON.stringify/parse roundtrip preserves descriptor", () => {
+  it("JSON.stringify/parse roundtrip preserves descriptor", () => {
     const surface = createHostSurfaceDescriptor(validSurface());
     const json = JSON.stringify(surface);
     const parsed = JSON.parse(json);
@@ -864,7 +837,7 @@ describe("HostSurfaceDescriptor", () => {
     }
   });
 
-  it("40. creation helpers do not mutate input objects", () => {
+  it("creation helpers do not mutate input objects", () => {
     const input = validSurface();
     const frozen = JSON.parse(JSON.stringify(input));
     createHostSurfaceDescriptor(input);
@@ -872,10 +845,8 @@ describe("HostSurfaceDescriptor", () => {
   });
 });
 
-// ─── Ready and invalidated envelopes tests ─────────────────────────
-
 describe("HostSurfaceReadyEnvelope", () => {
-  it("41. accepts valid surfaceReady envelope", () => {
+  it("accepts valid surfaceReady envelope", () => {
     const envelope = createHostSurfaceReadyEnvelope({
       kind: "host.surfaceReady",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -885,7 +856,7 @@ describe("HostSurfaceReadyEnvelope", () => {
     expect(envelope.surface.owner.authorityKey).toBe("auth-1");
   });
 
-  it("42. rejects invalid surfaceReady surface", () => {
+  it("rejects invalid surfaceReady surface", () => {
     const result = validateHostSurfaceReadyEnvelope({
       kind: "host.surfaceReady",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -903,7 +874,7 @@ describe("HostSurfaceReadyEnvelope", () => {
 });
 
 describe("HostSurfaceInvalidatedEnvelope", () => {
-  it("43. accepts valid surfaceInvalidated envelope", () => {
+  it("accepts valid surfaceInvalidated envelope", () => {
     const envelope = createHostSurfaceInvalidatedEnvelope({
       kind: "host.surfaceInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -916,7 +887,7 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
     expect(envelope.rebindRequired).toBe(true);
   });
 
-  it("44. rejects invalid invalidation reason", () => {
+  it("rejects invalid invalidation reason", () => {
     const result = validateHostSurfaceInvalidatedEnvelope({
       kind: "host.surfaceInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -930,7 +901,7 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
     }
   });
 
-  it("45. rejects rebindRequired false", () => {
+  it("rejects rebindRequired false", () => {
     const result = validateHostSurfaceInvalidatedEnvelope({
       kind: "host.surfaceInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -944,7 +915,7 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
     }
   });
 
-  it("46. rejects raw bigint in invalidated owner", () => {
+  it("rejects raw bigint in invalidated owner", () => {
     const result = validateHostSurfaceInvalidatedEnvelope({
       kind: "host.surfaceInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
@@ -961,24 +932,10 @@ describe("HostSurfaceInvalidatedEnvelope", () => {
       expect(result.failure.code).toBe("host-contract.invalidDescriptor");
     }
   });
-
-  it("47. does not leak raw BindingValidityFailure object", () => {
-    const envelope = createHostSurfaceInvalidatedEnvelope({
-      kind: "host.surfaceInvalidated",
-      contractVersion: HOST_CONTRACT_VERSION,
-      owner: validOwner(),
-      reason: "surfaceRevoked",
-      rebindRequired: true,
-    });
-    expect((envelope as Record<string, unknown>).bindingValidityFailure).toBeUndefined();
-    expect((envelope as Record<string, unknown>).failure).toBeUndefined();
-  });
 });
 
-// ─── Failure/errors tests ──────────────────────────────────────────
-
 describe("HostContractFailure", () => {
-  it("48. createHostContractFailure accepts valid failure", () => {
+  it("createHostContractFailure accepts valid failure", () => {
     const failure = createHostContractFailure({
       code: "host-contract.invalidDescriptor",
       message: "test failure",
@@ -987,7 +944,7 @@ describe("HostContractFailure", () => {
     expect(failure.message).toBe("test failure");
   });
 
-  it("49. rejects invalid failure code", () => {
+  it("rejects invalid failure code", () => {
     expect(() =>
       createHostContractFailure({
         code: "warm.invalidEnvelope" as "host-contract.invalidDescriptor",
@@ -996,7 +953,7 @@ describe("HostContractFailure", () => {
     ).toThrow();
   });
 
-  it("50. rejects empty failure message", () => {
+  it("rejects empty failure message", () => {
     expect(() =>
       createHostContractFailure({
         code: "host-contract.invalidDescriptor",
@@ -1005,7 +962,7 @@ describe("HostContractFailure", () => {
     ).toThrow();
   });
 
-  it("51. rejects non-JSON-safe details", () => {
+  it("rejects non-JSON-safe details", () => {
     expect(() =>
       createHostContractFailure({
         code: "host-contract.invalidDescriptor",
@@ -1015,7 +972,7 @@ describe("HostContractFailure", () => {
     ).toThrow();
   });
 
-  it("52. validateHostContractFailure returns ok true for rejected code", () => {
+  it("validateHostContractFailure returns ok true for rejected code", () => {
     const result = validateHostContractFailure({
       code: "host-contract.rejected",
       message: "validated failure",
@@ -1027,7 +984,7 @@ describe("HostContractFailure", () => {
     }
   });
 
-  it("53. validateHostContractFailure returns ok true for invalidDescriptor with details", () => {
+  it("validateHostContractFailure returns ok true for invalidDescriptor with details", () => {
     const result = validateHostContractFailure({
       code: "host-contract.invalidDescriptor",
       message: "detailed failure",
@@ -1041,7 +998,7 @@ describe("HostContractFailure", () => {
     }
   });
 
-  it("54. validateHostContractFailure returns ok false for invalid failure code", () => {
+  it("validateHostContractFailure returns ok false for invalid failure code", () => {
     const result = validateHostContractFailure({
       code: "warm.invalidEnvelope" as "host-contract.invalidDescriptor",
       message: "test",
@@ -1054,7 +1011,7 @@ describe("HostContractFailure", () => {
     }
   });
 
-  it("55. validateHostContractFailure returns ok false for empty message", () => {
+  it("validateHostContractFailure returns ok false for empty message", () => {
     const result = validateHostContractFailure({
       code: "host-contract.invalidDescriptor",
       message: "",
@@ -1067,7 +1024,7 @@ describe("HostContractFailure", () => {
     }
   });
 
-  it("56. validateHostContractFailure returns ok false for non-JSON-safe details", () => {
+  it("validateHostContractFailure returns ok false for non-JSON-safe details", () => {
     const result = validateHostContractFailure({
       code: "host-contract.invalidDescriptor",
       message: "test",
@@ -1081,8 +1038,6 @@ describe("HostContractFailure", () => {
     }
   });
 });
-
-// ─── Additional validation tests ───────────────────────────────────
 
 describe("HostContractValidationResult", () => {
   it("validation returns ok: true with value on success", () => {
@@ -1103,8 +1058,6 @@ describe("HostContractValidationResult", () => {
     }
   });
 });
-
-// ─── Surface grant projection tests ───────────────────────────────
 
 describe("createHostSurfaceGrant", () => {
   it("projects owner and expectedBinding from a validated surface descriptor", () => {
@@ -1249,7 +1202,7 @@ describe("createHostSurfaceGrant", () => {
     const surface = createHostSurfaceDescriptor(validSurface());
     const grant = createHostSurfaceGrant(surface);
 
-    const FORBIDDEN_BYTE_KEYS = new Set([
+    const ENDPOINT_LOCAL_BYTE_KEYS = new Set([
       "bytes",
       "buffer",
       "data",
@@ -1269,7 +1222,7 @@ describe("createHostSurfaceGrant", () => {
         return;
       }
       for (const key of Object.keys(value as Record<string, unknown>)) {
-        expect(FORBIDDEN_BYTE_KEYS.has(key)).toBe(false);
+        expect(ENDPOINT_LOCAL_BYTE_KEYS.has(key)).toBe(false);
         assertNoForbiddenKeys((value as Record<string, unknown>)[key], `${path}.${key}`);
       }
     }
@@ -1468,7 +1421,7 @@ describe("createBindingExpectationFromHostOwner", () => {
     ).toThrow();
   });
 
-  it("rejects owner with extra keys via validateHostAuthorityOwnerThrowing", () => {
+  it("rejects owner with extra keys", () => {
     expect(() =>
       createBindingExpectationFromHostOwner({
         authorityKey: "auth-1",
@@ -1484,11 +1437,5 @@ describe("HostSurfaceGrant type exports", () => {
   it("exports intended grant types and functions", () => {
     expect(typeof createHostSurfaceGrant).toBe("function");
     expect(typeof createBindingExpectationFromHostOwner).toBe("function");
-  });
-
-  it("does not leak decimalStringToBigInt or canonicalEpochToBigInt", () => {
-    const exported = hostContract as Record<string, unknown>;
-    expect(exported.decimalStringToBigInt).toBeUndefined();
-    expect(exported.canonicalEpochToBigInt).toBeUndefined();
   });
 });

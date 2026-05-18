@@ -84,8 +84,6 @@ function hexToUint8Array(hex: string): Uint8Array {
   return bytes;
 }
 
-// ─── Fixture loaders ───────────────────────────────────────────────
-
 function loadBlockAFixture(): Record<string, unknown> {
   const data = loadFixtureJson("hot-block-a-fixture.json");
   if (typeof data !== "object" || data === null) {
@@ -110,8 +108,6 @@ function loadCompleteRegionFixture(): Record<string, unknown> {
   return data as Record<string, unknown>;
 }
 
-// ─── Identity derivation ───────────────────────────────────────────
-//
 // fixture JSON paths used:
 //   hot-block-a-fixture.json.contractKey   -> authorityKey
 //   hot-block-a-fixture.json.instanceKey   -> surfaceKey
@@ -127,8 +123,6 @@ function deriveFixtureIdentity(): {
   return { authorityKey, surfaceKey, authorityEpoch: 1n };
 }
 
-// ─── Block A expectation (for hot region descriptor) ───────────────
-//
 // fixture JSON paths used:
 //   hot-block-a-fixture.json.contractKey
 //   hot-block-a-fixture.json.instanceKey
@@ -156,8 +150,6 @@ function deriveBlockAExpectation(): HostHotBlockAExpectation {
   };
 }
 
-// ─── Layout offsets ────────────────────────────────────────────────
-//
 // fixture JSON paths used:
 //   hot-layout-manifest.json.totalRegionByteLength
 //   hot-layout-manifest.json.seqlockOffset
@@ -179,8 +171,6 @@ function deriveLayoutOffsets(): {
   };
 }
 
-// ─── Descriptor builders ───────────────────────────────────────────
-
 function createFixtureBlockA(): HostHotBlockAExpectation {
   return deriveBlockAExpectation();
 }
@@ -197,8 +187,6 @@ function createFixtureHotRegion(): HostHotRegionDescriptor {
   };
 }
 
-// ─── Shared region backed by SharedArrayBuffer ─────────────────────
-//
 // fixture JSON path used:
 //   hot-complete-fixture-region.json.completeFixtureRegionBytesHex
 
@@ -219,8 +207,6 @@ function createSharedRegionFromFixture(): {
   return { region, totalRegionByteLength };
 }
 
-// ─── Expected snapshot derivation ──────────────────────────────────
-//
 // fixture JSON paths used:
 //   hot-complete-fixture-region.json.decoded.fieldValues
 
@@ -293,10 +279,8 @@ function deriveExpectedDeckRuntimeSnapshot(): DeckRuntimeSnapshot {
   };
 }
 
-// ─── Proof 1: ready host surface descriptor permits a guarded generated hot read ──
-
-describe("Host surface descriptor guarded hot read proof", () => {
-  describe("Proof 1: ready host surface descriptor permits a guarded generated hot read", () => {
+describe("Host surface guarded hot reads", () => {
+  describe("ready host surface descriptor permits a guarded generated hot read", () => {
     it("validates surfaceReady envelope, converts owner to session expectation, guards a DeckRuntimeReader read", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);
@@ -400,9 +384,7 @@ describe("Host surface descriptor guarded hot read proof", () => {
     });
   });
 
-  // ─── Proof 2: invalidated binding prevents the generated hot read ──
-
-  describe("Proof 2: invalidated binding prevents the generated hot read", () => {
+  describe("invalidated binding prevents the generated hot read", () => {
     it("session-invalidated binding fails guard before reader.tryRead is called", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);
@@ -480,9 +462,7 @@ describe("Host surface descriptor guarded hot read proof", () => {
     });
   });
 
-  // ─── Proof 3: stale owner epoch from host descriptor prevents hot read ──
-
-  describe("Proof 3: stale owner epoch from host descriptor prevents hot read", () => {
+  describe("stale owner epoch from host descriptor prevents hot read", () => {
     it("stale authorityEpoch in host descriptor survives host-contract validation but fails session guard", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);

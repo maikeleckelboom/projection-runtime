@@ -160,7 +160,7 @@ describe("createStaleBindingWarmFailure", () => {
     expect(parsedDetails.binding.authorityEpoch).toBe("7");
   });
 
-  it("does not leak bigint into details", () => {
+  it("serializes stale binding details without bigint values", () => {
     const failure: BindingOpeningFailure = {
       ok: false,
       reason: "bindingOpening",

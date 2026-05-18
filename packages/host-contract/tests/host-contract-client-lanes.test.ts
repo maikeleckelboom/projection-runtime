@@ -73,9 +73,9 @@ function hexU64ToDecimalString(hex: string): string {
   return BigInt(`0x${hex}`).toString();
 }
 
-function assertNoForbiddenDescriptorKeys(
+function assertDescriptorCarriesOnlyMetadata(
   value: unknown,
-  forbiddenKeys: ReadonlySet<string>,
+  localFieldKeys: ReadonlySet<string>,
   path: string,
 ): void {
   if (typeof value !== "object" || value === null) {
@@ -83,17 +83,17 @@ function assertNoForbiddenDescriptorKeys(
   }
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      assertNoForbiddenDescriptorKeys(value[i], forbiddenKeys, `${path}[${i}]`);
+      assertDescriptorCarriesOnlyMetadata(value[i], localFieldKeys, `${path}[${i}]`);
     }
     return;
   }
   for (const key of Object.keys(value)) {
-    if (forbiddenKeys.has(key)) {
-      throw new Error(`forbidden descriptor key "${key}" found at ${path}`);
+    if (localFieldKeys.has(key)) {
+      throw new Error(`descriptor-local field "${key}" found at ${path}`);
     }
-    assertNoForbiddenDescriptorKeys(
+    assertDescriptorCarriesOnlyMetadata(
       (value as Record<string, unknown>)[key],
-      forbiddenKeys,
+      localFieldKeys,
       `${path}.${key}`,
     );
   }
@@ -244,7 +244,7 @@ function createFixtureSurfaceReady() {
   };
 }
 
-const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
+const DESCRIPTOR_LOCAL_FIELD_KEYS = new Set([
   "blockABytesHex",
   "completeFixtureRegionBytesHex",
   "hotRegionBytesHex",
@@ -257,10 +257,8 @@ const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
   "SharedArrayBuffer",
 ]);
 
-describe("Client lane consumption proof: control, resource, warm", () => {
-  // ─── Proof 1: Control lane request/response is descriptor-driven ───
-
-  describe("Proof 1: Control lane request/response is descriptor-driven", () => {
+describe("Client lane consumption across control, resource, and warm", () => {
+  describe("Control lane request/response is descriptor-driven", () => {
     it("validates host.surfaceReady, extracts control descriptor, creates and validates a control request/response cycle", () => {
       const { validated } = createFixtureSurfaceReady();
 
@@ -340,14 +338,14 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(correlation.value.requestKey).toBe("request-1");
       expect(correlation.value.requestKey).toBe(requestValidated.value.requestKey);
 
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(requestJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "request",
       );
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(responseJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "response",
       );
       expect(requestJson).not.toContain("SharedArrayBuffer");
@@ -355,9 +353,7 @@ describe("Client lane consumption proof: control, resource, warm", () => {
     });
   });
 
-  // ─── Proof 2: Unsupported operation is rejected using control failure envelope ───
-
-  describe("Proof 2: Unsupported operation is rejected using control failure envelope, not dispatch", () => {
+  describe("Unsupported operation is rejected using control failure envelope, not dispatch", () => {
     it("request shape validity is separate from operation support; failure is descriptor-driven", () => {
       const { validated } = createFixtureSurfaceReady();
 
@@ -438,9 +434,9 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(correlation.value.requestKey).toBe(requestValidated.value.requestKey);
 
       if (failureResponse.failure.details) {
-        assertNoForbiddenDescriptorKeys(
+        assertDescriptorCarriesOnlyMetadata(
           failureResponse.failure.details,
-          FORBIDDEN_DESCRIPTOR_KEYS,
+          DESCRIPTOR_LOCAL_FIELD_KEYS,
           "failure.details",
         );
       }
@@ -448,9 +444,7 @@ describe("Client lane consumption proof: control, resource, warm", () => {
     });
   });
 
-  // ─── Proof 3: Resource read-range request/response is descriptor-driven ───
-
-  describe("Proof 3: Resource read-range request/response is descriptor-driven through the host resource plane", () => {
+  describe("Resource read-range request/response is descriptor-driven through the host resource plane", () => {
     it("validates host.surfaceReady, extracts resourcePlane, creates and validates a read-range control request/response", () => {
       const { validated } = createFixtureSurfaceReady();
       expect(validated.ok).toBe(true);
@@ -567,14 +561,14 @@ describe("Client lane consumption proof: control, resource, warm", () => {
         expect(receiptFromPayload.version).toBe("1");
       }
 
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(requestJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "request",
       );
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(successJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "success",
       );
       expect(requestJson).not.toContain("SharedArrayBuffer");
@@ -584,9 +578,7 @@ describe("Client lane consumption proof: control, resource, warm", () => {
     });
   });
 
-  // ─── Proof 4: Warm lane frame is descriptor-driven and JSON-safe ───
-
-  describe("Proof 4: Warm lane frame is descriptor-driven and JSON-safe", () => {
+  describe("Warm lane frame is descriptor-driven and JSON-safe", () => {
     it("validates host.surfaceReady, extracts warm stream descriptor, creates and validates a warm frame envelope", () => {
       const { validated } = createFixtureSurfaceReady();
       expect(validated.ok).toBe(true);
@@ -641,7 +633,11 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(frameValidated.value.owner.authorityKey).toBe(owner.authorityKey);
       expect(frameValidated.value.owner.surfaceKey).toBe(owner.surfaceKey);
 
-      assertNoForbiddenDescriptorKeys(JSON.parse(frameJson), FORBIDDEN_DESCRIPTOR_KEYS, "frame");
+      assertDescriptorCarriesOnlyMetadata(
+        JSON.parse(frameJson),
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
+        "frame",
+      );
       expect(frameJson).not.toContain("SharedArrayBuffer");
 
       const payload = frameValidated.value.payload as Record<string, unknown>;
@@ -650,10 +646,8 @@ describe("Client lane consumption proof: control, resource, warm", () => {
     });
   });
 
-  // ─── Proof 5: Stale session binding projects consistently ───
-
-  describe("Proof 5: Stale session binding projects consistently into control/resource/warm failures", () => {
-    it("projects a bindingInvalidated failure into control, resource, and warm lane failures where helpers exist", () => {
+  describe("Stale session binding projects consistently into control/resource/warm failures", () => {
+    it("projects binding validity failures into control, resource, and warm failure shapes", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);
       const readyBinding = markAuthorityBindingReady(binding);
@@ -679,9 +673,9 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(controlDetailsObj.rebindRequired).toBe(true);
       expect(typeof controlDetailsObj.invalidationReason).toBe("string");
 
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         controlFailureParsed,
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "control-failure",
       );
 
@@ -696,9 +690,9 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(typeof resourceFailureValidated.message).toBe("string");
 
       const resourceFailureJson = JSON.stringify(resourceFailure);
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(resourceFailureJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "resource-failure",
       );
 
@@ -713,9 +707,9 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(typeof warmFailureValidated.message).toBe("string");
 
       const warmFailureJson = JSON.stringify(warmFailure);
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(warmFailureJson),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "warm-failure",
       );
 
@@ -751,9 +745,9 @@ describe("Client lane consumption proof: control, resource, warm", () => {
       expect(warmEpochFailure.code).toBe("warm.staleBinding");
       expect(typeof warmEpochFailure.message).toBe("string");
 
-      assertNoForbiddenDescriptorKeys(
+      assertDescriptorCarriesOnlyMetadata(
         JSON.parse(JSON.stringify(controlEpochFailure)),
-        FORBIDDEN_DESCRIPTOR_KEYS,
+        DESCRIPTOR_LOCAL_FIELD_KEYS,
         "control-epoch-failure",
       );
     });
