@@ -197,7 +197,8 @@ of implementation.
 
 ## 8. Resource Plane Conformance
 
-Classification: partially implemented; Resource Plane v1 is ahead of implementation.
+Classification: partially implemented; Resource Plane v1 protocol surface is implemented at the package/type/
+conformance-helper level.
 
 Implemented in source and tests:
 
@@ -208,24 +209,27 @@ Implemented in source and tests:
 - receipt validation that rejects byte-like payload fields
 - resource failure envelope helpers
 - control-plane helper for a `resource.readRange` operation key
+- typed `ResourceContract<TOpen, TDescriptor>` and `OpenResourceRequest<TOpen>` shapes
+- epoch-establishing `OpenResourceReply<TDescriptor>` carrying `handleId`, `authorityEpoch`, `resourceKind`,
+  `resourceKey`, `resourceVersion`, descriptor, and capabilities
+- 4-case `ResourceCapabilities` discriminated union with mandatory `maxChunkBytes` and `maxMappedWindowBytes` when
+  supported
+- bounded chunk-read and mapped-window request validators
+- explicit mapped-window close and resource-handle close request/result types
+- resource-specific failure union, including `mappingUnsupported`, `mappingInvalid`, `chunkTooLarge`,
+  `mappingTooLarge`, `authorityUnavailable`, and `authorityNotReady`
+- explicit `ResourceBackpressure`
+- pushed `resourceHandleInvalidated` event shape
+- modeled lifecycle helper proving invalidated handles reject later read/map attempts
+- host-contract resource-plane grants advertising v1 operation metadata without byte bodies
+- shared TypeScript conformance tests for open metadata, boundedness, invalidation, and operation metadata
 
-Major gaps against Resource Plane v1:
+Remaining gaps:
 
-- no typed resource open contract
-- no epoch-establishing open reply carrying `handleId`, `authorityEpoch`, `resourceKind`, `resourceKey`,
-  `resourceVersion`, descriptor, and capabilities
-- no 4-case `ResourceCapabilities` discriminated union
-- no `maxChunkBytes` or `maxMappedWindowBytes` contract
-- no chunk-read result carrying bytes
-- no mapped-window protocol
-- no explicit mapping close
-- no resource handle close
-- no `ResourceBackpressure`
-- no pushed `resourceHandleInvalidated` event
-- no authority restart behavior for handles
-
-The package name matches the plane, but current source is a descriptor/read-range skeleton, not the draft v1 resource
-handle protocol.
+- no real resource authority, registry, transport, file IO, cache, media decoder, or product resource ownership exists
+- no physical mapped-window backing is implemented
+- the older JSON-safe read-range receipt skeleton remains as a receipt/no-body test surface; host resource-plane grants
+  now advertise the v1 operation keys instead of the read-range helper as the resource-plane protocol
 
 ## 9. Warm Codec Conformance
 
@@ -300,46 +304,25 @@ session, resource, warm codec, and publication subscription foundations.
    dot-path string literals as the normal access path for published fields. The canonical manifest is the
    cross-language source of field identity. This slice must not add compatibility aliases or migration paths.
 
-2. `feat(session): add authority session descriptor types`
-
-   Add the discriminated `AuthoritySessionDescriptor` and the typed session event/failure shapes from the draft without
-   building a session manager yet.
-
-3. `feat(resource): add resource byte grant contract`
-
-   Add a small read-range byte-transfer metadata slice with `ResourceByteGrant` and byte range descriptors only. This
-   slice must not implement resource open, read, map, or close lifecycle.
-
-4. `test(host-contract): prove resource byte grant endpoint crossing`
-
-   Extend host-contract tests to prove a resource grant crosses the host boundary as a descriptor and does not carry
-   bytes in a control reply.
-
-5. `feat(resource): add resource handle capability types and open reply contract`
-
-   Add the v1 resource handle/open reply and 4-case `ResourceCapabilities` discriminated union, including
-   `maxMappedWindowBytes` whenever `canMapWindows: true`. This builds on the byte grant slice but does not yet
-   implement full resource open/read/map/close lifecycle.
-
-6. `test(hot-binding): prove hot handle lifecycle invalidation`
+2. `test(hot-binding): prove hot handle lifecycle invalidation`
 
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-7. `feat(warm): add framed snapshot byte codec skeleton`
+3. `feat(warm): add framed snapshot byte codec skeleton`
 
    Add a bounded binary frame parser/encoder shell for Warm Codec v1 metadata only, with `frameByteLength`, contract key,
    instance key, versions, publication metadata, optional `laneSequence`, and payload bytes.
 
-8. `test(warm): reject malformed framed snapshot bytes`
+4. `test(warm): reject malformed framed snapshot bytes`
 
    Prove malformed frame length, payload length, and invalid `laneSequencePresent` are recoverable per-frame rejections.
 
-9. `feat(publication): add warm subscribe ack and failure types`
+5. `feat(publication): add warm subscribe ack and failure types`
 
    Add only type-level request/ack/failure shapes for warm subscription, including `subscriptionId`,
    `surfaceDeferredNotReady`, `surfaceUnavailable`, `streamIncompatible`, and `coldLaneNotRatified`.
 
-10. `test(publication): reject cold subscription as not ratified`
+6. `test(publication): reject cold subscription as not ratified`
 
     Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.

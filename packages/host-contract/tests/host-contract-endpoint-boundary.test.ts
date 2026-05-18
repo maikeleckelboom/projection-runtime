@@ -17,6 +17,11 @@ import {
   createResourceReadRangeControlSuccess,
   createResourceReadRangeReceiptPayload,
   createResourceReadRangeRequestPayload,
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
   RESOURCE_READ_RANGE_OPERATION_KEY,
   validateResourceReadRangeReceiptPayload,
   validateResourceReadRangeRequestPayload,
@@ -225,7 +230,11 @@ class HostEndpoint {
 
     const resourcePlane = createHostResourcePlaneDescriptor({
       kind: "host.resourcePlane",
-      readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+      openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+      readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+      mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+      closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+      closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
     });
 
     const surface = createHostSurfaceDescriptor({
@@ -642,7 +651,7 @@ describe("endpoint surface readiness", () => {
     expect(grant.control?.endpointKey).toBe("control.deck-runtime");
     expect(grant.warm).toHaveLength(1);
     expect(grant.warm[0].streamKey).toBe("warm.deck-runtime");
-    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
 
     assertEndpointCarriesOnlyMetadata(grant, "grant");
     expect((grant as Record<string, unknown>).endpoint).toBeUndefined();

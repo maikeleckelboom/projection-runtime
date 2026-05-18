@@ -19,10 +19,15 @@ import {
   createResourceReadRangeReceiptPayload,
   createResourceReadRangeRequestPayload,
   createStaleBindingResourceFailure,
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
   RESOURCE_READ_RANGE_OPERATION_KEY,
   validateResourceDescriptor,
-  validateResourceFailure,
   validateResourceReadRangeReceiptPayload,
+  validateResourceReceiptFailure,
 } from "@exclave/resource";
 import {
   type AuthorityBinding,
@@ -214,7 +219,11 @@ function createFixtureSurfaceReady() {
 
   const resourcePlane = createHostResourcePlaneDescriptor({
     kind: "host.resourcePlane",
-    readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+    openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+    readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+    mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+    closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+    closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   });
 
   const surface = createHostSurfaceDescriptor({
@@ -456,7 +465,7 @@ describe("Client lane consumption across control, resource, and warm", () => {
       const resourcePlane = validated.value.surface.resourcePlane;
       expect(resourcePlane).toBeDefined();
       if (!resourcePlane) return;
-      expect(resourcePlane.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+      expect(resourcePlane.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
 
       const descriptor = createResourceDescriptor({
         handleKey: "fixture.resource.waveform-0",
@@ -495,7 +504,6 @@ describe("Client lane consumption across control, resource, and warm", () => {
 
       expect(request.kind).toBe("control.request");
       expect(request.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
-      expect(request.operationKey).toBe(resourcePlane.readRangeOperationKey);
 
       const requestJson = JSON.stringify(request);
       const requestParsed = JSON.parse(requestJson);
@@ -506,7 +514,6 @@ describe("Client lane consumption across control, resource, and warm", () => {
       }
 
       expect(requestValidated.value.operationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
-      expect(requestValidated.value.operationKey).toBe(resourcePlane.readRangeOperationKey);
 
       const receiptPayload = createResourceReadRangeReceiptPayload({
         handleKey: "fixture.resource.waveform-0",
@@ -685,7 +692,7 @@ describe("Client lane consumption across control, resource, and warm", () => {
       expect(typeof resourceFailure.message).toBe("string");
       expect(resourceFailure.message.length).toBeGreaterThan(0);
 
-      const resourceFailureValidated = validateResourceFailure(resourceFailure);
+      const resourceFailureValidated = validateResourceReceiptFailure(resourceFailure);
       expect(resourceFailureValidated.code).toBe("resource.staleBinding");
       expect(typeof resourceFailureValidated.message).toBe("string");
 

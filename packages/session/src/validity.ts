@@ -1,6 +1,7 @@
 export type AuthorityKey = string;
 export type SurfaceKey = string;
 export type AuthorityEpoch = bigint;
+export type SessionHandleId = string;
 
 export type InvalidationReason =
   | "authorityRestarted"
@@ -68,6 +69,80 @@ export type BindingValidity =
   | BindingValidityFailure;
 
 export type GuardResult<T> = { readonly ok: true; readonly value: T } | BindingValidityFailure;
+
+export type AuthoritySessionDescriptor =
+  | { readonly state: "starting"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "ready"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "stopping"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly state: "stopped" };
+
+export type SessionMismatchFailure = {
+  readonly kind: "sessionMismatch";
+  readonly expectedAuthorityEpoch: AuthorityEpoch;
+  readonly providedAuthorityEpoch: AuthorityEpoch;
+};
+
+export type SessionHandleInvalidFailure = {
+  readonly kind: "handleInvalid";
+  readonly handleId: SessionHandleId;
+  readonly reason: "revoked" | "expired" | "staleEpoch";
+};
+
+export type AuthorityUnavailableFailure = {
+  readonly kind: "authorityUnavailable";
+};
+
+export type AuthorityNotReadyFailure = {
+  readonly kind: "authorityNotReady";
+  readonly state: "starting" | "stopping";
+};
+
+export type RequestIllegalByContractFailure = {
+  readonly kind: "requestIllegalByContract";
+  readonly detail: string;
+};
+
+export type RequestIllegalInCurrentProductStateFailure = {
+  readonly kind: "requestIllegalInCurrentProductState";
+  readonly detail: string;
+};
+
+export type SessionBoundFailure =
+  | SessionMismatchFailure
+  | SessionHandleInvalidFailure
+  | AuthorityUnavailableFailure
+  | AuthorityNotReadyFailure
+  | RequestIllegalByContractFailure
+  | RequestIllegalInCurrentProductStateFailure;
+
+export type SessionInvalidationEvent =
+  | {
+      readonly kind: "authorityEpochReplaced";
+      readonly replacedAuthorityEpoch: AuthorityEpoch;
+      readonly replacingAuthorityEpoch: AuthorityEpoch;
+    }
+  | {
+      readonly kind: "authorityUnavailable";
+      readonly replacedAuthorityEpoch: AuthorityEpoch;
+      readonly state: "stopping" | "stopped";
+    }
+  | {
+      readonly kind: "resourceHandleInvalidated";
+      readonly authorityEpoch: AuthorityEpoch;
+      readonly handleId: SessionHandleId;
+      readonly reason: "authorityRestart" | "resourceReplaced" | "revoked" | "expired";
+    }
+  | {
+      readonly kind: "hotHandleInvalidated";
+      readonly authorityEpoch: AuthorityEpoch;
+      readonly handleId: SessionHandleId;
+      readonly projectionInstanceKey: string;
+      readonly reason: "authorityRestart" | "projectionReplaced" | "revoked";
+    };
+
+export type SessionStateEvent =
+  | { readonly kind: "authorityReady"; readonly authorityEpoch: AuthorityEpoch }
+  | { readonly kind: "authorityStarting"; readonly authorityEpoch: AuthorityEpoch };
 
 export function createAuthorityBinding(input: {
   readonly authorityKey: AuthorityKey;

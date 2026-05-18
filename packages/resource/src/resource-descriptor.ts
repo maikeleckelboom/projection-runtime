@@ -1,7 +1,7 @@
 import { checkJsonObjectRoot } from "@exclave/base";
 import { throwInputRejected } from "./errors";
 
-export type ResourceHandleKey = string;
+type LegacyResourceHandleKey = string;
 export type ResourceKind = string;
 export type ResourceVersion = string;
 
@@ -12,7 +12,7 @@ export type ResourceOwner = {
 };
 
 export type ResourceDescriptor = {
-  readonly handleKey: ResourceHandleKey;
+  readonly handleKey: LegacyResourceHandleKey;
   readonly kind: ResourceKind;
   readonly byteLength: number;
   readonly version: ResourceVersion;
@@ -119,7 +119,7 @@ export function validateResourceDescriptor(descriptor: unknown): ResourceDescrip
 }
 
 export function createResourceDescriptor(input: {
-  readonly handleKey: ResourceHandleKey;
+  readonly handleKey: LegacyResourceHandleKey;
   readonly kind: ResourceKind;
   readonly byteLength: number;
   readonly version: ResourceVersion;

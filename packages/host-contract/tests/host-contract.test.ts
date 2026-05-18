@@ -1,6 +1,12 @@
 import type { JsonObject } from "@exclave/base";
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
-import { RESOURCE_READ_RANGE_OPERATION_KEY } from "@exclave/resource";
+import {
+  RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
+  RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+  RESOURCE_MAP_WINDOW_OPERATION_KEY,
+  RESOURCE_OPEN_OPERATION_KEY,
+  RESOURCE_READ_CHUNK_OPERATION_KEY,
+} from "@exclave/resource";
 import type { AuthorityBinding } from "@exclave/session";
 import { createAuthorityBinding } from "@exclave/session";
 import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
@@ -89,7 +95,11 @@ function validWarmStream(): HostWarmStreamDescriptor {
 function validResourcePlane(): HostResourcePlaneDescriptor {
   return {
     kind: "host.resourcePlane",
-    readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+    openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
+    readChunkOperationKey: RESOURCE_READ_CHUNK_OPERATION_KEY,
+    mapWindowOperationKey: RESOURCE_MAP_WINDOW_OPERATION_KEY,
+    closeMappingOperationKey: RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+    closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   };
 }
 
@@ -685,13 +695,17 @@ describe("HostResourcePlaneDescriptor", () => {
   it("accepts valid resource-plane descriptor", () => {
     const rp = createHostResourcePlaneDescriptor(validResourcePlane());
     expect(rp.kind).toBe("host.resourcePlane");
-    expect(rp.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(rp.openOperationKey).toBe(RESOURCE_OPEN_OPERATION_KEY);
+    expect(rp.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
+    expect(rp.mapWindowOperationKey).toBe(RESOURCE_MAP_WINDOW_OPERATION_KEY);
+    expect(rp.closeMappingOperationKey).toBe(RESOURCE_CLOSE_MAPPING_OPERATION_KEY);
+    expect(rp.closeHandleOperationKey).toBe(RESOURCE_CLOSE_HANDLE_OPERATION_KEY);
   });
 
-  it("requires RESOURCE_READ_RANGE_OPERATION_KEY", () => {
+  it("requires Resource Plane v1 operation keys", () => {
     const result = validateHostResourcePlaneDescriptor({
-      kind: "host.resourcePlane",
-      readRangeOperationKey: "wrong",
+      ...validResourcePlane(),
+      readChunkOperationKey: "wrong",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -701,8 +715,7 @@ describe("HostResourcePlaneDescriptor", () => {
 
   it("rejects extra fields", () => {
     const result = validateHostResourcePlaneDescriptor({
-      kind: "host.resourcePlane",
-      readRangeOperationKey: RESOURCE_READ_RANGE_OPERATION_KEY,
+      ...validResourcePlane(),
       extra: true,
     });
     expect(result.ok).toBe(false);
@@ -1114,7 +1127,13 @@ describe("createHostSurfaceGrant", () => {
 
     expect(grant.resourcePlane).toBeDefined();
     expect(grant.resourcePlane?.kind).toBe("surface.resourcePlaneCapability");
-    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.resourcePlane?.openOperationKey).toBe(RESOURCE_OPEN_OPERATION_KEY);
+    expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
+    expect(grant.resourcePlane?.mapWindowOperationKey).toBe(RESOURCE_MAP_WINDOW_OPERATION_KEY);
+    expect(grant.resourcePlane?.closeMappingOperationKey).toBe(
+      RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
+    );
+    expect(grant.resourcePlane?.closeHandleOperationKey).toBe(RESOURCE_CLOSE_HANDLE_OPERATION_KEY);
     expect(grant.resourcePlane?.owner.authorityKey).toBe("auth-1");
   });
 
@@ -1281,7 +1300,7 @@ describe("createHostSurfaceGrant", () => {
     expect(grant.hot[0].expectedByteLength).toBe(4096);
     expect(grant.control?.endpointKey).toBe("ep-1");
     expect(grant.control?.supportedOperationKeys).toEqual(["op.1", "op.2"]);
-    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
     expect(grant.warm[0].streamKey).toBe("ws-1");
 
     const surfaceAny = surface as Record<string, unknown>;
@@ -1306,7 +1325,7 @@ describe("createHostSurfaceGrant", () => {
     warmStreamsAny[0].streamKey = "tampered";
 
     const resourcePlaneAny = surfaceAny.resourcePlane as Record<string, unknown>;
-    resourcePlaneAny.readRangeOperationKey = "tampered";
+    resourcePlaneAny.readChunkOperationKey = "tampered";
 
     expect(grant.owner.authorityKey).toBe("auth-1");
     expect(grant.owner.surfaceKey).toBe("surf-1");
@@ -1318,7 +1337,7 @@ describe("createHostSurfaceGrant", () => {
     expect(grant.hot[0].expectedByteLength).toBe(4096);
     expect(grant.control?.endpointKey).toBe("ep-1");
     expect(grant.control?.supportedOperationKeys).toEqual(["op.1", "op.2"]);
-    expect(grant.resourcePlane?.readRangeOperationKey).toBe(RESOURCE_READ_RANGE_OPERATION_KEY);
+    expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
     expect(grant.warm[0].streamKey).toBe("ws-1");
   });
 
