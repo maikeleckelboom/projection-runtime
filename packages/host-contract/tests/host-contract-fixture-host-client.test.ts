@@ -27,7 +27,6 @@ import {
 } from "@exclave/resource";
 import {
   type AuthorityBinding,
-  type BindingExpectation,
   createAuthorityBinding,
   guardAuthorityBinding,
   invalidateAuthorityBinding,
@@ -50,14 +49,14 @@ import {
   createHostHotRegionDescriptor,
   createHostResourcePlaneDescriptor,
   createHostSurfaceDescriptor,
+  createHostSurfaceGrant,
   createHostSurfaceInvalidatedEnvelope,
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
-  type HostAuthorityOwner,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
-  type HostSurfaceDescriptor,
+  type HostSurfaceGrant,
   type HostSurfaceInvalidatedEnvelope,
   type HostSurfaceReadyEnvelope,
   validateHostSurfaceInvalidatedEnvelope,
@@ -82,16 +81,6 @@ function hexU64ToDecimalString(hex: string): string {
     throw new Error("hexU64ToDecimalString: hex must be 1-16 hex characters");
   }
   return BigInt(`0x${hex}`).toString();
-}
-
-function decimalStringToBigInt(value: unknown, label: string): bigint {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a string`);
-  }
-  if (!/^(?:0|[1-9][0-9]*)$/.test(value)) {
-    throw new Error(`${label} must be a canonical non-negative decimal string`);
-  }
-  return BigInt(value);
 }
 
 function mustBeString(value: unknown, label: string): string {
@@ -324,95 +313,6 @@ const FORBIDDEN_DESCRIPTOR_KEYS = new Set([
   "SharedArrayBuffer",
 ]);
 
-// ─── Grant projection types ────────────────────────────────────────
-
-type HotRegionCapability = {
-  readonly kind: "surface.hotRegionCapability";
-  readonly hotRegionKey: string;
-  readonly expectedBlockA: HostHotBlockAExpectation;
-  readonly expectedByteLength: number;
-  readonly seqlockOffset: number;
-  readonly publicationSequenceOffset?: number;
-};
-
-type ControlEndpointCapability = {
-  readonly kind: "surface.controlEndpointCapability";
-  readonly endpointKey: string;
-  readonly supportedOperationKeys: readonly string[];
-};
-
-type ResourcePlaneCapability = {
-  readonly kind: "surface.resourcePlaneCapability";
-  readonly readRangeOperationKey: string;
-  readonly owner: HostAuthorityOwner;
-};
-
-type WarmStreamCapability = {
-  readonly kind: "surface.warmStreamCapability";
-  readonly streamKey: string;
-  readonly owner: HostAuthorityOwner;
-};
-
-type SurfaceGrant = {
-  readonly owner: HostAuthorityOwner;
-  readonly expectedBinding: BindingExpectation;
-  readonly hot: readonly HotRegionCapability[];
-  readonly control?: ControlEndpointCapability;
-  readonly resourcePlane?: ResourcePlaneCapability;
-  readonly warm: readonly WarmStreamCapability[];
-};
-
-function projectGrantFromSurface(surface: HostSurfaceDescriptor): SurfaceGrant {
-  const owner = surface.owner;
-  const expectedBinding: BindingExpectation = {
-    authorityKey: owner.authorityKey,
-    surfaceKey: owner.surfaceKey,
-    authorityEpoch: decimalStringToBigInt(owner.authorityEpoch, "owner.authorityEpoch"),
-  };
-
-  const hot: HotRegionCapability[] = (surface.hotRegions ?? []).map((region) => ({
-    kind: "surface.hotRegionCapability" as const,
-    hotRegionKey: region.hotRegionKey,
-    expectedBlockA: region.blockA,
-    expectedByteLength: region.totalRegionByteLength,
-    seqlockOffset: region.seqlockOffset,
-    ...(region.publicationSequenceOffset !== undefined
-      ? { publicationSequenceOffset: region.publicationSequenceOffset }
-      : {}),
-  }));
-
-  const control: ControlEndpointCapability | undefined = surface.control
-    ? {
-        kind: "surface.controlEndpointCapability" as const,
-        endpointKey: surface.control.endpointKey,
-        supportedOperationKeys: surface.control.operationKeys,
-      }
-    : undefined;
-
-  const resourcePlane: ResourcePlaneCapability | undefined = surface.resourcePlane
-    ? {
-        kind: "surface.resourcePlaneCapability" as const,
-        readRangeOperationKey: surface.resourcePlane.readRangeOperationKey,
-        owner,
-      }
-    : undefined;
-
-  const warm: WarmStreamCapability[] = (surface.warmStreams ?? []).map((stream) => ({
-    kind: "surface.warmStreamCapability" as const,
-    streamKey: stream.streamKey,
-    owner,
-  }));
-
-  return {
-    owner,
-    expectedBinding,
-    hot,
-    control,
-    resourcePlane,
-    warm,
-  };
-}
-
 function assertNoBytePayloadFields(value: unknown, path: string): void {
   assertNoForbiddenDescriptorKeys(
     value,
@@ -617,10 +517,10 @@ type HotReadFailure =
 type HotReadResult = { ok: true; snapshot: DeckRuntimeSnapshot; sequence: bigint } | HotReadFailure;
 
 class FixtureClient {
-  private _grant: SurfaceGrant | null = null;
+  private _grant: HostSurfaceGrant | null = null;
   private _binding: AuthorityBinding | null = null;
 
-  acceptSurfaceReady(envelope: HostSurfaceReadyEnvelope): SurfaceGrant {
+  acceptSurfaceReady(envelope: HostSurfaceReadyEnvelope): HostSurfaceGrant {
     const json = JSON.stringify(envelope);
     const parsed = JSON.parse(json);
     const validated = validateHostSurfaceReadyEnvelope(parsed);
@@ -629,7 +529,7 @@ class FixtureClient {
     }
 
     const surface = validated.value.surface;
-    const grant = projectGrantFromSurface(surface);
+    const grant = createHostSurfaceGrant(surface);
     this._grant = grant;
     this._binding = markAuthorityBindingReady(
       createAuthorityBinding({
@@ -641,7 +541,7 @@ class FixtureClient {
     return grant;
   }
 
-  get grant(): SurfaceGrant {
+  get grant(): HostSurfaceGrant {
     if (this._grant === null) {
       throw new Error("grant not initialized; call acceptSurfaceReady first");
     }
@@ -655,7 +555,7 @@ class FixtureClient {
     return this._binding;
   }
 
-  readHot(grant: SurfaceGrant, region: Uint8Array): HotReadResult {
+  readHot(grant: HostSurfaceGrant, region: Uint8Array): HotReadResult {
     const hotCapability = grant.hot[0];
     if (hotCapability === undefined) {
       throw new Error("grant has no hot capabilities");
@@ -711,7 +611,7 @@ class FixtureClient {
     return this._lastReadSpyCallCount;
   }
 
-  createControlRequest(grant: SurfaceGrant, operationKey: string): ControlRequestEnvelope {
+  createControlRequest(grant: HostSurfaceGrant, operationKey: string): ControlRequestEnvelope {
     if (!grant.control) {
       throw new Error("grant has no control capability");
     }
@@ -757,7 +657,7 @@ class FixtureClient {
   }
 
   createResourceReadRangeRequest(
-    grant: SurfaceGrant,
+    grant: HostSurfaceGrant,
     handleKey: string,
     range: { offset: number; byteLength: number },
   ): ControlRequestEnvelope {
@@ -826,7 +726,7 @@ class FixtureClient {
   }
 
   consumeWarmFrame(
-    grant: SurfaceGrant,
+    grant: HostSurfaceGrant,
     frame: ReturnType<typeof createWarmFrameEnvelope>,
   ): {
     streamKey: string;
@@ -929,16 +829,17 @@ function createDeckRuntimeFixtureClient(): FixtureClient {
 // ─── Tests ──────────────────────────────────────────────────────────
 
 describe("In-process fixture host/client lifecycle proof", () => {
-  // ─── Proof 1: Client opens host surface and creates SurfaceGrant ──
+  // ─── Proof 1: Client opens host surface and creates HostSurfaceGrant ──
 
-  describe("Proof 1: Client opens host surface and creates SurfaceGrant", () => {
-    it("validates surfaceReady envelope and projects SurfaceGrant from validated surface", () => {
+  describe("Proof 1: Client opens host surface and creates HostSurfaceGrant", () => {
+    it("validates surfaceReady envelope and projects HostSurfaceGrant from validated surface", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
       const envelope = host.openSurface();
       const grant = client.acceptSurfaceReady(envelope);
 
+      expect(grant.kind).toBe("host.surfaceGrant");
       expect(grant.owner.authorityKey).toBe(host.binding.authorityKey);
       expect(grant.owner.surfaceKey).toBe(host.binding.surfaceKey);
       expect(grant.owner.authorityEpoch).toBe("1");
@@ -979,9 +880,9 @@ describe("In-process fixture host/client lifecycle proof", () => {
     });
   });
 
-  // ─── Proof 2: Client performs guarded hot read through SurfaceGrant ──
+  // ─── Proof 2: Client performs guarded hot read through HostSurfaceGrant ──
 
-  describe("Proof 2: Client performs guarded hot read through SurfaceGrant", () => {
+  describe("Proof 2: Client performs guarded hot read through HostSurfaceGrant", () => {
     it("reads hot region using grant-derived capabilities", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -1215,7 +1116,7 @@ describe("In-process fixture host/client lifecycle proof", () => {
       const envelope = host.openSurface();
       const grant = client.acceptSurfaceReady(envelope);
 
-      const staleGrant: SurfaceGrant = {
+      const staleGrant: HostSurfaceGrant = {
         ...grant,
         expectedBinding: {
           ...grant.expectedBinding,
