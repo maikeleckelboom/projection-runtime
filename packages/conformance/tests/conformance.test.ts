@@ -1858,7 +1858,7 @@ describe("@exclave/conformance execution", () => {
           expect(second).toBe(first);
         });
 
-        it("consumer binding source does not contain bind()", async () => {
+        it("consumer binding source has static source-shape-only runtime availability", async () => {
           const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
           const authoredContract = fixture.artifacts.authoredContract;
           const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
@@ -1866,11 +1866,32 @@ describe("@exclave/conformance execution", () => {
             resolved,
             symbolStem: profile.symbolStem,
           });
+          const sourceFile = ts.createSourceFile(
+            `${profile.fixtureName}/generated/consumer-binding.ts`,
+            source,
+            ts.ScriptTarget.ES2024,
+            true,
+          );
+          const runtimeAvailabilityConst = sourceFile.statements.find(
+            (statement): statement is ts.VariableStatement =>
+              ts.isVariableStatement(statement) &&
+              statement.declarationList.declarations.some(
+                (declaration) =>
+                  ts.isIdentifier(declaration.name) &&
+                  declaration.name.text ===
+                    `${profile.constStem}ConsumerBindingRuntimeAvailability`,
+              ),
+          );
 
-          expect(source).not.toContain("bind()");
+          expect(runtimeAvailabilityConst).toBeDefined();
+          expect(
+            runtimeAvailabilityConst?.declarationList.declarations[0]?.initializer?.getText(
+              sourceFile,
+            ),
+          ).toBe('{\n  hot: "source-shape-only",\n} as const');
         });
 
-        it("consumer binding source does not import @exclave/warm", async () => {
+        it("consumer binding type includes runtimeAvailability as a readonly static marker", async () => {
           const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
           const authoredContract = fixture.artifacts.authoredContract;
           const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
@@ -1878,42 +1899,88 @@ describe("@exclave/conformance execution", () => {
             resolved,
             symbolStem: profile.symbolStem,
           });
+          const sourceFile = ts.createSourceFile(
+            `${profile.fixtureName}/generated/consumer-binding.ts`,
+            source,
+            ts.ScriptTarget.ES2024,
+            true,
+          );
+          const consumerBindingType = sourceFile.statements.find(
+            (statement): statement is ts.TypeAliasDeclaration =>
+              ts.isTypeAliasDeclaration(statement) &&
+              statement.name.text === `${profile.symbolStem}ConsumerBinding`,
+          );
 
-          expect(source).not.toContain("@exclave/warm");
+          expect(consumerBindingType).toBeDefined();
+          if (
+            consumerBindingType === undefined ||
+            !ts.isTypeLiteralNode(consumerBindingType.type)
+          ) {
+            throw new Error(`${profile.symbolStem}ConsumerBinding must be a type literal`);
+          }
+
+          const runtimeAvailabilityMember = consumerBindingType.type.members.find(
+            (member): member is ts.PropertySignature =>
+              ts.isPropertySignature(member) &&
+              ts.isIdentifier(member.name) &&
+              member.name.text === "runtimeAvailability",
+          );
+
+          expect(runtimeAvailabilityMember).toBeDefined();
+          expect(
+            runtimeAvailabilityMember?.modifiers?.some(
+              (modifier) => modifier.kind === ts.SyntaxKind.ReadonlyKeyword,
+            ),
+          ).toBe(true);
+          expect(runtimeAvailabilityMember?.type?.getText(sourceFile)).toBe(
+            `typeof ${profile.constStem}ConsumerBindingRuntimeAvailability`,
+          );
         });
 
-        it("consumer binding source has source-shape-only runtime availability", async () => {
-          const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
-          const authoredContract = fixture.artifacts.authoredContract;
-          const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
-          const source = emitTypeScriptProjectionConsumerBindingSource({
-            resolved,
-            symbolStem: profile.symbolStem,
+        it("consumer binding artifact exports source-shape declarations without runtime creator values", () => {
+          const committedPath = resolve(
+            fixtureRoot,
+            profile.fixtureName,
+            "generated",
+            "consumer-binding.ts",
+          );
+          const committedSource = readFileSync(committedPath, "utf8");
+          const sourceFile = ts.createSourceFile(
+            committedPath,
+            committedSource,
+            ts.ScriptTarget.ES2024,
+            true,
+          );
+          const exportedValueDeclarations = sourceFile.statements.flatMap((statement) => {
+            if (!hasExportModifier(statement) || !ts.isVariableStatement(statement)) return [];
+            return statement.declarationList.declarations.map((declaration) =>
+              declaration.name.getText(sourceFile),
+            );
           });
 
-          expect(source).toContain("source-shape-only");
-          expect(source).not.toContain("runtimeReady");
-          expect(source).not.toContain("live");
+          expect(exportedValueDeclarations).toEqual([
+            `${profile.constStem}Fields`,
+            `${profile.constStem}FieldIds`,
+            `${profile.constStem}ConsumerBindingMetadata`,
+            `${profile.constStem}ConsumerBindingRuntimeAvailability`,
+          ]);
+          expect(
+            sourceFile.statements.filter(
+              (statement) =>
+                hasExportModifier(statement) &&
+                (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)),
+            ),
+          ).toEqual([]);
         });
       });
     }
 
-    it("hot-basic-v0 consumer binding source typechecks against real package exports", () => {
-      const authoredContractPath = resolve(fixtureRoot, "hot-basic-v0/authored-contract.json");
-      const authoredContract = JSON.parse(readFileSync(authoredContractPath, "utf8"));
-      const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
-
-      const source = emitTypeScriptProjectionConsumerBindingSource({
-        resolved,
-        symbolStem: "HotBasic",
-      });
-
-      const generatedFileName = resolve(
-        repoRoot,
-        "packages/compiler/tests/__generated_hot_basic_consumer_binding__.ts",
-      );
+    it("committed consumer binding artifacts typecheck against real package exports", () => {
       const hotConsumerIndexPath = resolve(repoRoot, "packages/hot-consumer/src/index.ts");
       const baseIndexPath = resolve(repoRoot, "packages/base/src/index.ts");
+      const committedConsumerBindingPaths = consumerBindingProfiles.map((profile) =>
+        resolve(fixtureRoot, profile.fixtureName, "generated", "consumer-binding.ts"),
+      );
 
       const compilerHost = ts.createCompilerHost({
         strict: true,
@@ -1928,32 +1995,8 @@ describe("@exclave/conformance execution", () => {
         baseUrl: repoRoot,
       });
 
-      const originalGetSourceFile = compilerHost.getSourceFile;
-      compilerHost.getSourceFile = (
-        fileName: string,
-        languageVersionOrOptions: ts.ScriptTarget | ts.CreateSourceFileOptions,
-        onError?: (message: string) => void,
-        shouldCreateNewSourceFile?: boolean,
-      ): ts.SourceFile | undefined => {
-        if (fileName === generatedFileName) {
-          return ts.createSourceFile(
-            fileName,
-            source,
-            languageVersionOrOptions as ts.ScriptTarget,
-            true,
-          );
-        }
-
-        return originalGetSourceFile(
-          fileName,
-          languageVersionOrOptions,
-          onError,
-          shouldCreateNewSourceFile,
-        );
-      };
-
       const program = ts.createProgram({
-        rootNames: [generatedFileName],
+        rootNames: committedConsumerBindingPaths,
         options: {
           strict: true,
           noEmit: true,
@@ -1973,7 +2016,8 @@ describe("@exclave/conformance execution", () => {
         .getPreEmitDiagnostics(program)
         .filter(
           (diagnostic) =>
-            diagnostic.file !== undefined && diagnostic.file.fileName === generatedFileName,
+            diagnostic.file !== undefined &&
+            committedConsumerBindingPaths.includes(diagnostic.file.fileName),
         );
 
       const diagnosticMessages = diagnostics.map((diagnostic) => {
@@ -2524,6 +2568,15 @@ async function withTempFixtureRoot(callback: (root: string) => Promise<void>): P
 
 function cloneRecord(value: unknown): Record<string, unknown> {
   return structuredClone(value) as Record<string, unknown>;
+}
+
+function hasExportModifier(statement: ts.Statement): boolean {
+  return (
+    ts.canHaveModifiers(statement) &&
+    ts
+      .getModifiers(statement)
+      ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) === true
+  );
 }
 
 function decodeHotLayoutManifestFixture(value: unknown): HotLayoutManifest {
