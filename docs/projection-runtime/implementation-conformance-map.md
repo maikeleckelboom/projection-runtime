@@ -40,7 +40,7 @@ intended protocol surface, but current implementation conformance must not be in
 | --- | --- | --- |
 | `@exclave/base` | implemented | Owns JSON-safety checks, `ExclaveError`, error domains, and invariants. It is foundational, not projection runtime behavior. |
 | `@exclave/schema` | implemented | Owns authored contract types, path grammar validation, field-shape syntax, and lane declaration syntax. It does not normalize contracts, derive versions, plan lanes, or generate runtime bindings. |
-| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, hot layout manifests through `@exclave/hot-codec`, manifest-backed warm lane manifests with `warmCodecVersion` for framed-snapshot warm declarations, field identity modules, and generated TypeScript public consumer binding source/API shape. It retains cold declarations but does not derive `coldCodecVersion` or generate live runtime binding implementations. |
+| `@exclave/compiler` | partially implemented | Emits canonical manifests, sorted fields, field ids, `semanticVersion`, canonical lane declarations, hot layout manifests through `@exclave/hot-codec`, manifest-backed warm lane manifests with `warmCodecVersion` for framed-snapshot warm declarations, field identity modules, and generated TypeScript public consumer binding source/API shape. The generated consumer binding source is now represented in projection-runtime fixture/conformance evidence (hot-basic-v0, deck-runtime-v0, hot-exchange-v0). It retains cold declarations but does not derive `coldCodecVersion` or generate live runtime binding implementations. |
 | `@exclave/hot-codec` | partially implemented | Implements hot constants, layout planning, `hotLayoutVersion`, Block A and Block B helpers, deterministic hot field byte helpers, complete fixture-region encode/decode, and tests. It does not allocate SABs, run seqlock runtime loops, open handles, or manage lifecycle. |
 | `@exclave/hot-binding` | partially implemented | Validates already-opened SAB-backed regions and returns `BigUint64Array` counter views. It checks Block A expectations and counter offsets but does not own open, close, stale state, generated binding state, or handle lifecycle. |
 | `@exclave/hot-consumer` | partially implemented | Implements the bounded read kernel with atomic sequence loads, separate writer-active and torn-read budgets, last-good fallback, and tests. It is not the generated `HotProjectionBinding<T>` state machine. |
@@ -90,8 +90,8 @@ Gaps:
 
 - The compiler emits field identity artifacts, deterministic TypeScript field identity modules, and deterministic
   TypeScript public consumer binding source/API shape derived from the canonical manifest and lane manifests. The
-  generated consumer binding source is type/metadata surface only; live bind/read/subscribe/decode behavior remains
-  future runtime work.
+  generated consumer binding source is now represented in projection-runtime fixture/conformance evidence.
+  Live bind/read/subscribe/decode behavior remains future runtime work.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding runtime exists in package source.
 - Publication metadata exists for the modeled warm subscription path, but not as a full runtime model across hot, warm,
@@ -331,12 +331,10 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `test(conformance): wire generated consumer binding source into projection-runtime fixtures`
-
-   The compiler can now emit generated consumer binding source/API shape. The generated source is not yet emitted into
-   fixture artifacts. The generated source is not yet part of conformance fixture agreement. Live runtime binding
-   (`bind()`, transport, session, control) remains future work. This slice wires the generated consumer binding source
-   into fixture artifacts so that conformance proofs can typecheck and golden-compare the generated output.
+1. `test(conformance): wire generated consumer binding source into projection-runtime fixtures` — **done**.
+   The compiler now emits generated consumer binding source/API shape. Generated consumer binding source is now
+   represented in projection-runtime fixture/conformance evidence (hot-basic-v0, deck-runtime-v0, hot-exchange-v0).
+   Live runtime binding (`bind()`, transport, session, control) remains future work.
 
 2. `test(hot-binding): prove hot handle lifecycle invalidation`
 

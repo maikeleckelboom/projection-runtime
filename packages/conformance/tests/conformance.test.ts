@@ -5,6 +5,13 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ExclaveError } from "@exclave/base";
+import {
+  type CompileProjectionResult,
+  type CompileProjectionSuccess,
+  compileAuthoredProjectionContract,
+  emitTypeScriptProjectionConsumerBindingSource,
+  type ResolvedProjectionContract,
+} from "@exclave/compiler";
 import { type HotBindingError, isHotBindingError } from "@exclave/hot-binding";
 import {
   bytesToHex,
@@ -16,6 +23,7 @@ import {
   type HotLayoutManifest,
   hexToBytes,
 } from "@exclave/hot-codec";
+import ts from "typescript";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
@@ -59,10 +67,15 @@ const GENERATED_FIXTURE_FILES = [
 ] as const;
 const GENERATED_HOT_ARTIFACT_FIXTURE_FILES = [
   ...GENERATED_FIXTURE_FILES,
+  "generated/consumer-binding.ts",
   "generated/hot-reader.ts",
   "generated/hot-writer.ts",
   "generated/hot_writer.rs",
   "generated/artifacts.json",
+] as const;
+const GENERATED_CONSUMER_BINDING_FIXTURE_FILES = [
+  ...GENERATED_FIXTURE_FILES,
+  "generated/consumer-binding.ts",
 ] as const;
 
 type RustHotWriterOutput = {
@@ -1788,6 +1801,194 @@ describe("@exclave/conformance execution", () => {
     }, "variant not-safe is not supported by generated Rust writer v0");
   });
 
+  describe("@exclave/conformance consumer binding source", () => {
+    const consumerBindingProfiles = [
+      { fixtureName: "hot-basic-v0", symbolStem: "HotBasic", constStem: "hotBasic" },
+      { fixtureName: "deck-runtime-v0", symbolStem: "DeckRuntime", constStem: "deckRuntime" },
+      {
+        fixtureName: "hot-exchange-v0",
+        symbolStem: "HotExchange",
+        constStem: "hotExchange",
+      },
+    ] as const;
+
+    function unwrapCompileResult(result: CompileProjectionResult): ResolvedProjectionContract {
+      expect(result.ok).toBe(true);
+      return (result as CompileProjectionSuccess).value;
+    }
+
+    for (const profile of consumerBindingProfiles) {
+      describe(profile.fixtureName, () => {
+        it("committed consumer binding source has expected header and content", async () => {
+          const committedPath = resolve(
+            fixtureRoot,
+            profile.fixtureName,
+            "generated",
+            "consumer-binding.ts",
+          );
+          const committedSource = readFileSync(committedPath, "utf8");
+          const expectedHeader = `// Generated from fixtures/projection-runtime/${profile.fixtureName}/resolved-contract.json. Do not edit by hand.`;
+
+          expect(committedSource).toContain(expectedHeader);
+          expect(committedSource).toContain(`export const ${profile.constStem}Fields`);
+          expect(committedSource).toContain(`export type ${profile.symbolStem}FieldPath`);
+          expect(committedSource).toContain(`export const ${profile.constStem}FieldIds`);
+          expect(committedSource).toContain(
+            `export const ${profile.constStem}ConsumerBindingMetadata`,
+          );
+          expect(committedSource).toContain(
+            `export const ${profile.constStem}ConsumerBindingRuntimeAvailability`,
+          );
+          expect(committedSource).toContain(`export type ${profile.symbolStem}ConsumerBinding`);
+        });
+
+        it("consumer binding source is deterministic", async () => {
+          const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
+          const authoredContract = fixture.artifacts.authoredContract;
+          const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
+          const first = emitTypeScriptProjectionConsumerBindingSource({
+            resolved,
+            symbolStem: profile.symbolStem,
+          });
+          const second = emitTypeScriptProjectionConsumerBindingSource({
+            resolved,
+            symbolStem: profile.symbolStem,
+          });
+
+          expect(second).toBe(first);
+        });
+
+        it("consumer binding source does not contain bind()", async () => {
+          const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
+          const authoredContract = fixture.artifacts.authoredContract;
+          const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
+          const source = emitTypeScriptProjectionConsumerBindingSource({
+            resolved,
+            symbolStem: profile.symbolStem,
+          });
+
+          expect(source).not.toContain("bind()");
+        });
+
+        it("consumer binding source does not import @exclave/warm", async () => {
+          const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
+          const authoredContract = fixture.artifacts.authoredContract;
+          const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
+          const source = emitTypeScriptProjectionConsumerBindingSource({
+            resolved,
+            symbolStem: profile.symbolStem,
+          });
+
+          expect(source).not.toContain("@exclave/warm");
+        });
+
+        it("consumer binding source has source-shape-only runtime availability", async () => {
+          const fixture = await loadProjectionRuntimeFixture(profile.fixtureName);
+          const authoredContract = fixture.artifacts.authoredContract;
+          const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
+          const source = emitTypeScriptProjectionConsumerBindingSource({
+            resolved,
+            symbolStem: profile.symbolStem,
+          });
+
+          expect(source).toContain("source-shape-only");
+          expect(source).not.toContain("runtimeReady");
+          expect(source).not.toContain("live");
+        });
+      });
+    }
+
+    it("hot-basic-v0 consumer binding source typechecks against real package exports", () => {
+      const authoredContractPath = resolve(fixtureRoot, "hot-basic-v0/authored-contract.json");
+      const authoredContract = JSON.parse(readFileSync(authoredContractPath, "utf8"));
+      const resolved = unwrapCompileResult(compileAuthoredProjectionContract(authoredContract));
+
+      const source = emitTypeScriptProjectionConsumerBindingSource({
+        resolved,
+        symbolStem: "HotBasic",
+      });
+
+      const generatedFileName = resolve(
+        repoRoot,
+        "packages/compiler/tests/__generated_hot_basic_consumer_binding__.ts",
+      );
+      const hotConsumerIndexPath = resolve(repoRoot, "packages/hot-consumer/src/index.ts");
+      const baseIndexPath = resolve(repoRoot, "packages/base/src/index.ts");
+
+      const compilerHost = ts.createCompilerHost({
+        strict: true,
+        noEmit: true,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2024,
+        paths: {
+          "@exclave/hot-consumer": [hotConsumerIndexPath],
+          "@exclave/base": [baseIndexPath],
+        },
+        baseUrl: repoRoot,
+      });
+
+      const originalGetSourceFile = compilerHost.getSourceFile;
+      compilerHost.getSourceFile = (
+        fileName: string,
+        languageVersionOrOptions: ts.ScriptTarget | ts.CreateSourceFileOptions,
+        onError?: (message: string) => void,
+        shouldCreateNewSourceFile?: boolean,
+      ): ts.SourceFile | undefined => {
+        if (fileName === generatedFileName) {
+          return ts.createSourceFile(
+            fileName,
+            source,
+            languageVersionOrOptions as ts.ScriptTarget,
+            true,
+          );
+        }
+
+        return originalGetSourceFile(
+          fileName,
+          languageVersionOrOptions,
+          onError,
+          shouldCreateNewSourceFile,
+        );
+      };
+
+      const program = ts.createProgram({
+        rootNames: [generatedFileName],
+        options: {
+          strict: true,
+          noEmit: true,
+          moduleResolution: ts.ModuleResolutionKind.Bundler,
+          module: ts.ModuleKind.ESNext,
+          target: ts.ScriptTarget.ES2024,
+          paths: {
+            "@exclave/hot-consumer": [hotConsumerIndexPath],
+            "@exclave/base": [baseIndexPath],
+          },
+          baseUrl: repoRoot,
+        },
+        host: compilerHost,
+      });
+
+      const diagnostics = ts
+        .getPreEmitDiagnostics(program)
+        .filter(
+          (diagnostic) =>
+            diagnostic.file !== undefined && diagnostic.file.fileName === generatedFileName,
+        );
+
+      const diagnosticMessages = diagnostics.map((diagnostic) => {
+        const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+        const lineAndChar =
+          diagnostic.file !== undefined && diagnostic.start !== undefined
+            ? `:${ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start).line + 1}`
+            : "";
+        return `${diagnostic.file?.fileName ?? "<unknown>"}${lineAndChar}: ${message}`;
+      });
+
+      expect(diagnosticMessages).toEqual([]);
+    });
+  });
+
   it("regenerates projection-runtime fixture artifacts deterministically", () => {
     const before = readGeneratedFixtureFiles([
       "hot-basic-v0",
@@ -2359,7 +2560,7 @@ function generatedFixtureFilesFor(
     return GENERATED_HOT_ARTIFACT_FIXTURE_FILES;
   }
 
-  return GENERATED_FIXTURE_FILES;
+  return GENERATED_CONSUMER_BINDING_FIXTURE_FILES;
 }
 
 function deckRuntimeExpectedFieldValues(completeRegion: Record<string, unknown>) {

@@ -6,6 +6,7 @@ import { writeFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeGeneratedConsumerBinding } from "./projection-runtime/write-generated-consumer-binding.mts";
 import { writeGeneratedHotArtifactManifest } from "./projection-runtime/write-generated-hot-artifact-manifest.mts";
 import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "./projection-runtime/write-generated-hot-writer.mts";
@@ -93,6 +94,10 @@ type CompilerModule = {
   readonly compileAuthoredProjectionContract: (
     contract: AuthoredProjectionContract,
   ) => CompileResult;
+  readonly emitTypeScriptProjectionConsumerBindingSource: (options: {
+    readonly resolved: ResolvedProjectionContract;
+    readonly symbolStem?: string;
+  }) => string;
 };
 
 type FixtureProfile<TValues extends HotFieldValues> = {
@@ -186,7 +191,7 @@ const workspaceAliases = new Map<string, string>([
 
 registerWorkspaceTsHooks();
 
-const { compileAuthoredProjectionContract } =
+const { compileAuthoredProjectionContract, emitTypeScriptProjectionConsumerBindingSource } =
   await importWorkspaceModule<CompilerModule>("@exclave/compiler");
 const {
   bytesToHex,
@@ -247,6 +252,26 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
 ] as const satisfies readonly FixtureProfile<HotFieldValues>[];
 
 const generatedHotArtifactProfiles: readonly GeneratedHotArtifactProfile[] = [
+  {
+    fixtureName: "deck-runtime-v0",
+    symbolStem: "DeckRuntime",
+  },
+  {
+    fixtureName: "hot-exchange-v0",
+    symbolStem: "HotExchange",
+  },
+] as const;
+
+type GeneratedConsumerBindingProfile = {
+  readonly fixtureName: string;
+  readonly symbolStem: string;
+};
+
+const generatedConsumerBindingProfiles: readonly GeneratedConsumerBindingProfile[] = [
+  {
+    fixtureName: "hot-basic-v0",
+    symbolStem: "HotBasic",
+  },
   {
     fixtureName: "deck-runtime-v0",
     symbolStem: "DeckRuntime",
@@ -347,6 +372,23 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       manifestPath: hotLayoutManifestPath,
       outputPath: generatedHotArtifactManifestPath,
       generatedFromPath: `fixtures/projection-runtime/${generatedHotArtifactProfile.fixtureName}/hot-layout-manifest.json`,
+    });
+  }
+
+  const generatedConsumerBindingProfile = generatedConsumerBindingProfiles.find(
+    (entry) => entry.fixtureName === profile.fixtureName,
+  );
+
+  if (generatedConsumerBindingProfile !== undefined) {
+    const consumerBindingSource = emitTypeScriptProjectionConsumerBindingSource({
+      resolved,
+      symbolStem: generatedConsumerBindingProfile.symbolStem,
+    });
+
+    await writeGeneratedConsumerBinding({
+      consumerBindingSource,
+      outputPath: resolve(fixtureRoot, "generated/consumer-binding.ts"),
+      generatedFromPath: `fixtures/projection-runtime/${generatedConsumerBindingProfile.fixtureName}/resolved-contract.json`,
     });
   }
 }
@@ -637,6 +679,9 @@ function formatGeneratedArtifacts(): void {
     `fixtures/projection-runtime/${profile.fixtureName}/generated/hot-writer.ts`,
     `fixtures/projection-runtime/${profile.fixtureName}/generated/artifacts.json`,
   ]);
+  const generatedConsumerBindingPaths = generatedConsumerBindingProfiles.map(
+    (profile) => `fixtures/projection-runtime/${profile.fixtureName}/generated/consumer-binding.ts`,
+  );
 
   execFileSync(
     process.execPath,
@@ -646,6 +691,7 @@ function formatGeneratedArtifacts(): void {
       "--write",
       ...generatedFixturePaths,
       ...generatedSourcePaths,
+      ...generatedConsumerBindingPaths,
     ],
     {
       cwd: repoRoot,
