@@ -1289,6 +1289,7 @@ describe("@exclave/compiler public surface", () => {
       "deriveProjectionFieldIdentityArtifact",
       "deriveProjectionFieldIdentityArtifactFromManifest",
       "emitTypeScriptFieldIdentityModule",
+      "emitTypeScriptProjectionConsumerBindingSource",
     ]);
     expect("CompilerError" in compiler).toBe(false);
 
