@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { readU64PrefixBigEndian, writeAbiShapeBytes } from "@exclave/base";
+import { AbiCanonicalByteWriter, readU64PrefixBigEndian, writeAbiShapeBytes } from "@exclave/base";
 
 import { compareUtf8 } from "./fields";
 import type {
@@ -50,7 +50,7 @@ export function deriveWarmCodecVersion(fields: readonly WarmFieldEntry[]): WarmC
 }
 
 export function canonicalWarmCodecVersionBytes(fields: readonly WarmFieldEntry[]): Uint8Array {
-  const writer = new ByteWriter();
+  const writer = new AbiCanonicalByteWriter();
 
   for (const tag of WARM_CODEC_CANONICAL_TAGS) {
     writer.writeUtf8(tag);
@@ -83,32 +83,4 @@ function sortedCanonicalFields(fields: readonly CanonicalField[]): readonly Cano
 
 function sortedWarmFields(fields: readonly WarmFieldEntry[]): readonly WarmFieldEntry[] {
   return [...fields].sort((left, right) => compareUtf8(left.dotPath, right.dotPath));
-}
-
-class ByteWriter {
-  private readonly chunks: number[] = [];
-
-  writeU8(value: number): void {
-    this.chunks.push(value & 0xff);
-  }
-
-  writeU16Le(value: number): void {
-    this.writeU8(value);
-    this.writeU8(value >> 8);
-  }
-
-  writeU32Le(value: number): void {
-    this.writeU8(value);
-    this.writeU8(value >> 8);
-    this.writeU8(value >> 16);
-    this.writeU8(value >> 24);
-  }
-
-  writeUtf8(value: string): void {
-    this.chunks.push(...Buffer.from(value, "utf8"));
-  }
-
-  toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.chunks);
-  }
 }

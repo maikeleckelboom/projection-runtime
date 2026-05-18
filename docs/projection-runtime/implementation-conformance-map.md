@@ -79,6 +79,7 @@ Implemented in source and tests:
 - lexicographic field ordering by dot path
 - deterministic `fieldId` derivation
 - `semanticVersion` derivation from canonical manifest bytes
+- checked canonical byte writers in `@exclave/base` (`AbiCanonicalByteWriter`) reject out-of-range numeric values instead of silently truncating; `semanticVersion` and `warmCodecVersion` derivation use checked writers
 - hot lane admissibility checks
 - hot layout manifest emission when a hot lane is declared
 - warm lane manifest emission and `warmCodecVersion` derivation for framed-snapshot warm declarations
@@ -108,7 +109,7 @@ Implemented in source and tests:
 
 - hot ABI constants: 72-byte Block A, Block B at 72, seqlock at 72, publication header at 80/84/88, field data at 96
 - deterministic planner, alignment, byte-span, reservation, and region-size logic
-- `hotLayoutVersion` derivation
+- `hotLayoutVersion` derivation with domain-specific numeric rejection preserving `hotCodec.layoutRejected` error identity
 - Block A identity hashes, version fields, field count, mutable-region byte length, and reserved-byte validation
 - Block B header encode/decode/validation for fixture bytes
 - field byte helpers for fixed scalars, enums, vectors, fixed strings, bounded arrays, and bounded maps

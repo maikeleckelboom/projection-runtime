@@ -5,7 +5,7 @@ export type {
   AbiShape,
   AbiStringEncoding,
 } from "./abi-version";
-export { readU64PrefixBigEndian, writeAbiShapeBytes } from "./abi-version";
+export { AbiCanonicalByteWriter, readU64PrefixBigEndian, writeAbiShapeBytes } from "./abi-version";
 export type {
   DomainDef,
   DomainRegistry,
