@@ -32,7 +32,7 @@ export function emitTypeScriptProjectionConsumerBindingSource(
     fieldPathTypeName: `${symbolStem}FieldPath`,
     fieldIdConstName: `${constStem}FieldIds`,
     metadataConstName: `${constStem}ConsumerBindingMetadata`,
-    runtimeStatusConstName: `${constStem}ConsumerBindingRuntimeStatus`,
+    runtimeAvailabilityConstName: `${constStem}ConsumerBindingRuntimeAvailability`,
     projectionSnapshotTypeName: `${symbolStem}ProjectionSnapshot`,
     hotSnapshotTypeName: `${symbolStem}HotSnapshot`,
     hotReadSurfaceTypeName: `${symbolStem}HotReadSurface`,
@@ -67,7 +67,7 @@ export function emitTypeScriptProjectionConsumerBindingSource(
     "",
     emitConstObject(names.metadataConstName, formatConsumerBindingMetadata(resolved)),
     "",
-    emitConstObject(names.runtimeStatusConstName, formatRuntimeStatus(resolved)),
+    emitConstObject(names.runtimeAvailabilityConstName, formatRuntimeAvailability(resolved)),
     "",
     emitSnapshotType(names.projectionSnapshotTypeName, resolved.manifest.fields),
   );
@@ -169,7 +169,7 @@ function emitConsumerBindingType(
     readonly fieldsConstName: string;
     readonly fieldIdConstName: string;
     readonly metadataConstName: string;
-    readonly runtimeStatusConstName: string;
+    readonly runtimeAvailabilityConstName: string;
     readonly hotReadSurfaceTypeName: string;
     readonly warmSnapshotSurfaceTypeName: string;
   },
@@ -180,7 +180,7 @@ function emitConsumerBindingType(
     `  readonly fields: typeof ${names.fieldsConstName};`,
     `  readonly fieldIds: typeof ${names.fieldIdConstName};`,
     `  readonly metadata: typeof ${names.metadataConstName};`,
-    `  readonly runtimeStatus: typeof ${names.runtimeStatusConstName};`,
+    `  readonly runtimeAvailability: typeof ${names.runtimeAvailabilityConstName};`,
   ];
 
   if (resolved.laneManifests?.hot !== undefined) {
@@ -248,7 +248,7 @@ function formatConsumerBindingMetadata(resolved: ResolvedProjectionContract): st
   return lines.join("\n");
 }
 
-function formatRuntimeStatus(resolved: ResolvedProjectionContract): string {
+function formatRuntimeAvailability(resolved: ResolvedProjectionContract): string {
   const lines = ["{"];
 
   if (resolved.laneManifests?.hot !== undefined) {

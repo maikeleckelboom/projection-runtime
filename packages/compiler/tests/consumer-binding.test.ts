@@ -77,7 +77,7 @@ export const hotBasicConsumerBindingMetadata = {
   hotLayoutVersion: 0x8f3eb897fd88495cn,
 } as const;
 
-export const hotBasicConsumerBindingRuntimeStatus = {
+export const hotBasicConsumerBindingRuntimeAvailability = {
   hot: "source-shape-only",
 } as const;
 
@@ -109,7 +109,7 @@ export type HotBasicConsumerBinding = {
   readonly fields: typeof hotBasicFields;
   readonly fieldIds: typeof hotBasicFieldIds;
   readonly metadata: typeof hotBasicConsumerBindingMetadata;
-  readonly runtimeStatus: typeof hotBasicConsumerBindingRuntimeStatus;
+  readonly runtimeAvailability: typeof hotBasicConsumerBindingRuntimeAvailability;
   readonly hot: HotBasicHotReadSurface;
 };
 `);
@@ -168,7 +168,7 @@ export type HotBasicConsumerBinding = {
     const compilerHost = ts.createCompilerHost({
       strict: true,
       noEmit: true,
-      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2024,
       paths: {
@@ -207,7 +207,7 @@ export type HotBasicConsumerBinding = {
       options: {
         strict: true,
         noEmit: true,
-        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
         module: ts.ModuleKind.ESNext,
         target: ts.ScriptTarget.ES2024,
         paths: {
