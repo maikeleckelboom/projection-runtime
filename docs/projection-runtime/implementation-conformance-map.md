@@ -86,7 +86,9 @@ Implemented in source and tests:
 
 Gaps:
 
-- No generated field identity or binding surface exists. Normal field access must not be hand-authored raw dot-path strings. The compiler must emit generated field identity artifacts (string literal unions, key mirrors, or typed bindings) before any generated authority writer or consumer reader work that accesses published fields.
+- The compiler emits field identity artifacts and deterministic TypeScript field identity modules derived from the
+  canonical manifest. Generated public hot/warm consumer bindings remain future work, and normal field access still must
+  not rely on hand-authored raw dot-path strings.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
 - Publication metadata exists for the modeled warm subscription path, but not as a full runtime model across hot, warm,
@@ -326,12 +328,11 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(compiler): emit generated field identity artifacts`
+1. `feat(compiler): generate public projection consumer bindings`
 
-   Emit generated field identity artifacts derived from the canonical manifest: TypeScript string literal unions for
-   field dot-paths, and/or typed key mirrors, and/or typed bindings. The compiler must not allow hand-authored raw
-   dot-path string literals as the normal access path for published fields. The canonical manifest is the
-   cross-language source of field identity. This slice must not add compatibility aliases or migration paths.
+   Build on compiler-emitted field identity artifacts to generate public consumer binding surfaces. Generated bindings
+   must remain derived from the canonical manifest, must not rely on hand-authored raw dot-path string literals as the
+   normal access path for published fields, and must not add compatibility aliases or migration paths.
 
 2. `test(hot-binding): prove hot handle lifecycle invalidation`
 

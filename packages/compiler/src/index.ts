@@ -17,6 +17,16 @@ export {
   createCompilerError,
   createCompilerIssue,
 } from "./error";
+export {
+  buildProjectionFieldIdentityMirror,
+  deriveProjectionFieldIdentityArtifact,
+  deriveProjectionFieldIdentityArtifactFromManifest,
+  type EmitTypeScriptFieldIdentityModuleOptions,
+  emitTypeScriptFieldIdentityModule,
+  type ProjectionFieldIdentityArtifact,
+  type ProjectionFieldIdentityEntry,
+  type ProjectionFieldIdentityMirror,
+} from "./field-identity";
 export type {
   CanonicalColdLaneDeclaration,
   CanonicalField,

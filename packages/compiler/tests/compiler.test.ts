@@ -8,11 +8,15 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { compileAuthoredProjectionContractWithOptions } from "../src/compile";
 import * as compiler from "../src/index";
 import {
+  buildProjectionFieldIdentityMirror,
   type CanonicalFieldShape,
   type CompileProjectionResult,
   type CompileProjectionSuccess,
   type CompilerError,
   compileAuthoredProjectionContract,
+  deriveProjectionFieldIdentityArtifact,
+  deriveProjectionFieldIdentityArtifactFromManifest,
+  emitTypeScriptFieldIdentityModule,
   type ResolvedProjectionContract,
 } from "../src/index";
 import { deriveSemanticVersion } from "../src/version";
@@ -106,6 +110,53 @@ function hotLayoutFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
     },
     ...overrides,
   } satisfies AuthoredProjectionContract;
+}
+
+const fieldIdentityIds = new Map([
+  ["peaks.postFader.left", 101],
+  ["peaks.postFader.right", 102],
+  ["transport.phase", 201],
+  ["transport.tempo", 202],
+]);
+
+function fieldIdentityFixture(overrides: Partial<AuthoredProjectionContract> = {}) {
+  return {
+    key: "deck.runtime",
+    family: "replaceable-snapshot",
+    fields: {
+      transport: {
+        tempo: { kind: "fixed-scalar", type: "f64" },
+        phase: { kind: "fixed-scalar", type: "f64" },
+      },
+      peaks: {
+        postFader: {
+          right: { kind: "fixed-scalar", type: "f32" },
+          left: { kind: "fixed-scalar", type: "f32" },
+        },
+      },
+    },
+    lanes: {
+      hot: {},
+    },
+    ...overrides,
+  } satisfies AuthoredProjectionContract;
+}
+
+function compileFieldIdentityFixture(
+  contract: AuthoredProjectionContract = fieldIdentityFixture(),
+): ResolvedProjectionContract {
+  return unwrap(
+    compileAuthoredProjectionContractWithOptions(contract, {
+      fieldIdDeriver: (_contractKey, dotPath) => {
+        const fieldId = fieldIdentityIds.get(dotPath);
+        if (fieldId === undefined) {
+          throw new Error(`missing test field id for ${dotPath}`);
+        }
+
+        return fieldId;
+      },
+    }),
+  );
 }
 
 describe("@exclave/compiler happy path", () => {
@@ -307,6 +358,155 @@ describe("@exclave/compiler field ids", () => {
     );
 
     expect(error.details.issues.map((issue) => issue.code)).toContain("field.fieldIdCollision");
+  });
+});
+
+describe("@exclave/compiler field identity artifacts", () => {
+  it("emits artifact entries sorted lexicographically by dotPath", () => {
+    const resolved = compileFieldIdentityFixture();
+    const artifact = deriveProjectionFieldIdentityArtifact(resolved);
+
+    expect(artifact.contractKey).toBe("deck.runtime");
+    expect(artifact.semanticVersion).toBe(resolved.semanticVersion);
+    expect(artifact.fields).toEqual([
+      { dotPath: "peaks.postFader.left", fieldId: 101 },
+      { dotPath: "peaks.postFader.right", fieldId: 102 },
+      { dotPath: "transport.phase", fieldId: 201 },
+      { dotPath: "transport.tempo", fieldId: 202 },
+    ]);
+  });
+
+  it("can derive the same artifact from a canonical manifest", () => {
+    const resolved = compileFieldIdentityFixture();
+
+    expect(deriveProjectionFieldIdentityArtifactFromManifest(resolved.manifest)).toEqual(
+      deriveProjectionFieldIdentityArtifact(resolved),
+    );
+  });
+
+  it("builds a nested mirror with leaves equal to exact canonical dot paths", () => {
+    const artifact = deriveProjectionFieldIdentityArtifact(compileFieldIdentityFixture());
+
+    expect(buildProjectionFieldIdentityMirror(artifact.fields)).toEqual({
+      peaks: {
+        postFader: {
+          left: "peaks.postFader.left",
+          right: "peaks.postFader.right",
+        },
+      },
+      transport: {
+        phase: "transport.phase",
+        tempo: "transport.tempo",
+      },
+    });
+  });
+
+  it("emits deterministic TypeScript field identity modules", () => {
+    const first = compileFieldIdentityFixture();
+    const second = compileFieldIdentityFixture(
+      fieldIdentityFixture({
+        revisionNote: "authoring order should not affect field identity output",
+        fields: {
+          peaks: {
+            postFader: {
+              left: { kind: "fixed-scalar", type: "f32" },
+              right: { kind: "fixed-scalar", type: "f32" },
+            },
+          },
+          transport: {
+            phase: { kind: "fixed-scalar", type: "f64" },
+            tempo: { kind: "fixed-scalar", type: "f64" },
+          },
+        },
+        lanes: {
+          hot: {},
+        },
+      }),
+    );
+
+    const options = {
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+    };
+
+    const firstSource = emitTypeScriptFieldIdentityModule({ resolved: first, ...options });
+    const secondSource = emitTypeScriptFieldIdentityModule({ resolved: second, ...options });
+
+    expect(secondSource).toBe(firstSource);
+    expect(firstSource).toBe(`export const deckRuntimeFields = {
+  peaks: {
+    postFader: {
+      left: "peaks.postFader.left",
+      right: "peaks.postFader.right",
+    },
+  },
+  transport: {
+    phase: "transport.phase",
+    tempo: "transport.tempo",
+  },
+} as const;
+
+export type DeckRuntimeFieldPath =
+  | "peaks.postFader.left"
+  | "peaks.postFader.right"
+  | "transport.phase"
+  | "transport.tempo";
+
+export const deckRuntimeFieldIds = {
+  "peaks.postFader.left": 101,
+  "peaks.postFader.right": 102,
+  "transport.phase": 201,
+  "transport.tempo": 202,
+} as const;
+`);
+  });
+
+  it("carries semanticVersion from the resolved contract when emitting metadata", () => {
+    const resolved = compileFieldIdentityFixture();
+    const pinnedResolved = {
+      ...resolved,
+      semanticVersion: 42n,
+    } satisfies ResolvedProjectionContract;
+
+    const artifact = deriveProjectionFieldIdentityArtifact(pinnedResolved);
+    const source = emitTypeScriptFieldIdentityModule({
+      resolved: pinnedResolved,
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+      metadataConstName: "deckRuntimeFieldIdentity",
+    });
+
+    expect(artifact.semanticVersion).toBe(42n);
+    expect(source).toContain('contractKey: "deck.runtime"');
+    expect(source).toContain("semanticVersion: 42n");
+  });
+
+  it("does not emit aliases or lane-specific version data", () => {
+    const resolved = compileFieldIdentityFixture();
+    expect(resolved.hotLayoutVersion).toBeDefined();
+
+    const resolvedWithIgnoredMetadata = {
+      ...resolved,
+      aliases: {
+        tempoBpm: "transport.tempo",
+      },
+    } as ResolvedProjectionContract;
+
+    const source = emitTypeScriptFieldIdentityModule({
+      resolved: resolvedWithIgnoredMetadata,
+      fieldsConstName: "deckRuntimeFields",
+      fieldPathTypeName: "DeckRuntimeFieldPath",
+      fieldIdConstName: "deckRuntimeFieldIds",
+      metadataConstName: "deckRuntimeFieldIdentity",
+    });
+
+    expect(source).not.toContain("alias");
+    expect(source).not.toContain("tempoBpm");
+    expect(source).not.toContain("hotLayoutVersion");
+    expect(source).not.toContain("warmCodecVersion");
+    expect(source).not.toContain("coldCodecVersion");
   });
 });
 
@@ -876,9 +1076,13 @@ describe("@exclave/compiler public surface", () => {
     expect(Object.keys(compiler).sort()).toEqual([
       "COMPILER_ERRORS",
       "COMPILER_ISSUE_DEFS",
+      "buildProjectionFieldIdentityMirror",
       "compileAuthoredProjectionContract",
       "createCompilerError",
       "createCompilerIssue",
+      "deriveProjectionFieldIdentityArtifact",
+      "deriveProjectionFieldIdentityArtifactFromManifest",
+      "emitTypeScriptFieldIdentityModule",
     ]);
     expect("CompilerError" in compiler).toBe(false);
 
