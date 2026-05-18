@@ -4,18 +4,19 @@ import {
   validateControlResponseEnvelope,
 } from "@exclave/control-plane";
 import type { ResourceOwner } from "@exclave/resource";
-import * as resourceModule from "@exclave/resource";
-import {
-  createResourceControlFailure,
-  createResourceReadRangeControlRequest,
-  createResourceReadRangeControlSuccess,
-  createResourceReadRangeReceiptPayload,
-  createResourceReadRangeRequestPayload,
-  createStaleBindingResourceFailure,
-  RESOURCE_READ_RANGE_OPERATION_KEY,
-} from "@exclave/resource";
+import * as resourcePublic from "@exclave/resource";
+import { createResourceControlFailure, createStaleBindingResourceFailure } from "@exclave/resource";
 import type { BindingOpeningFailure } from "@exclave/session";
 import { describe, expect, it } from "vitest";
+import {
+  createResourceReadRangeControlRequest,
+  createResourceReadRangeControlSuccess,
+  RESOURCE_READ_RANGE_OPERATION_KEY,
+} from "../src/resource-control";
+import {
+  createResourceReadRangeReceiptPayload,
+  createResourceReadRangeRequestPayload,
+} from "../src/resource-range";
 
 function validOwner(): ResourceOwner {
   return {
@@ -188,6 +189,18 @@ describe("Resource Control Envelopes", () => {
     expect(RESOURCE_READ_RANGE_OPERATION_KEY).toBe("resource.readRange");
   });
 
+  it("resource.readRange is not part of Resource Plane v1 operation keys", () => {
+    const v1Keys = [...resourcePublic.RESOURCE_PLANE_V1_OPERATION_KEYS];
+    expect(v1Keys).not.toContain("resource.readRange");
+    expect(v1Keys).toEqual([
+      "resource.open",
+      "resource.readChunk",
+      "resource.mapWindow",
+      "resource.closeMapping",
+      "resource.closeHandle",
+    ]);
+  });
+
   it("createResourceReadRangeControlRequest rejects empty handleKey payload", () => {
     expect(() =>
       createResourceReadRangeControlRequest({
@@ -290,26 +303,43 @@ describe("Resource Control Envelopes", () => {
 describe("Public API exports", () => {
   it("public value exports are exactly intended", () => {
     const expectedValueExports = new Set([
-      "RESOURCE_READ_RANGE_OPERATION_KEY",
+      "RESOURCE_CLOSE_HANDLE_OPERATION_KEY",
+      "RESOURCE_CLOSE_MAPPING_OPERATION_KEY",
+      "RESOURCE_MAP_WINDOW_OPERATION_KEY",
+      "RESOURCE_OPEN_OPERATION_KEY",
+      "RESOURCE_PLANE_V1_OPERATION_KEYS",
+      "RESOURCE_READ_CHUNK_OPERATION_KEY",
+      "assertNonNegativeSafeU32",
+      "assertResourceAccessLengthBytes",
+      "assertResourceDescriptorHasNoBody",
+      "createCloseResourceHandleRequest",
+      "createCloseResourceMappingRequest",
+      "createMapResourceWindowRequest",
+      "createOpenResourceReply",
+      "createOpenResourceRequest",
+      "createReadResourceChunkRequest",
+      "createResourceBackpressure",
+      "createResourceCapabilities",
       "createResourceDescriptor",
-      "createResourceReadRange",
-      "createResourceReadRangeRequestPayload",
-      "createResourceReadRangeReceiptPayload",
-      "createResourceFailure",
+      "createResourceHandleInvalidatedEvent",
+      "defineResourceContract",
+      "createResourceReceiptFailure",
       "createInvalidRangeResourceFailure",
       "createStaleBindingResourceFailure",
+      "invalidateResourceHandle",
+      "validateCloseResourceHandleForState",
+      "validateCloseResourceMappingForState",
+      "validateMapResourceWindowRequest",
       "validateResourceDescriptor",
       "validateResourceOwner",
-      "validateResourceReadRange",
-      "validateResourceReadRangeRequestPayload",
-      "validateResourceReadRangeReceiptPayload",
-      "validateResourceFailure",
-      "createResourceReadRangeControlRequest",
-      "createResourceReadRangeControlSuccess",
+      "validateResourceReceiptFailure",
+      "validateReadResourceChunkRequest",
+      "validateResourceCapabilities",
+      "validateResourceHandleAccess",
       "createResourceControlFailure",
     ]);
 
-    const exportedKeys = Object.keys(resourceModule);
+    const exportedKeys = Object.keys(resourcePublic);
     const actual = new Set(exportedKeys);
 
     const missing = [...expectedValueExports].filter((k) => !actual.has(k));
@@ -323,18 +353,55 @@ describe("Public API exports", () => {
     // Type-only exports are verified at compile time by TypeScript.
     // If any type export is missing or broken, the test file won't typecheck.
     const typeNames = [
-      "ResourceHandleKey",
       "ResourceKind",
       "ResourceVersion",
       "ResourceOwner",
       "ResourceDescriptor",
-      "ResourceReadRange",
-      "ResourceReadRangeRequestPayload",
-      "ResourceReadRangeReceiptPayload",
-      "ResourceFailureCode",
+      "ResourceReceiptFailureCode",
+      "ResourceReceiptFailure",
+      "ResourcePlaneV1OperationKey",
+      "ResourceCapabilities",
+      "ResourceContract",
       "ResourceFailure",
+      "ResourceHandle",
+      "ResourceHandleId",
+      "ResourceKey",
+      "ResourceMappingId",
+      "OpenResourceRequest",
+      "OpenResourceReply",
+      "OpenResourceResult",
+      "ReadResourceChunkRequest",
+      "ReadResourceChunkResult",
+      "MapResourceWindowRequest",
+      "MapResourceWindowResult",
+      "CloseResourceMappingRequest",
+      "CloseResourceHandleRequest",
+      "ResourceBackpressure",
+      "ResourceHandleInvalidatedEvent",
+      "ResourceHandleLifecycleState",
+      "CloseResourceHandleResult",
+      "CloseResourceMappingResult",
+      "MapResourceWindowReply",
+      "ReadResourceChunkReply",
+      "ResourceMappingDescriptor",
     ] as const;
 
-    expect(typeNames.length).toBe(10);
+    expect(typeNames.length).toBe(31);
+  });
+
+  it("does not expose RESOURCE_READ_RANGE_OPERATION_KEY in public namespace", () => {
+    expect("RESOURCE_READ_RANGE_OPERATION_KEY" in resourcePublic).toBe(false);
+  });
+
+  it("does not expose createResourceReadRangeControlRequest in public namespace", () => {
+    expect("createResourceReadRangeControlRequest" in resourcePublic).toBe(false);
+  });
+
+  it("does not expose createResourceReadRange in public namespace", () => {
+    expect("createResourceReadRange" in resourcePublic).toBe(false);
+  });
+
+  it("does not expose ResourceReadRange in public namespace", () => {
+    expect("ResourceReadRange" in resourcePublic).toBe(false);
   });
 });

@@ -45,9 +45,9 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/hot-binding` | partially implemented | Validates already-opened SAB-backed regions and returns `BigUint64Array` counter views. It checks Block A expectations and counter offsets but does not own open, close, stale state, generated binding state, or handle lifecycle. |
 | `@exclave/hot-consumer` | partially implemented | Implements the bounded read kernel with atomic sequence loads, separate writer-active and torn-read budgets, last-good fallback, and tests. It is not the generated `HotProjectionBinding<T>` state machine. |
 | `@exclave/hot-publisher` | partially implemented | Implements a narrow writer-side publication kernel over already-opened Block B counter views. It is not an authority, handle registry, SAB allocator, or generated writer surface. |
-| `@exclave/session` | partially implemented | Provides a product-neutral binding validity fence with `authorityEpoch`, ready/opening/invalidated/closed states, and guard helpers. It does not implement authority session descriptors, session state events, or full session failure shapes from the draft session rules. |
+| `@exclave/session` | partially implemented | Owns type-level authority session descriptor, session state events, authority invalidation events, and session-bound failure vocabulary. It also provides a product-neutral binding validity fence with `authorityEpoch`, ready/opening/invalidated/closed states, and guard helpers. It does not implement a session manager, epoch issuer, non-reuse enforcement, authority lifecycle runtime, or transport. It does not own resource-handle or hot-handle invalidation events. |
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
-| `@exclave/resource` | partially implemented | Provides resource descriptors, owner validation, read-range payloads, receipts that reject byte-like payload fields, resource failures, and control envelope helpers. It does not implement the resource-plane v1 open/read/map/close handle protocol. |
+| `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
 | `@exclave/warm` | partially implemented | Provides JSON-safe warm frame envelopes, owner validation, invalidation payloads, and stale-binding failure projection. It is not the `framed-snapshot` binary warm codec from Warm Codec v1. |
 | `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors, grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
 | `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance and includes generated TS/Rust fixture proofs for hot exchange. It is not yet a full shared runtime conformance harness across all drafted planes. |
@@ -62,8 +62,9 @@ packages. Tests prove JSON-safe control and warm payload boundaries, resource re
 and guarded hot reads that fail before reading when session validity fails.
 
 This is not full boundary model conformance. There is no service/authority runtime, no transport layer, no product
-authority ownership model, no publication subscription implementation, and no resource-plane v1 handle lifecycle. The
-current code proves separation of selected envelope and kernel responsibilities, not an end-to-end boundary runtime.
+authority ownership model, and no publication subscription implementation. Resource-plane v1 protocol and modeled
+lifecycle helpers exist, but no runtime resource authority/registry/transport/lifecycle manager exists. The current code
+proves separation of selected envelope and kernel responsibilities, not an end-to-end boundary runtime.
 
 ## 3. Projection Spine Conformance
 
@@ -83,7 +84,7 @@ Implemented in source and tests:
 
 Gaps:
 
-- `keysOf(contract)` typed key mirror is not implemented.
+- No generated field identity or binding surface exists. Normal field access must not be hand-authored raw dot-path strings. The compiler must emit generated field identity artifacts (string literal unions, key mirrors, or typed bindings) before any generated authority writer or consumer reader work that accesses published fields.
 - No runtime projection instance registry or fixed-instance runtime layer exists.
 - No generated public consumer binding surface exists in package source.
 - No full publication metadata model exists across hot, warm, and cold lanes.
@@ -181,23 +182,27 @@ Implemented in source and tests:
 - Binding states distinguish opening, ready, invalidated, and closed.
 - Control-plane envelopes are JSON-safe and correlate responses to requests.
 - Control-plane stale binding failure projection exists.
+- `AuthoritySessionDescriptor` discriminated union exists.
+- `SessionStateEvent` includes `authorityReady` and `authorityStarting`.
+- `SessionInvalidationEvent` includes `authorityEpochReplaced` and `authorityUnavailable`.
+- `SessionBoundFailure` includes `sessionMismatch`, `authorityUnavailable`, `authorityNotReady`,
+  `requestIllegalByContract`, and `requestIllegalInCurrentProductState`.
 
 Gaps:
 
-- No `AuthoritySessionDescriptor` union exists.
 - No session manager issues non-reused authority epochs.
-- No `authorityReady` or `authorityStarting` event surface exists.
-- No `authorityEpochReplaced` or `authorityUnavailable` event surface exists.
-- Existing invalidation reason names differ from the draft event vocabulary.
-- Full `SessionBoundFailure` shapes are not implemented.
-- Epoch-establishing open/subscribe/resource replies are not implemented.
+- No runtime authority lifecycle state machine exists.
+- No transport dispatch binds these events to real process boundaries.
+- Existing binding validity helpers remain separate from full authority lifecycle management.
+- Epoch-establishing resource open reply is implemented; subscribe/hot open epoch-establishing replies remain future work.
 
-The session/control packages implement a useful validity fence and envelope layer. The draft session protocol is ahead
-of implementation.
+The session/control packages implement a useful validity fence, envelope layer, and session event vocabulary. The draft
+session protocol's runtime authority lifecycle and transport remain ahead of implementation.
 
 ## 8. Resource Plane Conformance
 
-Classification: partially implemented; Resource Plane v1 is ahead of implementation.
+Classification: partially implemented; Resource Plane v1 protocol surface is implemented at the package/type/
+conformance-helper level.
 
 Implemented in source and tests:
 
@@ -207,25 +212,30 @@ Implemented in source and tests:
 - descriptor-bound range checks
 - receipt validation that rejects byte-like payload fields
 - resource failure envelope helpers
-- control-plane helper for a `resource.readRange` operation key
+- resource failure envelope helpers
+- control-plane helper for a `resource.readRange` legacy/test operation key (not part of Resource Plane v1; not part of the public `@exclave/resource` surface; not advertised by host grants)
+- typed `ResourceContract<TOpen, TDescriptor>` and `OpenResourceRequest<TOpen>` shapes
+- epoch-establishing `OpenResourceReply<TDescriptor>` carrying `handleId`, `authorityEpoch`, `resourceKind`,
+  `resourceKey`, `resourceVersion`, descriptor, and capabilities
+- 4-case `ResourceCapabilities` discriminated union with mandatory `maxChunkBytes` and `maxMappedWindowBytes` when
+  supported
+- bounded chunk-read and mapped-window request validators
+- explicit mapped-window close and resource-handle close request/result types
+- resource-specific failure union, including `mappingUnsupported`, `mappingInvalid`, `chunkTooLarge`,
+  `mappingTooLarge`, `authorityUnavailable`, and `authorityNotReady`
+- explicit `ResourceBackpressure`
+- pushed `resourceHandleInvalidated` event shape
+- modeled lifecycle helper proving invalidated handles reject later read/map attempts
+- host-contract resource-plane grants advertising v1 operation metadata without byte bodies
+- shared TypeScript conformance tests for open metadata, boundedness, invalidation, and operation metadata
 
-Major gaps against Resource Plane v1:
+Remaining gaps:
 
-- no typed resource open contract
-- no epoch-establishing open reply carrying `handleId`, `authorityEpoch`, `resourceKind`, `resourceKey`,
-  `resourceVersion`, descriptor, and capabilities
-- no 4-case `ResourceCapabilities` discriminated union
-- no `maxChunkBytes` or `maxMappedWindowBytes` contract
-- no chunk-read result carrying bytes
-- no mapped-window protocol
-- no explicit mapping close
-- no resource handle close
-- no `ResourceBackpressure`
-- no pushed `resourceHandleInvalidated` event
-- no authority restart behavior for handles
-
-The package name matches the plane, but current source is a descriptor/read-range skeleton, not the draft v1 resource
-handle protocol.
+- no real resource authority, registry, transport, file IO, cache, media decoder, or product resource ownership exists
+- no physical mapped-window backing is implemented
+- the older JSON-safe read-range receipt skeleton remains as an internal legacy/test control-envelope helper; it is not part of the public `@exclave/resource` package surface, is not part of Resource Plane v1, and is not advertised by host resource-plane grants
+- protocol surface and validation/model helpers are implemented; runtime authority registry and physical byte transport
+  are not implemented
 
 ## 9. Warm Codec Conformance
 
@@ -293,46 +303,32 @@ session, resource, warm codec, and publication subscription foundations.
 
 ## 12. Recommended Next Implementation Slices
 
-1. `feat(session): add authority session descriptor types`
+1. `feat(compiler): emit generated field identity artifacts`
 
-   Add the discriminated `AuthoritySessionDescriptor` and the typed session event/failure shapes from the draft without
-   building a session manager yet.
+   Emit generated field identity artifacts derived from the canonical manifest: TypeScript string literal unions for
+   field dot-paths, and/or typed key mirrors, and/or typed bindings. The compiler must not allow hand-authored raw
+   dot-path string literals as the normal access path for published fields. The canonical manifest is the
+   cross-language source of field identity. This slice must not add compatibility aliases or migration paths.
 
-2. `feat(resource): add resource byte grant contract`
-
-   Add a small read-range byte-transfer metadata slice with `ResourceByteGrant` and byte range descriptors only. This
-   slice must not implement resource open, read, map, or close lifecycle.
-
-3. `test(host-contract): prove resource byte grant endpoint crossing`
-
-   Extend host-contract tests to prove a resource grant crosses the host boundary as a descriptor and does not carry
-   bytes in a control reply.
-
-4. `feat(resource): add resource handle capability types and open reply contract`
-
-   Add the v1 resource handle/open reply and 4-case `ResourceCapabilities` discriminated union, including
-   `maxMappedWindowBytes` whenever `canMapWindows: true`. This builds on the byte grant slice but does not yet
-   implement full resource open/read/map/close lifecycle.
-
-5. `test(hot-binding): prove hot handle lifecycle invalidation`
+2. `test(hot-binding): prove hot handle lifecycle invalidation`
 
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-6. `feat(warm): add framed snapshot byte codec skeleton`
+3. `feat(warm): add framed snapshot byte codec skeleton`
 
    Add a bounded binary frame parser/encoder shell for Warm Codec v1 metadata only, with `frameByteLength`, contract key,
    instance key, versions, publication metadata, optional `laneSequence`, and payload bytes.
 
-7. `test(warm): reject malformed framed snapshot bytes`
+4. `test(warm): reject malformed framed snapshot bytes`
 
    Prove malformed frame length, payload length, and invalid `laneSequencePresent` are recoverable per-frame rejections.
 
-8. `feat(publication): add warm subscribe ack and failure types`
+5. `feat(publication): add warm subscribe ack and failure types`
 
    Add only type-level request/ack/failure shapes for warm subscription, including `subscriptionId`,
    `surfaceDeferredNotReady`, `surfaceUnavailable`, `streamIncompatible`, and `coldLaneNotRatified`.
 
-9. `test(publication): reject cold subscription as not ratified`
+6. `test(publication): reject cold subscription as not ratified`
 
-   Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.
+    Prove `lane: "cold"` subscription attempts return `coldLaneNotRatified` in the v1 surface.

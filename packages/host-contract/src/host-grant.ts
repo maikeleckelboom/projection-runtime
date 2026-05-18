@@ -22,7 +22,11 @@ export type HostControlEndpointCapability = {
 
 export type HostResourcePlaneCapability = {
   readonly kind: "surface.resourcePlaneCapability";
-  readonly readRangeOperationKey: string;
+  readonly openOperationKey: string;
+  readonly readChunkOperationKey: string;
+  readonly mapWindowOperationKey: string;
+  readonly closeMappingOperationKey: string;
+  readonly closeHandleOperationKey: string;
   readonly owner: HostAuthorityOwner;
 };
 
@@ -100,7 +104,11 @@ export function createHostSurfaceGrant(surface: HostSurfaceDescriptor): HostSurf
   const resourcePlane: HostResourcePlaneCapability | undefined = surface.resourcePlane
     ? {
         kind: "surface.resourcePlaneCapability" as const,
-        readRangeOperationKey: surface.resourcePlane.readRangeOperationKey,
+        openOperationKey: surface.resourcePlane.openOperationKey,
+        readChunkOperationKey: surface.resourcePlane.readChunkOperationKey,
+        mapWindowOperationKey: surface.resourcePlane.mapWindowOperationKey,
+        closeMappingOperationKey: surface.resourcePlane.closeMappingOperationKey,
+        closeHandleOperationKey: surface.resourcePlane.closeHandleOperationKey,
         owner,
       }
     : undefined;

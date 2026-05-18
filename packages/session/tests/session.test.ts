@@ -40,6 +40,35 @@ describe("@exclave/session public exports", () => {
     >();
   });
 
+  it("SessionInvalidationEvent is authority-only, not resource or hot handle events", () => {
+    expectTypeOf<session.SessionInvalidationEvent>().toEqualTypeOf<
+      | {
+          readonly kind: "authorityEpochReplaced";
+          readonly replacedAuthorityEpoch: bigint;
+          readonly replacingAuthorityEpoch: bigint;
+        }
+      | {
+          readonly kind: "authorityUnavailable";
+          readonly replacedAuthorityEpoch: bigint;
+          readonly state: "stopping" | "stopped";
+        }
+    >();
+  });
+
+  it("SessionBoundFailure does not include handleInvalid", () => {
+    expectTypeOf<session.SessionBoundFailure>().toEqualTypeOf<
+      | {
+          readonly kind: "sessionMismatch";
+          readonly expectedAuthorityEpoch: bigint;
+          readonly providedAuthorityEpoch: bigint;
+        }
+      | { readonly kind: "authorityUnavailable" }
+      | { readonly kind: "authorityNotReady"; readonly state: "starting" | "stopping" }
+      | { readonly kind: "requestIllegalByContract"; readonly detail: string }
+      | { readonly kind: "requestIllegalInCurrentProductState"; readonly detail: string }
+    >();
+  });
+
   it("exports discriminated failure types", () => {
     expectTypeOf<session.BindingOpeningFailure>().toMatchTypeOf<session.BindingValidityFailure>();
     expectTypeOf<session.BindingInvalidatedFailure>().toMatchTypeOf<session.BindingValidityFailure>();
