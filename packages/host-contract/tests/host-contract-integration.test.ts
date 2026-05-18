@@ -17,7 +17,6 @@ import {
   markAuthorityBindingReady,
   validateAuthorityBinding,
 } from "@exclave/session";
-import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -30,6 +29,7 @@ import {
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
   validateHostSurfaceInvalidatedEnvelope,
@@ -228,7 +228,7 @@ describe("HostSurfaceDescriptor ready composition integration", () => {
 
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: "deck-runtime-v0.warm",
     });
 

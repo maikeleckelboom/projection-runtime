@@ -30,14 +30,7 @@ import {
   markAuthorityBindingReady,
   validateAuthorityBinding,
 } from "@exclave/session";
-import {
-  createStaleBindingWarmFailure,
-  createWarmFrameEnvelope,
-  createWarmOwner,
-  validateWarmFailure,
-  validateWarmFrameEnvelope,
-  WARM_ENVELOPE_VERSION,
-} from "@exclave/warm";
+
 import { describe, expect, it } from "vitest";
 import {
   createResourceReadRangeControlRequest,
@@ -59,6 +52,7 @@ import {
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
   validateHostSurfaceReadyEnvelope,
@@ -217,7 +211,7 @@ function createFixtureSurfaceReady() {
 
   const warmStream = createHostWarmStreamDescriptor({
     kind: "host.warmStream",
-    envelopeVersion: WARM_ENVELOPE_VERSION,
+    descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
     streamKey: "deck-runtime-v0.warm",
   });
 
@@ -589,74 +583,6 @@ describe("Client lane consumption across control, resource, and warm", () => {
     });
   });
 
-  describe("Warm lane frame is descriptor-driven and JSON-safe", () => {
-    it("validates host.surfaceReady, extracts warm stream descriptor, creates and validates a warm frame envelope", () => {
-      const { validated } = createFixtureSurfaceReady();
-      expect(validated.ok).toBe(true);
-      if (!validated.ok) {
-        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
-      }
-
-      const owner = validated.value.surface.owner;
-      const warmStreams = validated.value.surface.warmStreams;
-      expect(warmStreams).toBeDefined();
-      if (!warmStreams) return;
-      expect(warmStreams.length).toBe(1);
-      const streamDescriptor = warmStreams[0];
-      expect(streamDescriptor.streamKey).toBe("deck-runtime-v0.warm");
-      expect(streamDescriptor.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
-
-      const warmOwner = createWarmOwner({
-        authorityKey: owner.authorityKey,
-        surfaceKey: owner.surfaceKey,
-        authorityEpoch: owner.authorityEpoch,
-      });
-
-      const frame = createWarmFrameEnvelope({
-        streamKey: streamDescriptor.streamKey,
-        frameKey: "fixture.frame-0",
-        sequence: "0",
-        frameKind: "fixture.state",
-        owner: warmOwner,
-        payload: { temperature: 42, status: "nominal" },
-      });
-
-      expect(frame.kind).toBe("warm.frame");
-      expect(frame.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
-      expect(frame.streamKey).toBe("deck-runtime-v0.warm");
-      expect(frame.frameKey).toBe("fixture.frame-0");
-      expect(frame.sequence).toBe("0");
-      expect(frame.frameKind).toBe("fixture.state");
-
-      const frameJson = JSON.stringify(frame);
-      const frameParsed = JSON.parse(frameJson);
-      const frameValidated = validateWarmFrameEnvelope(frameParsed);
-      expect(frameValidated.ok).toBe(true);
-      if (!frameValidated.ok) {
-        throw new Error(`warm frame validation failed: ${frameValidated.failure.message}`);
-      }
-
-      expect(frameValidated.value.streamKey).toBe(streamDescriptor.streamKey);
-      expect(frameValidated.value.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
-      expect(frameValidated.value.frameKey).toBe("fixture.frame-0");
-      expect(frameValidated.value.sequence).toBe("0");
-      expect(frameValidated.value.frameKind).toBe("fixture.state");
-      expect(frameValidated.value.owner.authorityKey).toBe(owner.authorityKey);
-      expect(frameValidated.value.owner.surfaceKey).toBe(owner.surfaceKey);
-
-      assertDescriptorCarriesOnlyMetadata(
-        JSON.parse(frameJson),
-        DESCRIPTOR_LOCAL_FIELD_KEYS,
-        "frame",
-      );
-      expect(frameJson).not.toContain("SharedArrayBuffer");
-
-      const payload = frameValidated.value.payload as Record<string, unknown>;
-      expect(payload.temperature).toBe(42);
-      expect(payload.status).toBe("nominal");
-    });
-  });
-
   describe("Stale session binding projects consistently into control/resource/warm failures", () => {
     it("projects binding validity failures into control, resource, and warm failure shapes", () => {
       const identity = deriveFixtureIdentity();
@@ -707,23 +633,6 @@ describe("Client lane consumption across control, resource, and warm", () => {
         "resource-failure",
       );
 
-      const warmFailure = createStaleBindingWarmFailure(invalidatedFailure);
-
-      expect(warmFailure.code).toBe("warm.staleBinding");
-      expect(typeof warmFailure.message).toBe("string");
-      expect(warmFailure.message.length).toBeGreaterThan(0);
-
-      const warmFailureValidated = validateWarmFailure(warmFailure);
-      expect(warmFailureValidated.code).toBe("warm.staleBinding");
-      expect(typeof warmFailureValidated.message).toBe("string");
-
-      const warmFailureJson = JSON.stringify(warmFailure);
-      assertDescriptorCarriesOnlyMetadata(
-        JSON.parse(warmFailureJson),
-        DESCRIPTOR_LOCAL_FIELD_KEYS,
-        "warm-failure",
-      );
-
       const readyEpochOneBinding = markAuthorityBindingReady(
         createAuthorityBinding({
           authorityKey: identity.authorityKey,
@@ -751,10 +660,6 @@ describe("Client lane consumption across control, resource, and warm", () => {
       const resourceEpochFailure = createStaleBindingResourceFailure(epochMismatchFailure);
       expect(resourceEpochFailure.code).toBe("resource.staleBinding");
       expect(typeof resourceEpochFailure.message).toBe("string");
-
-      const warmEpochFailure = createStaleBindingWarmFailure(epochMismatchFailure);
-      expect(warmEpochFailure.code).toBe("warm.staleBinding");
-      expect(typeof warmEpochFailure.message).toBe("string");
 
       assertDescriptorCarriesOnlyMetadata(
         JSON.parse(JSON.stringify(controlEpochFailure)),

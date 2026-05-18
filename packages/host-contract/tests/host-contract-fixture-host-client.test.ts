@@ -30,11 +30,7 @@ import {
   invalidateAuthorityBinding,
   markAuthorityBindingReady,
 } from "@exclave/session";
-import {
-  createWarmFrameEnvelope,
-  validateWarmFrameEnvelope,
-  WARM_ENVELOPE_VERSION,
-} from "@exclave/warm";
+
 import { describe, expect, it } from "vitest";
 import {
   createDeckRuntimeReader,
@@ -62,6 +58,7 @@ import {
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
   type HostSurfaceGrant,
@@ -373,7 +370,7 @@ class FixtureHost {
 
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: this._config.warmStreamKey,
     });
 
@@ -470,22 +467,6 @@ class FixtureHost {
     return createResourceReadRangeControlSuccess({
       requestKey: validated.value.requestKey,
       payload: receiptPayload,
-    });
-  }
-
-  nextWarmFrame(): ReturnType<typeof createWarmFrameEnvelope> {
-    const owner = createHostAuthorityOwnerFromBinding(this._binding);
-    return createWarmFrameEnvelope({
-      streamKey: this._config.warmStreamKey,
-      frameKey: "fixture.frame-0",
-      sequence: "0",
-      frameKind: "fixture.state",
-      owner: {
-        authorityKey: owner.authorityKey,
-        surfaceKey: owner.surfaceKey,
-        authorityEpoch: owner.authorityEpoch,
-      },
-      payload: { temperature: 42, status: "nominal" },
     });
   }
 
@@ -715,57 +696,6 @@ class FixtureClient {
       handleKey: receipt.handleKey,
       byteLength: receipt.byteLength,
       version: receipt.version,
-    };
-  }
-
-  consumeWarmFrame(
-    grant: HostSurfaceGrant,
-    frame: ReturnType<typeof createWarmFrameEnvelope>,
-  ): {
-    streamKey: string;
-    envelopeVersion: number;
-    payload: Record<string, unknown>;
-  } {
-    const warmCapability = grant.warm[0];
-    if (warmCapability === undefined) {
-      throw new Error("grant has no warm capabilities");
-    }
-
-    const frameJson = JSON.stringify(frame);
-    const frameParsed = JSON.parse(frameJson);
-    const frameValidated = validateWarmFrameEnvelope(frameParsed);
-    if (!frameValidated.ok) {
-      throw new Error(`warm frame validation failed: ${frameValidated.failure.message}`);
-    }
-
-    if (frameValidated.value.streamKey !== grant.warm[0].streamKey) {
-      throw new Error(
-        `warm frame streamKey "${frameValidated.value.streamKey}" does not match grant warm streamKey "${grant.warm[0].streamKey}"`,
-      );
-    }
-
-    if (frameValidated.value.owner.authorityKey !== grant.owner.authorityKey) {
-      throw new Error(
-        `warm frame owner.authorityKey "${frameValidated.value.owner.authorityKey}" does not match grant owner.authorityKey "${grant.owner.authorityKey}"`,
-      );
-    }
-
-    if (frameValidated.value.owner.surfaceKey !== grant.owner.surfaceKey) {
-      throw new Error(
-        `warm frame owner.surfaceKey "${frameValidated.value.owner.surfaceKey}" does not match grant owner.surfaceKey "${grant.owner.surfaceKey}"`,
-      );
-    }
-
-    if (frameValidated.value.owner.authorityEpoch !== grant.owner.authorityEpoch) {
-      throw new Error(
-        `warm frame owner.authorityEpoch "${frameValidated.value.owner.authorityEpoch}" does not match grant owner.authorityEpoch "${grant.owner.authorityEpoch}"`,
-      );
-    }
-
-    return {
-      streamKey: frameValidated.value.streamKey,
-      envelopeVersion: frameValidated.value.envelopeVersion,
-      payload: frameValidated.value.payload as Record<string, unknown>,
     };
   }
 
@@ -1017,33 +947,6 @@ describe("In-process fixture host/client lifecycle", () => {
       const responseJson = JSON.stringify(response);
       expect(responseJson).not.toContain("SharedArrayBuffer");
       expect(responseJson).not.toContain("bytes");
-    });
-  });
-
-  describe("Client consumes warm frame from advertised warm stream", () => {
-    it("validates warm frame against the grant.warm stream descriptor", () => {
-      const host = createDeckRuntimeFixtureHost();
-      const client = createDeckRuntimeFixtureClient();
-
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
-
-      expect(grant.warm).toHaveLength(1);
-      expect(grant.warm[0].streamKey).toBe("deck-runtime-v0.warm");
-
-      const frame = host.nextWarmFrame();
-      const consumed = client.consumeWarmFrame(grant, frame);
-
-      expect(consumed.streamKey).toBe(grant.warm[0].streamKey);
-      expect(consumed.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
-      expect(frame.owner.authorityEpoch).toBe(grant.owner.authorityEpoch);
-      expect(consumed.payload.temperature).toBe(42);
-      expect(consumed.payload.status).toBe("nominal");
-
-      const frameJson = JSON.stringify(frame);
-      const frameParsed = JSON.parse(frameJson);
-      assertDescriptorCarriesOnlyMetadata(frameParsed, DESCRIPTOR_LOCAL_FIELD_KEYS, "warm frame");
-      expect(frameJson).not.toContain("SharedArrayBuffer");
     });
   });
 

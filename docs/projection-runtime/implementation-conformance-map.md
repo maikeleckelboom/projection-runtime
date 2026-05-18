@@ -48,9 +48,9 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/session` | partially implemented | Owns type-level authority session descriptor, session state events, authority invalidation events, and session-bound failure vocabulary. It also provides a product-neutral binding validity fence with `authorityEpoch`, ready/opening/invalidated/closed states, and guard helpers. It does not implement a session manager, epoch issuer, non-reuse enforcement, authority lifecycle runtime, or transport. It does not own resource-handle or hot-handle invalidation events. |
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
 | `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
-| `@exclave/warm` | partially implemented | Provides legacy JSON-safe warm frame envelopes and the first Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and opaque already-encoded snapshot payload bytes. It does not implement full manifest-derived field-value payload encoding or `warmCodecVersion` derivation. |
+| `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and opaque already-encoded snapshot payload bytes. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, or full manifest-derived field-value payload encoding. |
 | `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
-| `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors, grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
+| `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
 | `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, and includes the first modeled live warm projection path proof. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
@@ -245,15 +245,11 @@ Remaining gaps:
 
 Classification: partially implemented.
 
-Current `@exclave/warm` includes legacy JSON-safe warm frame envelope support and the first Warm Codec v1 binary
-framed-snapshot outer frame subset.
+Current `@exclave/warm` provides the Warm Codec v1 binary framed-snapshot outer frame subset. It does not provide
+JSON event envelopes, warm owner shapes, or stale binding failure projection.
 
 Implemented in source and tests:
 
-- warm owner shape with authority epoch as canonical decimal string
-- warm frame envelope with stream key, frame key, sequence, frame kind, owner, and JSON-safe payload
-- payload and owner validation
-- stale binding failure projection
 - canonical binary outer frame with `frameByteLength`
 - little-endian metadata fields
 - deterministic encode/decode for the same logical frame

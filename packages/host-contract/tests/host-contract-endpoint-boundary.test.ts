@@ -26,11 +26,7 @@ import {
   invalidateAuthorityBinding,
   markAuthorityBindingReady,
 } from "@exclave/session";
-import {
-  createWarmFrameEnvelope,
-  validateWarmFrameEnvelope,
-  WARM_ENVELOPE_VERSION,
-} from "@exclave/warm";
+
 import { describe, expect, it } from "vitest";
 import {
   createResourceReadRangeControlRequest,
@@ -55,6 +51,7 @@ import {
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
   type HostSurfaceGrant,
@@ -136,7 +133,6 @@ type EndpointMessage =
       readonly kind: "controlResponse";
       readonly envelope: ControlSuccessEnvelope | ControlFailureEnvelope;
     }
-  | { readonly kind: "warmFrame"; readonly envelope: ReturnType<typeof createWarmFrameEnvelope> }
   | { readonly kind: "hotHandle"; readonly handle: TransferredHandle };
 
 class EndpointTransportFailure extends Error {
@@ -228,7 +224,7 @@ class HostEndpoint {
 
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: this._config.warmStreamKey,
     });
 
@@ -271,27 +267,6 @@ class HostEndpoint {
     };
     this._transport.hostSend({ kind: "hotHandle", handle });
     return handle;
-  }
-
-  publishWarmFrame(): ReturnType<typeof createWarmFrameEnvelope> {
-    const owner = createHostAuthorityOwnerFromBinding(this._binding);
-    const frame = createWarmFrameEnvelope({
-      streamKey: this._config.warmStreamKey,
-      frameKey: "frame-0",
-      sequence: "0",
-      frameKind: "state",
-      owner: {
-        authorityKey: owner.authorityKey,
-        surfaceKey: owner.surfaceKey,
-        authorityEpoch: owner.authorityEpoch,
-      },
-      payload: { temperature: 42, status: "nominal" },
-    });
-    this._transport.hostSend({
-      kind: "warmFrame",
-      envelope: frame,
-    });
-    return frame;
   }
 
   handleIncomingRequest(): void {
@@ -520,42 +495,6 @@ class ClientEndpoint {
       handleKey: receipt.handleKey,
       range: receipt.range,
       version: receipt.version,
-    };
-  }
-
-  receiveWarmFrame(): ReturnType<typeof createWarmFrameEnvelope> {
-    const msg = this._transport.clientReceive();
-    if (msg === null || msg.kind !== "warmFrame") {
-      throw new EndpointTransportFailure("expected warmFrame message");
-    }
-    return msg.envelope;
-  }
-
-  consumeWarmFrame(frame: ReturnType<typeof createWarmFrameEnvelope>): {
-    streamKey: string;
-    envelopeVersion: number;
-    payload: Record<string, unknown>;
-  } {
-    const grant = this.grant;
-    const frameParsed = jsonRoundtrip(frame);
-    const frameValidated = validateWarmFrameEnvelope(frameParsed);
-    if (!frameValidated.ok)
-      throw new Error(`warm frame validation failed: ${frameValidated.failure.message}`);
-
-    const owner = frameValidated.value.owner;
-    if (frameValidated.value.streamKey !== grant.warm[0]?.streamKey)
-      throw new Error("warm frame streamKey mismatch");
-    if (owner.authorityKey !== grant.owner.authorityKey)
-      throw new Error("warm frame owner authorityKey mismatch");
-    if (owner.surfaceKey !== grant.owner.surfaceKey)
-      throw new Error("warm frame owner surfaceKey mismatch");
-    if (owner.authorityEpoch !== grant.owner.authorityEpoch)
-      throw new Error("warm frame owner authorityEpoch mismatch");
-
-    return {
-      streamKey: frameValidated.value.streamKey,
-      envelopeVersion: frameValidated.value.envelopeVersion,
-      payload: frameValidated.value.payload as Record<string, unknown>,
     };
   }
 
@@ -788,38 +727,6 @@ describe("endpoint resource receipts", () => {
     expect(responseJson).not.toContain("Uint8Array");
     expect(responseJson).not.toContain("base64");
     expect(responseJson).not.toContain("blob");
-  });
-});
-
-describe("endpoint warm frames", () => {
-  it("validates streamKey and full owner against the grant", () => {
-    const { host, client } = createEndpointBoundaryFixture();
-
-    host.openSurface();
-    const grant = client.acceptSurfaceReady();
-    expect(grant.warm[0].streamKey).toBe("warm.deck-runtime");
-
-    const frame = host.publishWarmFrame();
-
-    const frameValidated = validateWarmFrameEnvelope(jsonRoundtrip(frame));
-    expect(frameValidated.ok).toBe(true);
-    if (frameValidated.ok) {
-      expect(frameValidated.value.owner.authorityKey).toBe(grant.owner.authorityKey);
-      expect(frameValidated.value.owner.surfaceKey).toBe(grant.owner.surfaceKey);
-      expect(frameValidated.value.owner.authorityEpoch).toBe(grant.owner.authorityEpoch);
-    }
-
-    const received = client.receiveWarmFrame();
-    const consumed = client.consumeWarmFrame(received);
-
-    expect(consumed.streamKey).toBe("warm.deck-runtime");
-    expect(consumed.envelopeVersion).toBe(WARM_ENVELOPE_VERSION);
-    expect(consumed.payload.temperature).toBe(42);
-    expect(consumed.payload.status).toBe("nominal");
-
-    const frameJson = JSON.stringify(received);
-    assertEndpointCarriesOnlyMetadata(JSON.parse(frameJson), "warm frame");
-    expect(frameJson).not.toContain("SharedArrayBuffer");
   });
 });
 

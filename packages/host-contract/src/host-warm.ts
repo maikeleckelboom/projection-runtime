@@ -1,15 +1,18 @@
 import { checkJsonObjectRoot, ExclaveError } from "@exclave/base";
-import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
 import { throwInputRejected } from "./errors";
 import type { HostContractFailure, HostContractValidationResult } from "./host-failure";
 
+export const HOST_WARM_STREAM_DESCRIPTOR_VERSION = 1 as const;
+
+export type HostWarmStreamDescriptorVersion = typeof HOST_WARM_STREAM_DESCRIPTOR_VERSION;
+
 export type HostWarmStreamDescriptor = {
   readonly kind: "host.warmStream";
-  readonly envelopeVersion: typeof WARM_ENVELOPE_VERSION;
+  readonly descriptorVersion: HostWarmStreamDescriptorVersion;
   readonly streamKey: string;
 };
 
-const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set(["kind", "envelopeVersion", "streamKey"]);
+const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set(["kind", "descriptorVersion", "streamKey"]);
 
 function assertNonEmptyString(value: unknown, label: string): string {
   if (typeof value !== "string") {
@@ -65,9 +68,9 @@ export function createHostWarmStreamDescriptorThrowing(input: unknown): HostWarm
     );
   }
 
-  if (obj.envelopeVersion !== WARM_ENVELOPE_VERSION) {
+  if (obj.descriptorVersion !== HOST_WARM_STREAM_DESCRIPTOR_VERSION) {
     throwInputRejected(
-      `host warm stream descriptor envelopeVersion must be ${WARM_ENVELOPE_VERSION}, got ${JSON.stringify(obj.envelopeVersion)}`,
+      `host warm stream descriptor descriptorVersion must be ${HOST_WARM_STREAM_DESCRIPTOR_VERSION}, got ${JSON.stringify(obj.descriptorVersion)}`,
     );
   }
 
@@ -75,7 +78,7 @@ export function createHostWarmStreamDescriptorThrowing(input: unknown): HostWarm
 
   return {
     kind: "host.warmStream",
-    envelopeVersion: WARM_ENVELOPE_VERSION,
+    descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
     streamKey,
   };
 }

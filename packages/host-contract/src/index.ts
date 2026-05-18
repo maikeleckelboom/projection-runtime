@@ -57,6 +57,8 @@ export {
 
 export {
   createHostWarmStreamDescriptor,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostWarmStreamDescriptor,
+  type HostWarmStreamDescriptorVersion,
   validateHostWarmStreamDescriptor,
 } from "./host-warm";

@@ -1,23 +1,10 @@
 # @exclave/warm
 
-`@exclave/warm` owns product-neutral warm frame envelope shapes for observable non-audio-critical state and the first
-Warm Codec v1 binary framed-snapshot outer codec subset.
+`@exclave/warm` owns the Warm Codec v1 binary framed-snapshot outer codec subset.
 
 Warm is for progress, invalidation, availability, and projection-change notifications. It is not the hot lane, not control request/reply, and not resource byte transport.
 
 ## What It Owns
-
-### Legacy JSON Envelope Support
-
-- Warm stream keys and warm frame keys.
-- Warm frame sequence shape.
-- Warm frame envelope shape.
-- Warm frame payload JSON-safety.
-- Warm invalidation/change frame conventions.
-- Deterministic validation for warm envelopes.
-- Session/authority owner wire projection for warm streams.
-
-These JSON-safe helpers are legacy envelope support. They are not Warm Codec v1 framed-snapshot bytes.
 
 ### Warm Codec v1 Binary Subset
 
@@ -36,5 +23,7 @@ These JSON-safe helpers are legacy envelope support. They are not Warm Codec v1 
 - Resource handles, resource lifecycle, byte payloads.
 - Hot publication, control request/reply, product semantics.
 - Electron, Tauri, Node, or native bridge.
-- Publication subscribe/ack/rebind lifecycle.
+- JSON event envelopes or warm frame envelopes.
+- Publication subscribe/ack/rebind/invalidation lifecycle.
 - Full manifest-derived field-value warm payload encoding.
+- Session validity, authority epoch, or stale binding projection.

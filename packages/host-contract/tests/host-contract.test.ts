@@ -9,8 +9,8 @@ import {
 } from "@exclave/resource";
 import type { AuthorityBinding } from "@exclave/session";
 import { createAuthorityBinding } from "@exclave/session";
-import { WARM_ENVELOPE_VERSION } from "@exclave/warm";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import * as hostContract from "../src/index";
 import {
   createBindingExpectationFromHostOwner,
   createHostAuthorityOwner,
@@ -25,6 +25,7 @@ import {
   createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostAuthorityOwner,
   type HostContractFailureCode,
   type HostContractVersion,
@@ -34,6 +35,7 @@ import {
   type HostResourcePlaneDescriptor,
   type HostSurfaceDescriptor,
   type HostWarmStreamDescriptor,
+  type HostWarmStreamDescriptorVersion,
   validateHostAuthorityOwner,
   validateHostContractFailure,
   validateHostControlPlaneDescriptor,
@@ -43,8 +45,7 @@ import {
   validateHostSurfaceInvalidatedEnvelope,
   validateHostSurfaceReadyEnvelope,
   validateHostWarmStreamDescriptor,
-} from "../src";
-import * as hostContract from "../src/index";
+} from "../src/index";
 
 function validOwner(): HostAuthorityOwner {
   return {
@@ -87,7 +88,7 @@ function validControl(): HostControlPlaneDescriptor {
 function validWarmStream(): HostWarmStreamDescriptor {
   return {
     kind: "host.warmStream",
-    envelopeVersion: WARM_ENVELOPE_VERSION,
+    descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
     streamKey: "ws-1",
   };
 }
@@ -125,6 +126,11 @@ describe("@exclave/host-contract public exports", () => {
     expectTypeOf<HostContractFailureCode>().toEqualTypeOf<
       "host-contract.invalidDescriptor" | "host-contract.rejected"
     >();
+    expectTypeOf<HostWarmStreamDescriptorVersion>().toEqualTypeOf<1>();
+  });
+
+  it("exports HOST_WARM_STREAM_DESCRIPTOR_VERSION", () => {
+    expect(HOST_WARM_STREAM_DESCRIPTOR_VERSION).toBe(1);
   });
 
   it("exports intended functions", () => {
@@ -653,10 +659,10 @@ describe("HostWarmStreamDescriptor", () => {
     expect(ws.streamKey).toBe("ws-1");
   });
 
-  it("requires WARM_ENVELOPE_VERSION", () => {
+  it("requires HOST_WARM_STREAM_DESCRIPTOR_VERSION", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: 999,
+      descriptorVersion: 999,
       streamKey: "ws-1",
     });
     expect(result.ok).toBe(false);
@@ -668,7 +674,7 @@ describe("HostWarmStreamDescriptor", () => {
   it("rejects empty streamKey", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: "",
     });
     expect(result.ok).toBe(false);
@@ -680,7 +686,7 @@ describe("HostWarmStreamDescriptor", () => {
   it("rejects extra fields", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: "ws-1",
       extra: true,
     });

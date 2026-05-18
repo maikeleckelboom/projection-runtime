@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createControlSuccessEnvelope } from "@exclave/control-plane";
-import { createHostWarmStreamDescriptor } from "@exclave/host-contract";
+import {
+  createHostWarmStreamDescriptor,
+  HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+} from "@exclave/host-contract";
 import {
   applyWarmFrameToPublicationConsumer,
   createPublicationAuthorityModel,
@@ -14,7 +17,7 @@ import {
   subscribePublication,
 } from "@exclave/publication";
 import { RESOURCE_PLANE_V1_OPERATION_KEYS } from "@exclave/resource";
-import { encodeWarmLaneFrame, WARM_ENVELOPE_VERSION, type WarmLaneFrame } from "@exclave/warm";
+import { encodeWarmLaneFrame, type WarmLaneFrame } from "@exclave/warm";
 import { describe, expect, it } from "vitest";
 
 type FixtureSnapshot = {
@@ -167,10 +170,10 @@ describe("first live warm projection path conformance", () => {
 
     const hostWarm = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
-      envelopeVersion: WARM_ENVELOPE_VERSION,
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
       streamKey: "warm-stream-1",
     });
-    expect(Object.keys(hostWarm).sort()).toEqual(["envelopeVersion", "kind", "streamKey"]);
+    expect(Object.keys(hostWarm).sort()).toEqual(["descriptorVersion", "kind", "streamKey"]);
     expect(JSON.stringify(hostWarm)).not.toMatch(/payload|body|bytes|frame/i);
   });
 });
