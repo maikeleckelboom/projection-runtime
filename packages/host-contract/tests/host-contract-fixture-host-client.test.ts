@@ -16,6 +16,7 @@ import {
   validateControlResponseEnvelope,
   validateControlResponseForRequest,
 } from "@exclave/control-plane";
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import {
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
@@ -371,6 +372,7 @@ class FixtureHost {
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: this._config.warmStreamKey,
     });
 
@@ -791,6 +793,7 @@ describe("In-process fixture host/client lifecycle", () => {
       expect(grant.warm[0].kind).toBe("surface.warmStreamCapability");
       expect(grant.warm[0].streamKey).toBe("deck-runtime-v0.warm");
       expect(grant.warm[0].owner.authorityKey).toBe(grant.owner.authorityKey);
+      expect(grant.warm[0].attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
 
       assertNoBytePayloadFields(grant, "grant");
       assertDescriptorCarriesOnlyMetadata(grant, DESCRIPTOR_LOCAL_FIELD_KEYS, "grant");

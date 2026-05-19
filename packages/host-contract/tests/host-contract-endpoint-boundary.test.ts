@@ -12,6 +12,7 @@ import {
   validateControlResponseEnvelope,
   validateControlResponseForRequest,
 } from "@exclave/control-plane";
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import {
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
@@ -225,6 +226,7 @@ class HostEndpoint {
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: this._config.warmStreamKey,
     });
 

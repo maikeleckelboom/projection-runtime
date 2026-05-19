@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import {
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
@@ -229,6 +230,7 @@ describe("HostSurfaceDescriptor ready composition integration", () => {
     const warmStream = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: "deck-runtime-v0.warm",
     });
 
@@ -299,6 +301,7 @@ describe("HostSurfaceDescriptor ready composition integration", () => {
     expect(validatedWarmStream).toBeDefined();
     if (validatedWarmStream === undefined) return;
     expect(validatedWarmStream.streamKey).toBe("deck-runtime-v0.warm");
+    expect(validatedWarmStream.attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
 
     expect(vSurface.resourcePlane).toBeDefined();
     expect(vSurface.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);

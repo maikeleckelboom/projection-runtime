@@ -38,7 +38,16 @@ export {
   type PublicationFrameApplyResult,
   type PublicationSurfaceRecord,
   type PublicationSurfaceStatus,
-  type PublicationWarmFrameDelivery,
   subscribePublication,
   updatePublicationAuthoritySession,
 } from "./subscription";
+export {
+  createPublicationFrameAttachment,
+  createPublicationFrameAttachmentFromAck,
+  createPublicationWarmFrameDelivery,
+  PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
+  type PublicationFrameAttachment,
+  type PublicationStreamKey,
+  type PublicationTransportAttachmentVersion,
+  type PublicationWarmFrameDelivery,
+} from "./transport-attachment";

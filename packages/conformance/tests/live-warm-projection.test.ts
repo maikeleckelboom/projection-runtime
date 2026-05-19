@@ -9,8 +9,11 @@ import {
 import {
   applyWarmFrameToPublicationConsumer,
   createPublicationAuthorityModel,
+  createPublicationFrameAttachmentFromAck,
+  createPublicationWarmFrameDelivery,
   createWaitingPublicationConsumerSubscription,
   invalidatePublicationConsumerSubscription,
+  PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
   type PublicationConsumerState,
   type PublicationSurfaceRecord,
   type SubscribePublicationAck,
@@ -171,10 +174,36 @@ describe("first live warm projection path conformance", () => {
     const hostWarm = createHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: "warm-stream-1",
     });
-    expect(Object.keys(hostWarm).sort()).toEqual(["descriptorVersion", "kind", "streamKey"]);
+    expect(Object.keys(hostWarm).sort()).toEqual([
+      "attachmentVersion",
+      "descriptorVersion",
+      "kind",
+      "streamKey",
+    ]);
+    expect(hostWarm.attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
     expect(JSON.stringify(hostWarm)).not.toMatch(/payload|body|bytes|frame/i);
+
+    const attachment = createPublicationFrameAttachmentFromAck({
+      streamKey: hostWarm.streamKey,
+      ack,
+      frameBytes,
+    });
+    expect(attachment.kind).toBe("publication.warmFrame");
+    expect(attachment.streamKey).toBe(hostWarm.streamKey);
+    expect(attachment.attachmentVersion).toBe(hostWarm.attachmentVersion);
+    expect(createPublicationWarmFrameDelivery(attachment)).toMatchObject({
+      subscriptionId: ack.subscriptionId,
+      authorityEpoch: ack.authorityEpoch,
+    });
+    expect(() =>
+      createControlSuccessEnvelope({
+        requestKey: "publication-frame",
+        payload: attachment as never,
+      }),
+    ).toThrow();
   });
 });
 
@@ -272,6 +301,7 @@ function publicationSourceText(): string {
     "packages/publication/src/index.ts",
     "packages/publication/src/protocol.ts",
     "packages/publication/src/subscription.ts",
+    "packages/publication/src/transport-attachment.ts",
   ]
     .map((path) => readFileSync(resolve(repoRoot, path), "utf8"))
     .join("\n");

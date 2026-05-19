@@ -1,13 +1,20 @@
 import {
   applyWarmFrameToPublicationConsumer,
   createPublicationAuthorityModel,
+  createPublicationFrameAttachment,
+  createPublicationFrameAttachmentFromAck,
+  createPublicationWarmFrameDelivery,
   createWaitingPublicationConsumerSubscription,
   invalidatePublicationConsumerSubscription,
+  PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
   type PublicationConsumerState,
+  type PublicationFrameAttachment,
   type PublicationSubscribeFailure,
   type PublicationSubscriptionInvalidatedEvent,
   type PublicationSurfaceReadyEvent,
   type PublicationSurfaceRecord,
+  type PublicationTransportAttachmentVersion,
+  type PublicationWarmFrameDelivery,
   type SubscribePublicationAck,
   type SubscribePublicationRequest,
   type SubscriptionId,
@@ -52,6 +59,17 @@ describe("@exclave/publication public exports", () => {
     expectTypeOf<
       PublicationSubscriptionInvalidatedEvent["kind"]
     >().toEqualTypeOf<"subscriptionInvalidated">();
+    expectTypeOf<PublicationTransportAttachmentVersion>().toEqualTypeOf<1>();
+    expectTypeOf<PublicationFrameAttachment["kind"]>().toEqualTypeOf<"publication.warmFrame">();
+    expectTypeOf<PublicationWarmFrameDelivery>().toEqualTypeOf<{
+      readonly subscriptionId: string;
+      readonly authorityEpoch: bigint;
+      readonly bytes: Uint8Array;
+    }>();
+  });
+
+  it("exports publication transport attachment version", () => {
+    expect(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION).toBe(1);
   });
 });
 
@@ -156,6 +174,125 @@ describe("publication subscribe protocol", () => {
 });
 
 describe("modeled warm subscription lifecycle", () => {
+  it("carries warm publication frames through a typed attachment boundary", () => {
+    const ack = subscribeAck();
+    const frameBytes = warmFrameBytes(ack, { tempo: 128, playing: true });
+    const attachment = createPublicationFrameAttachmentFromAck({
+      streamKey: "deck-runtime-v0.warm",
+      ack,
+      frameBytes,
+    });
+
+    expect(attachment).toMatchObject({
+      kind: "publication.warmFrame",
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
+      streamKey: "deck-runtime-v0.warm",
+      subscriptionId: ack.subscriptionId,
+      authorityEpoch: ack.authorityEpoch,
+      contractKey: ack.contractKey,
+      projectionInstanceKey: ack.projectionInstanceKey,
+      lane: "warm",
+    });
+    expect(Object.keys(attachment).sort()).toEqual([
+      "attachmentVersion",
+      "authorityEpoch",
+      "contractKey",
+      "frameBytes",
+      "kind",
+      "lane",
+      "projectionInstanceKey",
+      "streamKey",
+      "subscriptionId",
+    ]);
+    expect(Object.keys(attachment)).not.toEqual(
+      expect.arrayContaining(["body", "payload", "resourceBody"]),
+    );
+
+    const delivery = createPublicationWarmFrameDelivery(attachment);
+    expect(delivery).toEqual({
+      subscriptionId: ack.subscriptionId,
+      authorityEpoch: ack.authorityEpoch,
+      bytes: attachment.frameBytes,
+    });
+
+    const applied = applyWarmFrameToPublicationConsumer(
+      createWaitingPublicationConsumerSubscription<FixtureSnapshot>(ack),
+      delivery,
+      decodeFixtureSnapshot,
+    );
+
+    expect(applied.ok).toBe(true);
+  });
+
+  it("rejects attachments whose warm frame identity disagrees with the attachment", () => {
+    const ack = subscribeAck();
+    const frameBytes = warmFrameBytes(
+      { ...ack, projectionInstanceKey: "deck.other" },
+      { tempo: 128, playing: true },
+    );
+
+    expect(() =>
+      createPublicationFrameAttachment({
+        kind: "publication.warmFrame",
+        attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
+        streamKey: "deck-runtime-v0.warm",
+        subscriptionId: ack.subscriptionId,
+        authorityEpoch: ack.authorityEpoch,
+        contractKey: ack.contractKey,
+        projectionInstanceKey: ack.projectionInstanceKey,
+        lane: "warm",
+        frameBytes,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects resource bodies and body-shaped objects as publication frame attachments", () => {
+    const ack = subscribeAck();
+
+    expect(() =>
+      createPublicationFrameAttachment({
+        kind: "publication.warmFrame",
+        attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
+        streamKey: "deck-runtime-v0.warm",
+        subscriptionId: ack.subscriptionId,
+        authorityEpoch: ack.authorityEpoch,
+        contractKey: ack.contractKey,
+        projectionInstanceKey: ack.projectionInstanceKey,
+        lane: "warm",
+        frameBytes: { body: new Uint8Array([1, 2, 3]) } as never,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createPublicationFrameAttachment({
+        kind: "publication.warmFrame",
+        attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
+        streamKey: "deck-runtime-v0.warm",
+        subscriptionId: ack.subscriptionId,
+        authorityEpoch: ack.authorityEpoch,
+        contractKey: ack.contractKey,
+        projectionInstanceKey: ack.projectionInstanceKey,
+        lane: "warm",
+        frameBytes: new Uint8Array([1, 2, 3]),
+      }),
+    ).toThrow();
+  });
+
+  it("rejects cold-lane acks because v1 attachments only carry warm frames", () => {
+    const ack: SubscribePublicationAck = {
+      ...subscribeAck(),
+      lane: "cold",
+    };
+
+    expect(() =>
+      createPublicationFrameAttachmentFromAck({
+        streamKey: "deck-runtime-v0.cold",
+        ack,
+        frameBytes: warmFrameBytes(subscribeAck(), { tempo: 128, playing: true }),
+      }),
+    ).toThrow();
+  });
+
   it("applies the first complete warm snapshot after ack", () => {
     const ack = subscribeAck();
     const waiting = createWaitingPublicationConsumerSubscription<FixtureSnapshot>(ack);

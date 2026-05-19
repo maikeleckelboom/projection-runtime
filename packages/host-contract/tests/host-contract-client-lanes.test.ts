@@ -12,6 +12,7 @@ import {
   validateControlResponseEnvelope,
   validateControlResponseForRequest,
 } from "@exclave/control-plane";
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import {
   createResourceDescriptor,
   createStaleBindingResourceFailure,
@@ -212,6 +213,7 @@ function createFixtureSurfaceReady() {
   const warmStream = createHostWarmStreamDescriptor({
     kind: "host.warmStream",
     descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+    attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
     streamKey: "deck-runtime-v0.warm",
   });
 

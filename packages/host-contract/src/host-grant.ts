@@ -1,3 +1,4 @@
+import type { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import type { BindingExpectation } from "@exclave/session";
 import { throwInputRejected } from "./errors";
 import type { HostHotBlockAExpectation } from "./host-hot";
@@ -34,6 +35,7 @@ export type HostWarmStreamCapability = {
   readonly kind: "surface.warmStreamCapability";
   readonly streamKey: string;
   readonly owner: HostAuthorityOwner;
+  readonly attachmentVersion: typeof PUBLICATION_TRANSPORT_ATTACHMENT_VERSION;
 };
 
 export type HostSurfaceGrant = {
@@ -117,6 +119,7 @@ export function createHostSurfaceGrant(surface: HostSurfaceDescriptor): HostSurf
     kind: "surface.warmStreamCapability" as const,
     streamKey: stream.streamKey,
     owner,
+    attachmentVersion: stream.attachmentVersion,
   }));
 
   return {

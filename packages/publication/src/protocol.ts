@@ -7,6 +7,13 @@ import type {
 } from "@exclave/session";
 import type { WarmFrameDecodeFailureReason } from "@exclave/warm";
 import { throwInputRejected } from "./errors";
+import {
+  assertExactRootKeys,
+  assertNonEmptyString,
+  assertNonNegativeBigInt,
+  assertPlainObject,
+  assertU32,
+} from "./validation";
 
 export type ContractKey = string;
 export type ProjectionInstanceKey = string;
@@ -168,8 +175,6 @@ const SUBSCRIPTION_INVALIDATED_KEYS: ReadonlySet<string> = new Set([
   "reason",
 ]);
 
-const U32_MAX = 0xffff_ffff;
-
 export function createSubscribePublicationRequest(
   input: SubscribePublicationRequest,
 ): SubscribePublicationRequest {
@@ -257,61 +262,6 @@ export function createPublicationSubscriptionInvalidatedEvent(
     ),
     reason: assertSubscriptionInvalidationReason(obj.reason),
   };
-}
-
-function assertPlainObject(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throwInputRejected(`${label} must be a plain object`);
-  }
-
-  let proto: object | null;
-  try {
-    proto = Object.getPrototypeOf(value);
-  } catch {
-    throwInputRejected(`${label} object inspection failed`);
-  }
-
-  if (proto !== null && proto !== Object.prototype) {
-    throwInputRejected(`${label} must be a plain object, not a class instance`);
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function assertExactRootKeys(
-  value: Record<string, unknown>,
-  allowedKeys: ReadonlySet<string>,
-  label: string,
-): void {
-  for (const key of Reflect.ownKeys(value)) {
-    if (typeof key === "symbol") {
-      throwInputRejected(`${label} must not have symbol keys`);
-    }
-    if (!allowedKeys.has(key)) {
-      throwInputRejected(`${label} must not have extra field: ${key}`);
-    }
-  }
-}
-
-function assertNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throwInputRejected(`${label} must be a non-empty string`);
-  }
-  return value;
-}
-
-function assertNonNegativeBigInt(value: unknown, label: string): bigint {
-  if (typeof value !== "bigint" || value < 0n) {
-    throwInputRejected(`${label} must be a non-negative bigint`);
-  }
-  return value;
-}
-
-function assertU32(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > U32_MAX) {
-    throwInputRejected(`${label} must fit in u32`);
-  }
-  return value;
 }
 
 function assertPublicationLane(value: unknown, label: string): PublicationLane {

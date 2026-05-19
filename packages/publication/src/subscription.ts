@@ -13,6 +13,7 @@ import {
   type WarmFrameRejectedEvent,
   type WarmStreamFatalEvent,
 } from "./protocol";
+import type { PublicationWarmFrameDelivery } from "./transport-attachment";
 
 export type PublicationSurfaceStatus = "ready" | "deferredNotReady" | "unavailable";
 
@@ -32,12 +33,6 @@ export type PublicationAuthorityModel = {
   readonly surfaces: readonly PublicationSurfaceRecord[];
   readonly nextSubscriptionOrdinal: number;
   readonly subscriptionIdPrefix: string;
-};
-
-export type PublicationWarmFrameDelivery = {
-  readonly subscriptionId: SubscriptionId;
-  readonly authorityEpoch: bigint;
-  readonly bytes: Uint8Array;
 };
 
 export type PublicationConsumerState<TProjectionState> =

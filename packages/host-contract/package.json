@@ -30,6 +30,7 @@
   "dependencies": {
     "@exclave/base": "workspace:*",
     "@exclave/control-plane": "workspace:*",
+    "@exclave/publication": "workspace:*",
     "@exclave/resource": "workspace:*",
     "@exclave/session": "workspace:*",
     "@exclave/warm": "workspace:*"

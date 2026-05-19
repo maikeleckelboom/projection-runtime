@@ -1,3 +1,4 @@
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import { throwInputRejected } from "./errors";
 import type { HostContractValidationResult } from "./host-failure";
 import {
@@ -17,9 +18,15 @@ export type HostWarmStreamDescriptor = {
   readonly kind: "host.warmStream";
   readonly descriptorVersion: HostWarmStreamDescriptorVersion;
   readonly streamKey: string;
+  readonly attachmentVersion: typeof PUBLICATION_TRANSPORT_ATTACHMENT_VERSION;
 };
 
-const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set(["kind", "descriptorVersion", "streamKey"]);
+const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
+  "kind",
+  "descriptorVersion",
+  "streamKey",
+  "attachmentVersion",
+]);
 
 export function createHostWarmStreamDescriptorThrowing(input: unknown): HostWarmStreamDescriptor {
   const obj = assertPlainObject(input, "host warm stream descriptor");
@@ -39,10 +46,17 @@ export function createHostWarmStreamDescriptorThrowing(input: unknown): HostWarm
 
   const streamKey = assertNonEmptyString(obj.streamKey, "warm.streamKey");
 
+  if (obj.attachmentVersion !== PUBLICATION_TRANSPORT_ATTACHMENT_VERSION) {
+    throwInputRejected(
+      `host warm stream descriptor attachmentVersion must be ${PUBLICATION_TRANSPORT_ATTACHMENT_VERSION}, got ${JSON.stringify(obj.attachmentVersion)}`,
+    );
+  }
+
   return {
     kind: "host.warmStream",
     descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
     streamKey,
+    attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
   };
 }
 

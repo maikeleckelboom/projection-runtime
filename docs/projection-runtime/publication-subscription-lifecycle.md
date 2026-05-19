@@ -64,6 +64,7 @@ This document defines the publication-subscription rules left unspecified by the
 - how does a consumer rebind after `authorityReady`?
 - how is stream-fatal warm incompatibility recovered?
 - how does hot handle open relate to publication subscription, and are they the same or different operations?
+- what typed attachment shape may a host transport carry for warm publication frames?
 
 ### 1.2 Scope
 
@@ -77,6 +78,7 @@ This document defines:
 - rebind protocol obligations
 - stream-fatal warm incompatibility recovery path
 - hot handle open vs publication subscription distinction
+- publication frame attachment boundary shape for warm frame carriage
 
 ### 1.3 Non-scope
 
@@ -88,6 +90,7 @@ This document does not define:
 - publication continuity semantics (Projection Spine owns this)
 - session epoch issuance (Control Plane Session Rules owns this)
 - resource-plane chunked or mapped reads (Resource Plane v1 owns this)
+- WebSocket, Electron, Node, native bridge, or other concrete transport mechanics
 
 ---
 
@@ -160,6 +163,16 @@ See sections 5.1 and 6.
 
 Warm frame encoding errors that Warm Codec v1 classifies as recoverable per-frame errors must not cause stream teardown.
 Stream-fatal events are reserved for identity- and version-level stream incompatibilities. See section 10.
+
+### Rule 12: Publication frames attach to transport through a typed boundary
+
+A host transport that carries warm publication frames to consumers must carry a typed publication frame attachment. It
+must not hide frames in control replies, resource bodies, descriptor metadata, or arbitrary transport-specific option
+bags.
+
+The attachment names the stream, subscription, epoch, lane, surface identity, attachment version, and warm frame bytes.
+The concrete transport chooses how to move the attachment; this document defines what the two sides agree is being
+moved.
 
 ---
 
@@ -485,6 +498,33 @@ After the ack:
 4. A consumer that has not received the first frame after ack is waiting for the required initial snapshot. See section
    5.3 for bounded delivery obligations.
 
+### 7.3.1 Transport attachment shape
+
+The public warm-frame transport attachment has the following shape:
+
+```ts
+const PUBLICATION_TRANSPORT_ATTACHMENT_VERSION = 1
+
+type PublicationFrameAttachment = {
+    readonly kind: "publication.warmFrame"
+    readonly attachmentVersion: typeof PUBLICATION_TRANSPORT_ATTACHMENT_VERSION
+    readonly streamKey: string
+    readonly subscriptionId: SubscriptionId
+    readonly authorityEpoch: AuthorityEpoch
+    readonly contractKey: ContractKey
+    readonly projectionInstanceKey: ProjectionInstanceKey
+    readonly lane: "warm"
+    readonly frameBytes: Uint8Array
+}
+```
+
+The attachment is not a control response and not a resource message. `frameBytes` must decode as a warm framed-snapshot
+publication for the declared `(contractKey, projectionInstanceKey)`. The attachment does not define queueing,
+backpressure, retries, replay, delivery ordering, or any concrete IPC mechanism.
+
+Host warm-stream descriptors may advertise the `attachmentVersion` they expect. That is metadata for agreement; it does
+not transfer a publication frame.
+
 ### 7.4 Continuity break in a warm stream
 
 If the authority emits a publication whose `continuityGeneration` differs from the previous frame's
@@ -773,6 +813,12 @@ A compliant implementation satisfies all of the following:
 - `warmStreamFatal` reason values are restricted to identity- and version-level stream incompatibilities;
   `malformedFrame` is not a valid reason
 - recoverable warm frame errors produce `WarmFrameRejectedEvent` and do not end the stream
+- warm frame carriage uses a typed `PublicationFrameAttachment`
+- publication frame attachments carry `attachmentVersion`, `streamKey`, `subscriptionId`, `authorityEpoch`,
+  `contractKey`, `projectionInstanceKey`, `lane`, and `frameBytes`
+- control replies do not carry `PublicationFrameAttachment` or warm frame bytes
+- resource bodies and resource descriptors are not publication messages
+- host warm-stream descriptors may advertise `attachmentVersion` but do not carry frames
 - `lane: "cold"` subscribe requests are rejected with `coldLaneNotRatified` in v1 conforming implementations
 - consumer rebind after `authorityReady` submits fresh subscribe requests; it does not resume prior subscriptions
 - consumer rebind receives `surfaceDeferredNotReady` for surfaces that have not yet completed post-session-ready reopen;

@@ -11,6 +11,7 @@
     { "path": "../base" },
     { "path": "../session" },
     { "path": "../control-plane" },
+    { "path": "../publication" },
     { "path": "../warm" },
     { "path": "../resource" }
   ],

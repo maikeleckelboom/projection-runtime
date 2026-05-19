@@ -50,8 +50,8 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
 | `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
 | `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and manifest-derived field-value snapshot payload encode/decode. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, transport, or publication runtime. |
-| `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
-| `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
+| `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types, a versioned warm-frame `PublicationFrameAttachment`, and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
+| `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` and publication `attachmentVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
 | `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes the first modeled live warm projection path proof, and includes a warm-only payload codec fixture profile with Rust/TypeScript payload and full warm frame byte agreement for warm-payload-v0. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
@@ -59,10 +59,11 @@ intended protocol surface, but current implementation conformance must not be in
 Classification: partially implemented.
 
 The repository follows the boundary model at the package boundary level. Control envelopes, publication subscriptions,
-warm frames, resource descriptors, hot codec/binding/consumer/publisher kernels, session guards, and host-contract
-descriptors are separate packages. Tests prove JSON-safe control and warm payload boundaries, resource receipts that do
-not carry byte bodies, publication acks that do not carry snapshot bodies, and guarded hot reads that fail before
-reading when session validity fails.
+publication frame attachments, warm frames, resource descriptors, hot codec/binding/consumer/publisher kernels, session
+guards, and host-contract descriptors are separate packages. Tests prove JSON-safe control and warm payload boundaries,
+resource receipts that do not carry byte bodies, publication acks that do not carry snapshot bodies, publication frame
+attachments that carry warm frame bytes instead of resource bodies, host warm-stream descriptors that advertise an
+attachment version without carrying frames, and guarded hot reads that fail before reading when session validity fails.
 
 This is not full boundary model conformance. There is no service/authority runtime, no transport layer, no product
 authority ownership model, and no production publication transport. Resource-plane v1 protocol and modeled lifecycle
@@ -291,7 +292,8 @@ resource runtime, or cold reopen behavior.
 
 Classification: partially implemented.
 
-Current source has a new `@exclave/publication` package with protocol types and a modeled warm subscription lifecycle.
+Current source has a new `@exclave/publication` package with protocol types, a warm-frame attachment boundary, and a
+modeled warm subscription lifecycle.
 
 Implemented in source and tests:
 
@@ -303,6 +305,10 @@ Implemented in source and tests:
 - `coldLaneNotRatified` rejection path
 - `WarmFrameRejectedEvent`
 - `WarmStreamFatalEvent`
+- `PUBLICATION_TRANSPORT_ATTACHMENT_VERSION`
+- `PublicationFrameAttachment`
+- `PublicationWarmFrameDelivery`
+- attachment helpers that validate warm frame identity before delivery
 - per-subscription invalidation
 - unsubscribe request/result type shapes
 - ack commitment to an initial complete snapshot in the modeled authority helper
@@ -313,6 +319,8 @@ Implemented in source and tests:
 - rebind after replacement readiness with a new `subscriptionId`
 - rejection of old authority-epoch traffic against a new subscription
 - explicit separation between hot handle open and warm/cold subscription in runtime protocol
+- explicit separation between control replies, resource bodies, host stream descriptors, and publication frame
+  attachments
 
 Remaining gaps:
 
@@ -323,9 +331,11 @@ Remaining gaps:
 - no cold reopen runtime
 - no cold subscription runtime
 - no bounded delivery/timeout policy for missing initial snapshots
+- no concrete queueing, replay, backpressure, or IPC profile for publication attachments
 
-Host-contract tests still only show descriptor-driven warm stream metadata; subscription lifecycle conformance now lives
-in `@exclave/publication` tests and the shared conformance proof.
+Host-contract tests now show descriptor-driven warm stream metadata with publication attachment-version agreement.
+Subscription lifecycle and attachment-boundary conformance live in `@exclave/publication` tests and the shared
+conformance proof; this is not runtime transport support.
 
 ## 11. Cold Reopen Conformance
 
@@ -356,7 +366,7 @@ session, resource, warm codec, and publication subscription foundations.
    Extend the current warm-payload-v0 Rust/TypeScript payload and full-frame agreement into additional warm fixtures
    as new warm contract shapes are added.
 
-4. `feat(publication): define production transport attachment points`
+4. `feat(publication): define transport attachment boundary` — **done**.
 
-   Define how the modeled subscription lifecycle attaches to a real transport without making control replies carry
-   publication frames or resource bodies.
+   `@exclave/publication` now owns versioned warm-frame attachments, host warm-stream metadata advertises the matching
+   attachment version, and tests prove the boundary without implementing a concrete transport.

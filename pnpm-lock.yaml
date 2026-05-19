@@ -85,6 +85,9 @@ importers:
       '@exclave/control-plane':
         specifier: workspace:*
         version: link:../control-plane
+      '@exclave/publication':
+        specifier: workspace:*
+        version: link:../publication
       '@exclave/resource':
         specifier: workspace:*
         version: link:../resource

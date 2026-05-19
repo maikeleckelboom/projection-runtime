@@ -1,5 +1,6 @@
 import type { JsonObject } from "@exclave/base";
 import { CONTROL_ENVELOPE_VERSION } from "@exclave/control-plane";
+import { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import {
   RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   RESOURCE_CLOSE_MAPPING_OPERATION_KEY,
@@ -89,6 +90,7 @@ function validWarmStream(): HostWarmStreamDescriptor {
   return {
     kind: "host.warmStream",
     descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+    attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
     streamKey: "ws-1",
   };
 }
@@ -657,12 +659,14 @@ describe("HostWarmStreamDescriptor", () => {
     const ws = createHostWarmStreamDescriptor(validWarmStream());
     expect(ws.kind).toBe("host.warmStream");
     expect(ws.streamKey).toBe("ws-1");
+    expect(ws.attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
   });
 
   it("requires HOST_WARM_STREAM_DESCRIPTOR_VERSION", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: 999,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: "ws-1",
     });
     expect(result.ok).toBe(false);
@@ -675,7 +679,21 @@ describe("HostWarmStreamDescriptor", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: "",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe("host-contract.invalidDescriptor");
+    }
+  });
+
+  it("requires publication transport attachment version", () => {
+    const result = validateHostWarmStreamDescriptor({
+      kind: "host.warmStream",
+      descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: 999,
+      streamKey: "ws-1",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -687,6 +705,7 @@ describe("HostWarmStreamDescriptor", () => {
     const result = validateHostWarmStreamDescriptor({
       kind: "host.warmStream",
       descriptorVersion: HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+      attachmentVersion: PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
       streamKey: "ws-1",
       extra: true,
     });
@@ -1162,6 +1181,7 @@ describe("createHostSurfaceGrant", () => {
     expect(grant.warm[0].kind).toBe("surface.warmStreamCapability");
     expect(grant.warm[0].streamKey).toBe("ws-1");
     expect(grant.warm[0].owner.authorityKey).toBe("auth-1");
+    expect(grant.warm[0].attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
   });
 
   it("returns empty hot and warm arrays when surface has no optional lanes", () => {

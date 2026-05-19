@@ -64,5 +64,5 @@ The current document set incorporates the pre-ratification alignment work needed
 - Hot Lane Codec and Layout Spec, Hot Lane Consumer Runtime, and Hot SAB Lifecycle have a shared bundle status. They are
   ratified together or not ratified together.
 - Publication Subscription Lifecycle requires an initial complete snapshot after ack, a lane-scoped
-  `PublicationSurfaceReadyEvent`, `coldLaneNotRatified` for cold subscription attempts in v1, and separate
-  `WarmFrameRejectedEvent` and `WarmStreamFatalEvent` paths.
+  `PublicationSurfaceReadyEvent`, `coldLaneNotRatified` for cold subscription attempts in v1, a typed warm-frame
+  `PublicationFrameAttachment`, and separate `WarmFrameRejectedEvent` and `WarmStreamFatalEvent` paths.
