@@ -81,6 +81,40 @@ export type PublicationFrameApplyFailure =
       readonly subscriptionId?: SubscriptionId;
     }
   | {
+      readonly kind: "attachmentKindMismatch";
+      readonly expectedKind: "publication.warmFrame";
+      readonly providedKind: unknown;
+    }
+  | {
+      readonly kind: "attachmentVersionMismatch";
+      readonly expectedAttachmentVersion: number;
+      readonly providedAttachmentVersion: unknown;
+    }
+  | {
+      readonly kind: "streamKeyMismatch";
+      readonly expectedStreamKey: string;
+      readonly providedStreamKey: unknown;
+    }
+  | {
+      readonly kind: "attachmentContractKeyMismatch";
+      readonly expectedContractKey: string;
+      readonly providedContractKey: unknown;
+    }
+  | {
+      readonly kind: "attachmentProjectionInstanceKeyMismatch";
+      readonly expectedProjectionInstanceKey: string;
+      readonly providedProjectionInstanceKey: unknown;
+    }
+  | {
+      readonly kind: "attachmentLaneMismatch";
+      readonly expectedLane: "warm";
+      readonly providedLane: unknown;
+    }
+  | {
+      readonly kind: "attachmentRejected";
+      readonly detail: string;
+    }
+  | {
       readonly kind: "subscriptionMismatch";
       readonly expectedSubscriptionId: SubscriptionId;
       readonly providedSubscriptionId: SubscriptionId;
@@ -96,6 +130,23 @@ export type PublicationFrameApplyFailure =
       readonly providedBaselineEpoch: number;
       readonly expectedContinuityGeneration: number;
       readonly providedContinuityGeneration: number;
+    }
+  | {
+      readonly kind: "streamMetadataMismatch";
+      readonly expectedBaselineEpoch: number;
+      readonly providedBaselineEpoch: number;
+      readonly expectedContinuityGeneration: number;
+      readonly providedContinuityGeneration: number;
+    }
+  | {
+      readonly kind: "publicationSequenceNotAdvanced";
+      readonly lastPublicationSequence: bigint;
+      readonly providedPublicationSequence: bigint;
+    }
+  | {
+      readonly kind: "laneSequenceNotAdvanced";
+      readonly lastLaneSequence: number;
+      readonly providedLaneSequence: number;
     }
   | {
       readonly kind: "payloadDecodeRejected";
@@ -332,18 +383,44 @@ export function applyWarmFrameToPublicationConsumer<TProjectionState>(
   }
 
   if (
-    state.kind === "subscribedWaitingForInitialSnapshot" &&
-    (frame.baselineEpoch !== ack.baselineEpoch ||
-      frame.continuityGeneration !== ack.continuityGeneration)
+    frame.baselineEpoch !== ack.baselineEpoch ||
+    frame.continuityGeneration !== ack.continuityGeneration
   ) {
     const failure: PublicationFrameApplyFailure = {
-      kind: "initialSnapshotMetadataMismatch",
+      kind:
+        state.kind === "subscribedWaitingForInitialSnapshot"
+          ? "initialSnapshotMetadataMismatch"
+          : "streamMetadataMismatch",
       expectedBaselineEpoch: ack.baselineEpoch,
       providedBaselineEpoch: frame.baselineEpoch,
       expectedContinuityGeneration: ack.continuityGeneration,
       providedContinuityGeneration: frame.continuityGeneration,
     };
     return { ok: false, state, failure };
+  }
+
+  if (state.kind === "live") {
+    if (frame.publicationSequence <= state.latestFrame.publicationSequence) {
+      const failure: PublicationFrameApplyFailure = {
+        kind: "publicationSequenceNotAdvanced",
+        lastPublicationSequence: state.latestFrame.publicationSequence,
+        providedPublicationSequence: frame.publicationSequence,
+      };
+      return { ok: false, state, failure };
+    }
+
+    if (
+      state.latestFrame.laneSequence !== undefined &&
+      frame.laneSequence !== undefined &&
+      frame.laneSequence <= state.latestFrame.laneSequence
+    ) {
+      const failure: PublicationFrameApplyFailure = {
+        kind: "laneSequenceNotAdvanced",
+        lastLaneSequence: state.latestFrame.laneSequence,
+        providedLaneSequence: frame.laneSequence,
+      };
+      return { ok: false, state, failure };
+    }
   }
 
   let latestProjectionState: TProjectionState;

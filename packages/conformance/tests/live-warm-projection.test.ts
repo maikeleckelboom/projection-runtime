@@ -7,20 +7,33 @@ import {
   HOST_WARM_STREAM_DESCRIPTOR_VERSION,
 } from "@exclave/host-contract";
 import {
+  applyPublicationFrameAttachmentToConsumer,
   applyWarmFrameToPublicationConsumer,
   createPublicationAuthorityModel,
   createPublicationFrameAttachmentFromAck,
   createPublicationWarmFrameDelivery,
   createWaitingPublicationConsumerSubscription,
+  createWarmPublicationConsumerState,
+  createWarmPublicationRuntime,
   invalidatePublicationConsumerSubscription,
   PUBLICATION_TRANSPORT_ATTACHMENT_VERSION,
   type PublicationConsumerState,
   type PublicationSurfaceRecord,
+  type PublicationWarmSurfaceRecord,
+  publishInitialWarmSnapshot,
+  publishWarmSnapshot,
   type SubscribePublicationAck,
   subscribePublication,
+  subscribeWarmPublication,
 } from "@exclave/publication";
 import { RESOURCE_PLANE_V1_OPERATION_KEYS } from "@exclave/resource";
-import { encodeWarmLaneFrame, type WarmLaneFrame } from "@exclave/warm";
+import {
+  encodeWarmLaneFrame,
+  type WarmLaneFrame,
+  type WarmSnapshotObject,
+  type WarmSnapshotPayloadField,
+  type WarmSnapshotPayloadManifest,
+} from "@exclave/warm";
 import { describe, expect, it } from "vitest";
 
 type FixtureSnapshot = {
@@ -139,6 +152,74 @@ describe("first live warm projection path conformance", () => {
     expect(secondApplied.state.latestProjectionState).toEqual({ tempo: 131, playing: false });
   });
 
+  it("encodes and applies the warm-payload-v0 fixture through the modeled publication runtime", () => {
+    const fixture = loadWarmPayloadRuntimeFixture();
+    let runtime = createWarmPublicationRuntime({
+      session: { state: "ready", authorityEpoch: 1n },
+      surfaces: [fixture.surface],
+    });
+    const subscribed = subscribeWarmPublication(runtime, {
+      contractKey: fixture.surface.contractKey,
+      projectionInstanceKey: fixture.surface.projectionInstanceKey,
+      lane: "warm",
+      expectedSemanticVersion: fixture.surface.semanticVersion,
+      expectedLaneVersion: fixture.surface.laneVersion,
+    });
+    expect(subscribed.result.ok).toBe(true);
+    if (!subscribed.result.ok) throw new Error("expected fixture warm subscribe ack");
+    runtime = subscribed.model;
+
+    let consumer = createWarmPublicationConsumerState(subscribed.result.binding);
+    const initial = publishInitialWarmSnapshot(runtime, {
+      subscriptionId: subscribed.result.ack.subscriptionId,
+      snapshot: fixture.snapshot,
+    });
+    expect(initial.ok).toBe(true);
+    if (!initial.ok) throw new Error("expected fixture initial snapshot publication");
+    runtime = initial.model;
+
+    expect(initial.attachment.kind).toBe("publication.warmFrame");
+    expect(initial.attachment.streamKey).toBe(fixture.surface.streamKey);
+    expect(initial.attachment.attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
+    expect(Object.keys(initial.attachment)).not.toEqual(
+      expect.arrayContaining(["body", "payload", "resourceBody"]),
+    );
+
+    const initialApplied = applyPublicationFrameAttachmentToConsumer(
+      consumer,
+      subscribed.result.binding,
+      initial.attachment,
+    );
+    expect(initialApplied.ok).toBe(true);
+    if (!initialApplied.ok) throw new Error("expected fixture attachment to apply");
+    consumer = initialApplied.state;
+    expect(consumer.kind).toBe("live");
+    if (consumer.kind !== "live") throw new Error("expected fixture consumer live state");
+    expect(consumer.latestProjectionState).toEqual(fixture.expectedDecodedSnapshot);
+    expect(bytesToHex(consumer.latestFrame.payload)).toBe(fixture.expectedPayloadBytesHex);
+    expect(consumer.latestFrame.publicationSequence).toBe(1n);
+    expect(consumer.latestFrame.laneSequence).toBe(0);
+
+    const later = publishWarmSnapshot(runtime, {
+      subscriptionId: subscribed.result.ack.subscriptionId,
+      snapshot: fixture.snapshot,
+    });
+    expect(later.ok).toBe(true);
+    if (!later.ok) throw new Error("expected fixture later snapshot publication");
+
+    const laterApplied = applyPublicationFrameAttachmentToConsumer(
+      consumer,
+      subscribed.result.binding,
+      later.attachment,
+    );
+    expect(laterApplied.ok).toBe(true);
+    if (!laterApplied.ok) throw new Error("expected fixture later attachment to apply");
+    if (laterApplied.state.kind !== "live") throw new Error("expected fixture live state");
+    expect(laterApplied.state.latestProjectionState).toEqual(fixture.expectedDecodedSnapshot);
+    expect(laterApplied.state.latestFrame.publicationSequence).toBe(2n);
+    expect(laterApplied.state.latestFrame.laneSequence).toBe(1);
+  });
+
   it("proves control replies, warm frame bytes, resource operations, and host descriptors stay separate", () => {
     const ack = subscribeAck();
     const frameBytes = warmFrameBytes(ack, { tempo: 128, playing: true }, 1n);
@@ -206,6 +287,105 @@ describe("first live warm projection path conformance", () => {
     ).toThrow();
   });
 });
+
+type WarmPayloadRuntimeFixture = {
+  readonly surface: PublicationWarmSurfaceRecord;
+  readonly snapshot: WarmSnapshotObject;
+  readonly expectedDecodedSnapshot: WarmSnapshotObject;
+  readonly expectedPayloadBytesHex: string;
+};
+
+function loadWarmPayloadRuntimeFixture(): WarmPayloadRuntimeFixture {
+  const resolved = mustBeRecord(loadWarmPayloadJson("resolved-contract.json"), "resolved contract");
+  const fixture = mustBeRecord(loadWarmPayloadJson("warm-payload-fixture.json"), "warm fixture");
+  const laneManifests = mustBeRecord(resolved.laneManifests, "resolved.laneManifests");
+  const warm = mustBeRecord(laneManifests.warm, "resolved.laneManifests.warm");
+  const frame = mustBeRecord(fixture.frame, "warm fixture frame");
+  const expected = mustBeRecord(fixture.expected, "warm fixture expected");
+  const fields = mustBeArray(
+    warm.fields,
+    "warm manifest fields",
+  ) as readonly WarmSnapshotPayloadField[];
+  const warmCodecVersion = hexU64ToBigInt(
+    mustBeString(warm.warmCodecVersion, "warm.warmCodecVersion"),
+  );
+  const manifest = {
+    warmCodecVersion,
+    fields,
+  } satisfies WarmSnapshotPayloadManifest;
+
+  return {
+    surface: {
+      contractKey: mustBeString(warm.contractKey, "warm.contractKey"),
+      projectionInstanceKey: mustBeString(
+        frame.projectionInstanceKey,
+        "frame.projectionInstanceKey",
+      ),
+      lane: "warm",
+      semanticVersion: hexU64ToBigInt(mustBeString(warm.semanticVersion, "warm.semanticVersion")),
+      laneVersion: warmCodecVersion,
+      baselineEpoch: mustBeNumber(frame.baselineEpoch, "frame.baselineEpoch"),
+      continuityGeneration: mustBeNumber(frame.continuityGeneration, "frame.continuityGeneration"),
+      status: "ready",
+      streamKey: "warm-payload-v0.warm",
+      payloadManifest: manifest,
+      laneSequenceMode: "present",
+    },
+    snapshot: mustBeRecord(fixture.snapshot, "warm fixture snapshot") as WarmSnapshotObject,
+    expectedDecodedSnapshot: mustBeRecord(
+      expected.decodedSnapshot,
+      "warm fixture decoded snapshot",
+    ) as WarmSnapshotObject,
+    expectedPayloadBytesHex: mustBeString(expected.payloadBytesHex, "expected.payloadBytesHex"),
+  };
+}
+
+function loadWarmPayloadJson(filename: string): unknown {
+  const raw = readFileSync(
+    resolve(repoRoot, "fixtures/projection-runtime/warm-payload-v0", filename),
+    "utf8",
+  );
+  return JSON.parse(raw);
+}
+
+function hexU64ToBigInt(hex: string): bigint {
+  if (!/^[0-9a-fA-F]{1,16}$/.test(hex)) {
+    throw new Error("hexU64ToBigInt: hex must be 1-16 hex characters");
+  }
+  return BigInt(`0x${hex}`);
+}
+
+function mustBeRecord(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function mustBeArray(value: unknown, label: string): readonly unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value;
+}
+
+function mustBeString(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string`);
+  }
+  return value;
+}
+
+function mustBeNumber(value: unknown, label: string): number {
+  if (typeof value !== "number") {
+    throw new Error(`${label} must be a number`);
+  }
+  return value;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 function request(): Parameters<typeof subscribePublication>[1] {
   return {
@@ -302,6 +482,7 @@ function publicationSourceText(): string {
     "packages/publication/src/protocol.ts",
     "packages/publication/src/subscription.ts",
     "packages/publication/src/transport-attachment.ts",
+    "packages/publication/src/warm-runtime.ts",
   ]
     .map((path) => readFileSync(resolve(repoRoot, path), "utf8"))
     .join("\n");

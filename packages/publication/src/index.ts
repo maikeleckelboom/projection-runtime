@@ -51,3 +51,22 @@ export {
   type PublicationTransportAttachmentVersion,
   type PublicationWarmFrameDelivery,
 } from "./transport-attachment";
+export {
+  applyPublicationFrameAttachmentToConsumer,
+  createWarmPublicationConsumerState,
+  createWarmPublicationRuntime,
+  invalidateWarmPublicationRuntimeSubscriptions,
+  type PublicationWarmAuthoritySubscription,
+  type PublicationWarmAuthoritySubscriptionState,
+  type PublicationWarmPublishResult,
+  type PublicationWarmRuntimeFailure,
+  type PublicationWarmRuntimeModel,
+  type PublicationWarmStreamBinding,
+  type PublicationWarmSubscribeResult,
+  type PublicationWarmSurfaceRecord,
+  publishInitialWarmSnapshot,
+  publishWarmSnapshot,
+  subscribeWarmPublication,
+  updateWarmPublicationRuntimeAuthoritySession,
+  type WarmSubscribePublicationAck,
+} from "./warm-runtime";

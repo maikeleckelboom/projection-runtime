@@ -525,6 +525,31 @@ backpressure, retries, replay, delivery ordering, or any concrete IPC mechanism.
 Host warm-stream descriptors may advertise the `attachmentVersion` they expect. That is metadata for agreement; it does
 not transfer a publication frame.
 
+### 7.3.2 Modeled runtime implementation
+
+`@exclave/publication` now includes a transport-neutral in-memory warm publication runtime model. The model connects a
+ready authority surface to `subscribeWarmPublication`, creates an epoch-bound stream binding, emits the initial complete
+snapshot through `publishInitialWarmSnapshot`, emits later snapshots through `publishWarmSnapshot`, and applies typed
+`PublicationFrameAttachment` values with `applyPublicationFrameAttachmentToConsumer`.
+
+The model uses the Warm Codec v1 payload encoder for logical snapshot objects and the Warm Codec v1 framed-snapshot
+encoder for frame bytes. Consumers apply the typed attachment, validate its attachment version, stream key,
+subscription id, authority epoch, surface identity, lane, frame identity, semantic version, warm codec version, initial
+baseline metadata, and lane-sequence presence before decoding the payload into live state.
+
+The implementation state is explicit:
+
+- authority-side subscriptions are `subscribedWaitingForInitialSnapshot`, `live`, or `invalidated`
+- consumer-side subscriptions remain `subscribedWaitingForInitialSnapshot` until the first accepted attachment, then
+  become `live`
+- invalidated, stale, failed, or closed consumers reject later attachments even when the frame bytes remain valid
+- replacement authority epochs invalidate old modeled subscriptions; rebind creates a new subscription and a new
+  required initial snapshot
+
+This runtime model does not add WebSocket, Electron IPC, Node IPC, native transport, production authority scheduling,
+queueing, replay, resource bodies, cold subscription behavior, or product/Dekzer semantics. It is the package-owned
+model future transports must preserve, not a concrete transport profile.
+
 ### 7.4 Continuity break in a warm stream
 
 If the authority emits a publication whose `continuityGeneration` differs from the previous frame's

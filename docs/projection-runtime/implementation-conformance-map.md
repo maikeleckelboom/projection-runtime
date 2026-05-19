@@ -50,9 +50,9 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
 | `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
 | `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and manifest-derived field-value snapshot payload encode/decode. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, transport, or publication runtime. |
-| `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types, a versioned warm-frame `PublicationFrameAttachment`, and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
+| `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types, a versioned warm-frame `PublicationFrameAttachment`, and a modeled in-memory warm publication runtime that connects ready authority surfaces, subscribe ack, initial complete snapshot emission, typed attachment application, warm payload decode, live state, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, a production authority process, hot handle open, resource payload access, or cold reopen runtime. |
 | `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` and publication `attachmentVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
-| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes the first modeled live warm projection path proof, and includes a warm-only payload codec fixture profile with Rust/TypeScript payload and full warm frame byte agreement for warm-payload-v0. It is not yet a full shared runtime conformance harness across all drafted planes. |
+| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes modeled live warm projection path proof, includes a warm-only payload codec fixture profile with Rust/TypeScript payload and full warm frame byte agreement for warm-payload-v0, and now routes warm-payload-v0 fixture data through the modeled publication runtime. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
 
@@ -293,7 +293,9 @@ resource runtime, or cold reopen behavior.
 Classification: partially implemented.
 
 Current source has a new `@exclave/publication` package with protocol types, a warm-frame attachment boundary, and a
-modeled warm subscription lifecycle.
+modeled in-memory warm publication runtime. The runtime is transport-neutral: it returns typed attachments for a caller
+to deliver, and it applies typed attachments on the consumer side without adding IPC, WebSocket, worker, native bridge,
+or product authority behavior.
 
 Implemented in source and tests:
 
@@ -309,11 +311,22 @@ Implemented in source and tests:
 - `PublicationFrameAttachment`
 - `PublicationWarmFrameDelivery`
 - attachment helpers that validate warm frame identity before delivery
+- `createWarmPublicationRuntime`, `subscribeWarmPublication`, `publishInitialWarmSnapshot`, and `publishWarmSnapshot`
+- `PublicationWarmStreamBinding`
+- authority-side states for `subscribedWaitingForInitialSnapshot`, `live`, and `invalidated`
+- typed runtime failures for missing subscriptions, invalidated subscriptions, missing initial snapshots, payload
+  encode failures, frame encode failures, manifest codec mismatch, and attachment creation rejection
+- `applyPublicationFrameAttachmentToConsumer`, which accepts a typed `PublicationFrameAttachment`, validates
+  attachment version, stream key, subscription id, authority epoch, surface identity, lane, decoded frame identity,
+  semantic version, warm codec version, initial baseline metadata, lane-sequence presence, and advancing publication
+  sequence before decoding the warm payload
+- warm payload encode/decode through `@exclave/warm`, not test-only payload byte shims
 - per-subscription invalidation
 - unsubscribe request/result type shapes
 - ack commitment to an initial complete snapshot in the modeled authority helper
 - consumer states for no subscription, subscribed waiting for initial snapshot, live, stale, failed, and closed
 - applying a complete warm snapshot as latest state
+- later modeled warm frames advance the same subscription
 - invalidating subscriptions on `authorityEpochReplaced` and `authorityUnavailable`
 - rejecting frames after invalidation
 - rebind after replacement readiness with a new `subscriptionId`
@@ -321,21 +334,23 @@ Implemented in source and tests:
 - explicit separation between hot handle open and warm/cold subscription in runtime protocol
 - explicit separation between control replies, resource bodies, host stream descriptors, and publication frame
   attachments
+- conformance proof using warm-payload-v0 fixture data through encode, attach, deliver, apply, and decode
 
 Remaining gaps:
 
 - no real transport
-- no production authority runtime or session manager
+- no production authority runtime, authority process, scheduler, or session manager
 - no product authority
 - no hot handle lifecycle
 - no cold reopen runtime
 - no cold subscription runtime
 - no bounded delivery/timeout policy for missing initial snapshots
 - no concrete queueing, replay, backpressure, or IPC profile for publication attachments
+- no resource runtime or Dekzer/product integration
 
 Host-contract tests now show descriptor-driven warm stream metadata with publication attachment-version agreement.
-Subscription lifecycle and attachment-boundary conformance live in `@exclave/publication` tests and the shared
-conformance proof; this is not runtime transport support.
+Modeled runtime, subscription lifecycle, and attachment-boundary conformance live in `@exclave/publication` tests and
+the shared conformance proof; this is not runtime transport support.
 
 ## 11. Cold Reopen Conformance
 
@@ -370,3 +385,10 @@ session, resource, warm codec, and publication subscription foundations.
 
    `@exclave/publication` now owns versioned warm-frame attachments, host warm-stream metadata advertises the matching
    attachment version, and tests prove the boundary without implementing a concrete transport.
+
+5. `feat(publication): model warm stream runtime` — **done**.
+
+   `@exclave/publication` now owns an in-memory warm publication runtime model that uses the warm payload and frame
+   codecs, emits typed attachments, applies typed attachments to consumer state, rejects stale or mismatched
+   attachments, and proves invalidation/rebind. It remains transport-neutral and does not implement production
+   authority, IPC, resource, cold, or product/Dekzer behavior.
