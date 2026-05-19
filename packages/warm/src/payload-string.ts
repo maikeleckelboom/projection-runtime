@@ -1,7 +1,13 @@
 import type { PayloadReader, PayloadWriter } from "./payload-bytes";
 import { compareBytes } from "./payload-bytes";
 import { textDecoder, textEncoder, U32_MAX } from "./payload-constants";
-import { encodeValueProblem, WarmDecodeProblem } from "./payload-failure";
+import {
+  decodeRejected,
+  encodeValueRejected,
+  type PayloadReadResult,
+  type PayloadWriteOutput,
+  type PayloadWriteResult,
+} from "./payload-failure";
 import type {
   FieldContext,
   WarmSnapshotMapObject,
@@ -24,27 +30,42 @@ export function writeBoundedMap(
     value: WarmSnapshotValue,
     path: string,
     field: FieldContext,
-  ) => void,
-): void {
-  const entries = sortedObjectEntries(value, path, field, "BoundedMap");
+  ) => PayloadWriteResult,
+): PayloadWriteResult {
+  const entriesResult = sortedObjectEntries(value, path, field, "BoundedMap");
+  if (!entriesResult.ok) return entriesResult;
+  const entries = entriesResult.value;
   if (entries.length > shape.maxEntries) {
-    encodeValueProblem(`BoundedMap entry count must be <= ${shape.maxEntries}`, path, field);
+    return encodeValueRejected(
+      `BoundedMap entry count must be <= ${shape.maxEntries}`,
+      path,
+      field,
+    );
   }
 
-  const encodedEntries = entries.map(([key, entryValue]) => ({
-    key,
-    encodedKey: encodeBoundedMapKey(key, shape.keyByteLength, `${path}.${key}`, field),
-    value: entryValue,
-  }));
-  encodedEntries.sort((left, right) => compareBytes(left.encodedKey, right.encodedKey));
+  const keyResults: { key: string; encodedKey: Uint8Array; value: WarmSnapshotValue }[] = [];
+  for (const [key, entryValue] of entries) {
+    const ekr = encodeBoundedMapKey(key, shape.keyByteLength, `${path}.${key}`, field);
+    if (!ekr.ok) return ekr;
+    keyResults.push({ key, encodedKey: ekr.value, value: entryValue });
+  }
+  keyResults.sort((left, right) => compareBytes(left.encodedKey, right.encodedKey));
 
-  writer.writeU32(encodedEntries.length);
-  for (let index = 0; index < encodedEntries.length; index += 1) {
-    const entry = encodedEntries[index];
+  writer.writeU32(keyResults.length);
+  for (let index = 0; index < keyResults.length; index += 1) {
+    const entry = keyResults[index];
     if (entry === undefined) continue;
     writer.writeBytes(entry.encodedKey);
-    writeFixedValue(writer, shape.valueShape, entry.value, `${path}.${entry.key}`, field);
+    const valResult = writeFixedValue(
+      writer,
+      shape.valueShape,
+      entry.value,
+      `${path}.${entry.key}`,
+      field,
+    );
+    if (!valResult.ok) return valResult;
   }
+  return { ok: true };
 }
 
 export function readBoundedMap(
@@ -57,12 +78,14 @@ export function readBoundedMap(
     shape: WarmSnapshotPayloadFixedValueShape,
     path: string,
     field: FieldContext,
-  ) => WarmSnapshotValue,
-): WarmSnapshotMapObject {
+  ) => PayloadReadResult<WarmSnapshotValue>,
+): PayloadReadResult<WarmSnapshotMapObject> {
   const offset = reader.offset;
-  const liveCount = reader.readU32(`${path}.liveCount`, field);
+  const countResult = reader.readU32(`${path}.liveCount`, field);
+  if (!countResult.ok) return countResult;
+  const liveCount = countResult.value;
   if (liveCount > shape.maxEntries) {
-    throw new WarmDecodeProblem(
+    return decodeRejected(
       "malformedPayload",
       `BoundedMap liveCount ${liveCount} exceeds maxEntries ${shape.maxEntries}`,
       path,
@@ -75,9 +98,11 @@ export function readBoundedMap(
   let previousKeyBytes: Uint8Array | undefined;
   for (let index = 0; index < liveCount; index += 1) {
     const keyOffset = reader.offset;
-    const keyBytes = reader.readBytes(shape.keyByteLength, `${path}.${index}.key`, field);
+    const keyBytesResult = reader.readBytes(shape.keyByteLength, `${path}.${index}.key`, field);
+    if (!keyBytesResult.ok) return keyBytesResult;
+    const keyBytes = keyBytesResult.value;
     if (previousKeyBytes !== undefined && compareBytes(previousKeyBytes, keyBytes) >= 0) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "BoundedMap encoded keys must be strictly increasing",
         `${path}.${index}.key`,
@@ -86,11 +111,15 @@ export function readBoundedMap(
       );
     }
 
-    const key = decodeBoundedMapKey(keyBytes, `${path}.${index}.key`, field, keyOffset);
-    map[key] = readFixedValue(reader, shape.valueShape, `${path}.${key}`, field);
+    const keyResult = decodeBoundedMapKey(keyBytes, `${path}.${index}.key`, field, keyOffset);
+    if (!keyResult.ok) return keyResult;
+    const key = keyResult.value;
+    const valResult = readFixedValue(reader, shape.valueShape, `${path}.${key}`, field);
+    if (!valResult.ok) return valResult;
+    map[key] = valResult.value;
     previousKeyBytes = keyBytes;
   }
-  return map;
+  return { ok: true, value: map };
 }
 
 export function writeVariableMap(
@@ -105,22 +134,27 @@ export function writeVariableMap(
     value: WarmSnapshotValue,
     path: string,
     field: FieldContext,
-  ) => void,
-): void {
-  const entries = sortedObjectEntries(value, path, field, "VariableMap");
-  const encodedEntries = entries.map(([key, entryValue]) => ({
-    key,
-    encodedKey: encodeUtf8Strict(key, `${path}.${key}`, field),
-    value: entryValue,
-  }));
+  ) => PayloadWriteResult,
+): PayloadWriteResult {
+  const entriesResult = sortedObjectEntries(value, path, field, "VariableMap");
+  if (!entriesResult.ok) return entriesResult;
+  const entries = entriesResult.value;
+  const encodedEntries: { key: string; encodedKey: Uint8Array; value: WarmSnapshotValue }[] = [];
+  for (const [key, entryValue] of entries) {
+    const ekr = encodeUtf8Strict(key, `${path}.${key}`, field);
+    if (!ekr.ok) return ekr;
+    encodedEntries.push({ key, encodedKey: ekr.value, value: entryValue });
+  }
   encodedEntries.sort((left, right) => compareBytes(left.encodedKey, right.encodedKey));
 
   writer.writeU32(encodedEntries.length);
   for (const entry of encodedEntries) {
     writer.writeU32(entry.encodedKey.byteLength);
     writer.writeBytes(entry.encodedKey);
-    writeValue(writer, shape, entry.value, `${path}.${entry.key}`, field);
+    const valResult = writeValue(writer, shape, entry.value, `${path}.${entry.key}`, field);
+    if (!valResult.ok) return valResult;
   }
+  return { ok: true };
 }
 
 export function readVariableMap(
@@ -133,20 +167,26 @@ export function readVariableMap(
     shape: WarmSnapshotPayloadShape,
     path: string,
     field: FieldContext,
-  ) => WarmSnapshotValue,
-): WarmSnapshotMapObject {
-  const liveCount = reader.readU32(`${path}.liveCount`, field);
+  ) => PayloadReadResult<WarmSnapshotValue>,
+): PayloadReadResult<WarmSnapshotMapObject> {
+  const countResult = reader.readU32(`${path}.liveCount`, field);
+  if (!countResult.ok) return countResult;
+  const liveCount = countResult.value;
   const map: Record<string, WarmSnapshotValue> = {};
   let previousKeyBytes: Uint8Array | undefined;
 
   for (let index = 0; index < liveCount; index += 1) {
     const keyLengthOffset = reader.offset;
-    const keyByteLength = reader.readU32(`${path}.${index}.keyByteLength`, field);
+    const keyByteLengthResult = reader.readU32(`${path}.${index}.keyByteLength`, field);
+    if (!keyByteLengthResult.ok) return keyByteLengthResult;
+    const keyByteLength = keyByteLengthResult.value;
     const keyOffset = reader.offset;
-    const keyBytes = reader.readBytes(keyByteLength, `${path}.${index}.key`, field);
+    const keyBytesResult = reader.readBytes(keyByteLength, `${path}.${index}.key`, field);
+    if (!keyBytesResult.ok) return keyBytesResult;
+    const keyBytes = keyBytesResult.value;
 
     if (previousKeyBytes !== undefined && compareBytes(previousKeyBytes, keyBytes) >= 0) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "VariableMap keys must be strictly increasing",
         `${path}.${index}.key`,
@@ -155,12 +195,16 @@ export function readVariableMap(
       );
     }
 
-    const key = decodeUtf8Strict(keyBytes, `${path}.${index}.key`, field, keyOffset);
-    map[key] = readValue(reader, shape, `${path}.${key}`, field);
+    const keyResult = decodeUtf8Strict(keyBytes, `${path}.${index}.key`, field, keyOffset);
+    if (!keyResult.ok) return keyResult;
+    const key = keyResult.value;
+    const valResult = readValue(reader, shape, `${path}.${key}`, field);
+    if (!valResult.ok) return valResult;
+    map[key] = valResult.value;
     previousKeyBytes = keyBytes;
 
     if (keyByteLength > U32_MAX) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "VariableMap keyByteLength must fit in u32",
         `${path}.${index}.keyByteLength`,
@@ -169,7 +213,7 @@ export function readVariableMap(
       );
     }
   }
-  return map;
+  return { ok: true, value: map };
 }
 
 export function writeFixedString(
@@ -178,17 +222,19 @@ export function writeFixedString(
   value: WarmSnapshotValue,
   path: string,
   field: FieldContext,
-): void {
+): PayloadWriteResult {
   if (typeof value !== "string") {
-    encodeValueProblem("FixedStringEncoded value must be a string", path, field);
+    return encodeValueRejected("FixedStringEncoded value must be a string", path, field);
   }
 
-  const bytes =
+  const bytesResult =
     shape.encoding === "ascii"
       ? encodeAscii(value, path, field)
       : encodeUtf8Strict(value, path, field);
+  if (!bytesResult.ok) return bytesResult;
+  const bytes = bytesResult.value;
   if (bytes.byteLength > shape.byteLength) {
-    encodeValueProblem(
+    return encodeValueRejected(
       `FixedStringEncoded byte length must be <= ${shape.byteLength}`,
       path,
       field,
@@ -197,6 +243,7 @@ export function writeFixedString(
 
   writer.writeU16(bytes.byteLength);
   writer.writeBytes(bytes);
+  return { ok: true };
 }
 
 export function readFixedString(
@@ -204,11 +251,13 @@ export function readFixedString(
   shape: WarmSnapshotPayloadFixedStringEncodedShape,
   path: string,
   field: FieldContext,
-): string {
+): PayloadReadResult<string> {
   const offset = reader.offset;
-  const liveByteLength = reader.readU16(`${path}.liveByteLength`, field);
+  const lenResult = reader.readU16(`${path}.liveByteLength`, field);
+  if (!lenResult.ok) return lenResult;
+  const liveByteLength = lenResult.value;
   if (liveByteLength > shape.byteLength) {
-    throw new WarmDecodeProblem(
+    return decodeRejected(
       "malformedPayload",
       `FixedStringEncoded liveByteLength ${liveByteLength} exceeds byteLength ${shape.byteLength}`,
       path,
@@ -217,7 +266,9 @@ export function readFixedString(
     );
   }
 
-  const bytes = reader.readBytes(liveByteLength, `${path}.bytes`, field);
+  const bytesResult = reader.readBytes(liveByteLength, `${path}.bytes`, field);
+  if (!bytesResult.ok) return bytesResult;
+  const bytes = bytesResult.value;
   if (shape.encoding === "ascii") {
     return decodeAscii(bytes, path, field, offset + 2);
   }
@@ -229,25 +280,31 @@ export function writeVariableString(
   value: WarmSnapshotValue,
   path: string,
   field: FieldContext,
-): void {
+): PayloadWriteResult {
   if (typeof value !== "string") {
-    encodeValueProblem("VariableString value must be a string", path, field);
+    return encodeValueRejected("VariableString value must be a string", path, field);
   }
 
-  const bytes = encodeUtf8Strict(value, path, field);
+  const bytesResult = encodeUtf8Strict(value, path, field);
+  if (!bytesResult.ok) return bytesResult;
+  const bytes = bytesResult.value;
   writer.writeU32(bytes.byteLength);
   writer.writeBytes(bytes);
+  return { ok: true };
 }
 
 export function readVariableString(
   reader: PayloadReader,
   path: string,
   field: FieldContext,
-): string {
+): PayloadReadResult<string> {
   const offset = reader.offset;
-  const liveByteLength = reader.readU32(`${path}.liveByteLength`, field);
-  const bytes = reader.readBytes(liveByteLength, `${path}.bytes`, field);
-  return decodeUtf8Strict(bytes, path, field, offset + 4);
+  const lenResult = reader.readU32(`${path}.liveByteLength`, field);
+  if (!lenResult.ok) return lenResult;
+  const liveByteLength = lenResult.value;
+  const bytesResult = reader.readBytes(liveByteLength, `${path}.bytes`, field);
+  if (!bytesResult.ok) return bytesResult;
+  return decodeUtf8Strict(bytesResult.value, path, field, offset + 4);
 }
 
 function sortedObjectEntries(
@@ -255,17 +312,33 @@ function sortedObjectEntries(
   path: string,
   field: FieldContext,
   label: "BoundedMap" | "VariableMap",
-): readonly (readonly [string, WarmSnapshotValue])[] {
-  assertPlainMapObject(value, path, field, label);
-  const keysResult = ownEnumerableStringKeys(value);
+): PayloadWriteOutput<readonly (readonly [string, WarmSnapshotValue])[]> {
+  const assertResult = assertPlainMapObject(value, path, field, label);
+  if (!assertResult.ok) return assertResult;
+  const mapValue = value as WarmSnapshotMapObject;
+  const keysResult = ownEnumerableStringKeys(mapValue);
   if (!keysResult.ok) {
-    encodeValueProblem(keysResult.detail, path, field);
+    return {
+      ok: false,
+      issue: { reason: "invalidSnapshotValue", detail: keysResult.detail, path, field },
+    };
   }
   if (keysResult.symbolCount > 0) {
-    encodeValueProblem(`${label} value must not contain symbol keys`, path, field);
+    return {
+      ok: false,
+      issue: {
+        reason: "invalidSnapshotValue",
+        detail: `${label} value must not contain symbol keys`,
+        path,
+        field,
+      },
+    };
   }
 
-  return keysResult.stringKeys.map((key) => [key, value[key] as WarmSnapshotValue] as const);
+  return {
+    ok: true,
+    value: keysResult.stringKeys.map((key) => [key, mapValue[key] as WarmSnapshotValue] as const),
+  };
 }
 
 function assertPlainMapObject(
@@ -273,10 +346,11 @@ function assertPlainMapObject(
   path: string,
   field: FieldContext,
   label: string,
-): asserts value is WarmSnapshotMapObject {
+): PayloadWriteResult {
   if (!isPlainRecord(value)) {
-    encodeValueProblem(`${label} value must be a plain object`, path, field);
+    return encodeValueRejected(`${label} value must be a plain object`, path, field);
   }
+  return { ok: true };
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -311,18 +385,36 @@ function encodeBoundedMapKey(
   keyByteLength: number,
   path: string,
   field: FieldContext,
-): Uint8Array {
-  const bytes = encodeAscii(key, path, field);
+): PayloadWriteOutput<Uint8Array> {
+  const bytesResult = encodeAscii(key, path, field);
+  if (!bytesResult.ok) return bytesResult;
+  const bytes = bytesResult.value;
   if (bytes.includes(0)) {
-    encodeValueProblem("BoundedMap key must not contain NUL bytes", path, field);
+    return {
+      ok: false,
+      issue: {
+        reason: "invalidSnapshotValue",
+        detail: "BoundedMap key must not contain NUL bytes",
+        path,
+        field,
+      },
+    };
   }
   if (bytes.byteLength > keyByteLength) {
-    encodeValueProblem(`BoundedMap key byte length must be <= ${keyByteLength}`, path, field);
+    return {
+      ok: false,
+      issue: {
+        reason: "invalidSnapshotValue",
+        detail: `BoundedMap key byte length must be <= ${keyByteLength}`,
+        path,
+        field,
+      },
+    };
   }
 
   const padded = new Uint8Array(keyByteLength);
   padded.set(bytes);
-  return padded;
+  return { ok: true, value: padded };
 }
 
 function decodeBoundedMapKey(
@@ -330,12 +422,12 @@ function decodeBoundedMapKey(
   path: string,
   field: FieldContext,
   offset: number,
-): string {
+): PayloadReadResult<string> {
   let liveLength = bytes.byteLength;
   for (let index = 0; index < bytes.byteLength; index += 1) {
     const byte = bytes[index];
     if (byte === undefined) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "BoundedMap key byte is missing",
         path,
@@ -348,7 +440,7 @@ function decodeBoundedMapKey(
       break;
     }
     if (byte > 0x7f) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "BoundedMap key contains a non-ASCII byte",
         path,
@@ -360,7 +452,7 @@ function decodeBoundedMapKey(
 
   for (let index = liveLength; index < bytes.byteLength; index += 1) {
     if (bytes[index] !== 0) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "BoundedMap key has non-zero bytes after right padding begins",
         path,
@@ -373,11 +465,23 @@ function decodeBoundedMapKey(
   return decodeAscii(bytes.subarray(0, liveLength), path, field, offset);
 }
 
-function encodeUtf8Strict(value: string, path: string, field: FieldContext): Uint8Array {
+function encodeUtf8Strict(
+  value: string,
+  path: string,
+  field: FieldContext,
+): PayloadWriteOutput<Uint8Array> {
   if (!isValidUtf8String(value)) {
-    encodeValueProblem("string value must be valid UTF-8 text", path, field);
+    return {
+      ok: false,
+      issue: {
+        reason: "invalidSnapshotValue",
+        detail: "string value must be valid UTF-8 text",
+        path,
+        field,
+      },
+    };
   }
-  return textEncoder.encode(value);
+  return { ok: true, value: textEncoder.encode(value) };
 }
 
 function decodeUtf8Strict(
@@ -385,32 +489,49 @@ function decodeUtf8Strict(
   path: string,
   field: FieldContext,
   offset: number,
-): string {
+): PayloadReadResult<string> {
   try {
-    return textDecoder.decode(bytes);
+    return { ok: true, value: textDecoder.decode(bytes) };
   } catch {
-    throw new WarmDecodeProblem("invalidUtf8", "UTF-8 bytes are invalid", path, field, offset);
+    return decodeRejected("invalidUtf8", "UTF-8 bytes are invalid", path, field, offset);
   }
 }
 
-function encodeAscii(value: string, path: string, field: FieldContext): Uint8Array {
+function encodeAscii(
+  value: string,
+  path: string,
+  field: FieldContext,
+): PayloadWriteOutput<Uint8Array> {
   const bytes = new Uint8Array(value.length);
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
     if (codeUnit > 0x7f) {
-      encodeValueProblem("ascii string contains a non-ASCII code unit", path, field);
+      return {
+        ok: false,
+        issue: {
+          reason: "invalidSnapshotValue",
+          detail: "ascii string contains a non-ASCII code unit",
+          path,
+          field,
+        },
+      };
     }
     bytes[index] = codeUnit;
   }
-  return bytes;
+  return { ok: true, value: bytes };
 }
 
-function decodeAscii(bytes: Uint8Array, path: string, field: FieldContext, offset: number): string {
+function decodeAscii(
+  bytes: Uint8Array,
+  path: string,
+  field: FieldContext,
+  offset: number,
+): PayloadReadResult<string> {
   let value = "";
   for (let index = 0; index < bytes.byteLength; index += 1) {
     const byte = bytes[index];
     if (byte === undefined) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "ascii byte is missing",
         path,
@@ -419,7 +540,7 @@ function decodeAscii(bytes: Uint8Array, path: string, field: FieldContext, offse
       );
     }
     if (byte > 0x7f) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         "ascii string contains a non-ASCII byte",
         path,
@@ -429,7 +550,7 @@ function decodeAscii(bytes: Uint8Array, path: string, field: FieldContext, offse
     }
     value += String.fromCharCode(byte);
   }
-  return value;
+  return { ok: true, value };
 }
 
 function isValidUtf8String(value: unknown): value is string {

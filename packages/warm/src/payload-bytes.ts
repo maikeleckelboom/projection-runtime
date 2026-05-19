@@ -1,6 +1,6 @@
 import type { AbiEnumStorageType } from "@exclave/base";
 import { U16_MAX, U32_MAX } from "./payload-constants";
-import { WarmDecodeProblem } from "./payload-failure";
+import { decodeRejected, type PayloadReadResult } from "./payload-failure";
 import type { FieldContext } from "./payload-types";
 
 export class PayloadWriter {
@@ -71,86 +71,101 @@ export class PayloadReader {
     this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   }
 
-  readU8(path: string, field: FieldContext): number {
-    this.requireRemaining(1, path, field);
+  readU8(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(1, path, field);
+    if (issue) return issue;
     const value = this.view.getUint8(this.offset);
     this.offset += 1;
-    return value;
+    return { ok: true, value };
   }
 
-  readI8(path: string, field: FieldContext): number {
-    this.requireRemaining(1, path, field);
+  readI8(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(1, path, field);
+    if (issue) return issue;
     const value = this.view.getInt8(this.offset);
     this.offset += 1;
-    return value;
+    return { ok: true, value };
   }
 
-  readU16(path: string, field: FieldContext): number {
-    this.requireRemaining(2, path, field);
+  readU16(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(2, path, field);
+    if (issue) return issue;
     const value = this.view.getUint16(this.offset, true);
     this.offset += 2;
-    return value;
+    return { ok: true, value };
   }
 
-  readI16(path: string, field: FieldContext): number {
-    this.requireRemaining(2, path, field);
+  readI16(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(2, path, field);
+    if (issue) return issue;
     const value = this.view.getInt16(this.offset, true);
     this.offset += 2;
-    return value;
+    return { ok: true, value };
   }
 
-  readU32(path: string, field: FieldContext): number {
-    this.requireRemaining(4, path, field);
+  readU32(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(4, path, field);
+    if (issue) return issue;
     const value = this.view.getUint32(this.offset, true);
     this.offset += 4;
-    return value;
+    return { ok: true, value };
   }
 
-  readI32(path: string, field: FieldContext): number {
-    this.requireRemaining(4, path, field);
+  readI32(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(4, path, field);
+    if (issue) return issue;
     const value = this.view.getInt32(this.offset, true);
     this.offset += 4;
-    return value;
+    return { ok: true, value };
   }
 
-  readU64(path: string, field: FieldContext): bigint {
-    this.requireRemaining(8, path, field);
+  readU64(path: string, field: FieldContext): PayloadReadResult<bigint> {
+    const issue = this.requireRemaining(8, path, field);
+    if (issue) return issue;
     const value = this.view.getBigUint64(this.offset, true);
     this.offset += 8;
-    return value;
+    return { ok: true, value };
   }
 
-  readI64(path: string, field: FieldContext): bigint {
-    this.requireRemaining(8, path, field);
+  readI64(path: string, field: FieldContext): PayloadReadResult<bigint> {
+    const issue = this.requireRemaining(8, path, field);
+    if (issue) return issue;
     const value = this.view.getBigInt64(this.offset, true);
     this.offset += 8;
-    return value;
+    return { ok: true, value };
   }
 
-  readF32(path: string, field: FieldContext): number {
-    this.requireRemaining(4, path, field);
+  readF32(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(4, path, field);
+    if (issue) return issue;
     const value = this.view.getFloat32(this.offset, true);
     this.offset += 4;
-    return value;
+    return { ok: true, value };
   }
 
-  readF64(path: string, field: FieldContext): number {
-    this.requireRemaining(8, path, field);
+  readF64(path: string, field: FieldContext): PayloadReadResult<number> {
+    const issue = this.requireRemaining(8, path, field);
+    if (issue) return issue;
     const value = this.view.getFloat64(this.offset, true);
     this.offset += 8;
-    return value;
+    return { ok: true, value };
   }
 
-  readBytes(byteLength: number, path: string, field: FieldContext): Uint8Array {
-    this.requireRemaining(byteLength, path, field);
+  readBytes(byteLength: number, path: string, field: FieldContext): PayloadReadResult<Uint8Array> {
+    const issue = this.requireRemaining(byteLength, path, field);
+    if (issue) return issue;
     const value = this.bytes.slice(this.offset, this.offset + byteLength);
     this.offset += byteLength;
-    return value;
+    return { ok: true, value };
   }
 
-  private requireRemaining(byteLength: number, path: string, field: FieldContext): void {
+  private requireRemaining(
+    byteLength: number,
+    path: string,
+    field: FieldContext,
+  ): PayloadReadResult<never> | undefined {
     if (byteLength < 0 || this.offset > this.bytes.byteLength - byteLength) {
-      throw new WarmDecodeProblem(
+      return decodeRejected(
         "malformedPayload",
         `payload ended before ${byteLength} byte(s) could be read`,
         path,
@@ -158,6 +173,7 @@ export class PayloadReader {
         this.offset,
       );
     }
+    return undefined;
   }
 }
 
@@ -184,7 +200,7 @@ export function readUnsignedStorage(
   storage: AbiEnumStorageType,
   path: string,
   field: FieldContext,
-): number {
+): PayloadReadResult<number> {
   switch (storage) {
     case "u8":
       return reader.readU8(path, field);

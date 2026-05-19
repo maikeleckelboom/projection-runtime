@@ -1,6 +1,3 @@
-// Payload codec result-failure types and internal throw-catch helpers.
-// Codec APIs (encode/decode) return { ok, failure } result objects rather than
-// throwing ExclaveError, consistent with the framed-snapshot codec pattern.
 import type {
   FieldContext,
   WarmSnapshotPayloadDecodeFailureReason,
@@ -9,27 +6,83 @@ import type {
   WarmSnapshotPayloadEncodeResult,
 } from "./payload-types";
 
-export class WarmEncodeProblem extends Error {
-  constructor(
-    readonly reason: WarmSnapshotPayloadEncodeFailureReason,
-    readonly detail: string,
-    readonly path: string | undefined = undefined,
-    readonly field: FieldContext | undefined = undefined,
-  ) {
-    super(detail);
-  }
+export interface WarmPayloadEncodeIssue {
+  readonly reason: WarmSnapshotPayloadEncodeFailureReason;
+  readonly detail: string;
+  readonly path?: string;
+  readonly field?: FieldContext;
 }
 
-export class WarmDecodeProblem extends Error {
-  constructor(
-    readonly reason: WarmSnapshotPayloadDecodeFailureReason,
-    readonly detail: string,
-    readonly path: string | undefined = undefined,
-    readonly field: FieldContext | undefined = undefined,
-    readonly offset: number | undefined = undefined,
-  ) {
-    super(detail);
-  }
+export interface WarmPayloadDecodeIssue {
+  readonly reason: WarmSnapshotPayloadDecodeFailureReason;
+  readonly detail: string;
+  readonly path?: string;
+  readonly field?: FieldContext;
+  readonly offset?: number;
+}
+
+export type PayloadWriteResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly issue: WarmPayloadEncodeIssue };
+
+export type PayloadWriteOutput<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly issue: WarmPayloadEncodeIssue };
+
+export type PayloadReadResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly issue: WarmPayloadDecodeIssue };
+
+export function encodeIssue(
+  reason: WarmSnapshotPayloadEncodeFailureReason,
+  detail: string,
+  path?: string,
+  field?: FieldContext,
+): WarmPayloadEncodeIssue {
+  const issue: WarmPayloadEncodeIssue = { reason, detail };
+  if (path !== undefined) (issue as { path?: string }).path = path;
+  if (field !== undefined) (issue as { field?: FieldContext }).field = field;
+  return issue;
+}
+
+export function encodeValueIssue(
+  detail: string,
+  path: string,
+  field: FieldContext,
+): WarmPayloadEncodeIssue {
+  return { reason: "invalidSnapshotValue", detail, path, field };
+}
+
+export function encodeValueRejected(
+  detail: string,
+  path: string,
+  field: FieldContext,
+): PayloadWriteResult {
+  return { ok: false, issue: encodeValueIssue(detail, path, field) };
+}
+
+export function decodeIssue(
+  reason: WarmSnapshotPayloadDecodeFailureReason,
+  detail: string,
+  path?: string,
+  field?: FieldContext,
+  offset?: number,
+): WarmPayloadDecodeIssue {
+  const issue: WarmPayloadDecodeIssue = { reason, detail };
+  if (path !== undefined) (issue as { path?: string }).path = path;
+  if (field !== undefined) (issue as { field?: FieldContext }).field = field;
+  if (offset !== undefined) (issue as { offset?: number }).offset = offset;
+  return issue;
+}
+
+export function decodeRejected(
+  reason: WarmSnapshotPayloadDecodeFailureReason,
+  detail: string,
+  path?: string,
+  field?: FieldContext,
+  offset?: number,
+): PayloadReadResult<never> {
+  return { ok: false, issue: decodeIssue(reason, detail, path, field, offset) };
 }
 
 export function encodeFailure(
@@ -64,35 +117,31 @@ export function decodeFailure(
   };
 }
 
-export function encodeProblemFailure(error: WarmEncodeProblem): WarmSnapshotPayloadEncodeResult {
+export function encodeIssueFailure(issue: WarmPayloadEncodeIssue): WarmSnapshotPayloadEncodeResult {
   return {
     ok: false,
     failure: {
       kind: "warmSnapshotPayloadEncodeFailure",
-      reason: error.reason,
-      detail: error.detail,
-      ...(error.path === undefined ? {} : { path: error.path }),
-      ...(error.field === undefined ? {} : { fieldDotPath: error.field.dotPath }),
-      ...(error.field?.fieldId === undefined ? {} : { fieldId: error.field.fieldId }),
+      reason: issue.reason,
+      detail: issue.detail,
+      ...(issue.path === undefined ? {} : { path: issue.path }),
+      ...(issue.field === undefined ? {} : { fieldDotPath: issue.field.dotPath }),
+      ...(issue.field?.fieldId === undefined ? {} : { fieldId: issue.field.fieldId }),
     },
   };
 }
 
-export function decodeProblemFailure(error: WarmDecodeProblem): WarmSnapshotPayloadDecodeResult {
+export function decodeIssueFailure(issue: WarmPayloadDecodeIssue): WarmSnapshotPayloadDecodeResult {
   return {
     ok: false,
     failure: {
       kind: "warmSnapshotPayloadDecodeFailure",
-      reason: error.reason,
-      detail: error.detail,
-      ...(error.path === undefined ? {} : { path: error.path }),
-      ...(error.field === undefined ? {} : { fieldDotPath: error.field.dotPath }),
-      ...(error.field?.fieldId === undefined ? {} : { fieldId: error.field.fieldId }),
-      ...(error.offset === undefined ? {} : { offset: error.offset }),
+      reason: issue.reason,
+      detail: issue.detail,
+      ...(issue.path === undefined ? {} : { path: issue.path }),
+      ...(issue.field === undefined ? {} : { fieldDotPath: issue.field.dotPath }),
+      ...(issue.field?.fieldId === undefined ? {} : { fieldId: issue.field.fieldId }),
+      ...(issue.offset === undefined ? {} : { offset: issue.offset }),
     },
   };
-}
-
-export function encodeValueProblem(detail: string, path: string, field: FieldContext): never {
-  throw new WarmEncodeProblem("invalidSnapshotValue", detail, path, field);
 }

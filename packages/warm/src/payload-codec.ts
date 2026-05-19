@@ -1,11 +1,13 @@
 import { PayloadReader, PayloadWriter } from "./payload-bytes";
 import {
   decodeFailure,
-  decodeProblemFailure,
+  decodeIssue,
+  decodeIssueFailure,
   encodeFailure,
-  encodeProblemFailure,
-  WarmDecodeProblem,
-  WarmEncodeProblem,
+  encodeIssue,
+  encodeIssueFailure,
+  type PayloadReadResult,
+  type PayloadWriteResult,
 } from "./payload-failure";
 import { normalizeManifest } from "./payload-manifest";
 import {
@@ -50,31 +52,36 @@ export function encodeWarmSnapshotPayload(
     return encodeFailure("invalidManifest", normalized.detail, normalized.path);
   }
 
-  try {
-    assertPlainSnapshotObject(snapshot, "snapshot");
-    assertSnapshotFields(normalized.fields, snapshot);
+  const assertResult = assertPlainSnapshotObject(snapshot, "snapshot");
+  if (!assertResult.ok) {
+    return encodeIssueFailure(assertResult.issue);
+  }
 
-    const writer = new PayloadWriter();
-    for (const field of normalized.fields) {
-      const value = snapshot[field.dotPath];
-      if (value === undefined) {
-        throw new WarmEncodeProblem(
+  const fieldsResult = assertSnapshotFields(normalized.fields, snapshot);
+  if (!fieldsResult.ok) {
+    return encodeIssueFailure(fieldsResult.issue);
+  }
+
+  const writer = new PayloadWriter();
+  for (const field of normalized.fields) {
+    const value = snapshot[field.dotPath];
+    if (value === undefined) {
+      return encodeIssueFailure(
+        encodeIssue(
           "snapshotFieldMissing",
           `missing value for warm field ${field.dotPath}`,
           `snapshot.${field.dotPath}`,
           field,
-        );
-      }
-      writeValue(writer, field.shape, value, `snapshot.${field.dotPath}`, field);
+        ),
+      );
     }
-
-    return { ok: true, bytes: writer.toUint8Array() };
-  } catch (error) {
-    if (error instanceof WarmEncodeProblem) {
-      return encodeProblemFailure(error);
+    const writeResult = writeValue(writer, field.shape, value, `snapshot.${field.dotPath}`, field);
+    if (!writeResult.ok) {
+      return encodeIssueFailure(writeResult.issue);
     }
-    throw error;
   }
+
+  return { ok: true, bytes: writer.toUint8Array() };
 }
 
 export function decodeWarmSnapshotPayload(
@@ -90,29 +97,28 @@ export function decodeWarmSnapshotPayload(
     return decodeFailure("invalidPayloadInput", "warm snapshot payload bytes must be a Uint8Array");
   }
 
-  try {
-    const reader = new PayloadReader(bytes);
-    const snapshot: Record<string, WarmSnapshotValue> = {};
+  const reader = new PayloadReader(bytes);
+  const snapshot: Record<string, WarmSnapshotValue> = {};
 
-    for (const field of normalized.fields) {
-      snapshot[field.dotPath] = readValue(reader, field.shape, `payload.${field.dotPath}`, field);
+  for (const field of normalized.fields) {
+    const valueResult = readValue(reader, field.shape, `payload.${field.dotPath}`, field);
+    if (!valueResult.ok) {
+      return decodeIssueFailure(valueResult.issue);
     }
+    snapshot[field.dotPath] = valueResult.value;
+  }
 
-    if (reader.offset !== bytes.byteLength) {
-      throw new WarmDecodeProblem(
+  if (reader.offset !== bytes.byteLength) {
+    return decodeIssueFailure(
+      decodeIssue(
         "malformedPayload",
         `warm snapshot payload has ${bytes.byteLength - reader.offset} trailing byte(s)`,
         "payload",
-      );
-    }
-
-    return { ok: true, snapshot };
-  } catch (error) {
-    if (error instanceof WarmDecodeProblem) {
-      return decodeProblemFailure(error);
-    }
-    throw error;
+      ),
+    );
   }
+
+  return { ok: true, snapshot };
 }
 
 function writeValue(
@@ -121,39 +127,31 @@ function writeValue(
   value: WarmSnapshotValue,
   path: string,
   field: FieldContext,
-): void {
+): PayloadWriteResult {
   switch (shape.kind) {
     case "FixedScalar":
-      writeScalar(writer, shape.type, shape.nanSentinel === true, value, path, field);
-      return;
+      return writeScalar(writer, shape.type, shape.nanSentinel === true, value, path, field);
 
     case "FixedEnum":
-      writeEnum(writer, shape, value, path, field);
-      return;
+      return writeEnum(writer, shape, value, path, field);
 
     case "FixedVector":
-      writeVector(writer, shape, value, path, field);
-      return;
+      return writeVector(writer, shape, value, path, field);
 
     case "BoundedArray":
-      writeBoundedArray(writer, shape, value, path, field);
-      return;
+      return writeBoundedArray(writer, shape, value, path, field);
 
     case "BoundedMap":
-      writeBoundedMap(writer, shape, value, path, field, writeFixedValue);
-      return;
+      return writeBoundedMap(writer, shape, value, path, field, writeFixedValue);
 
     case "VariableMap":
-      writeVariableMap(writer, shape.valueShape, value, path, field, writeValue);
-      return;
+      return writeVariableMap(writer, shape.valueShape, value, path, field, writeValue);
 
     case "FixedStringEncoded":
-      writeFixedString(writer, shape, value, path, field);
-      return;
+      return writeFixedString(writer, shape, value, path, field);
 
     case "VariableString":
-      writeVariableString(writer, value, path, field);
-      return;
+      return writeVariableString(writer, value, path, field);
   }
 }
 
@@ -162,7 +160,7 @@ function readValue(
   shape: WarmSnapshotPayloadShape,
   path: string,
   field: FieldContext,
-): WarmSnapshotValue {
+): PayloadReadResult<WarmSnapshotValue> {
   switch (shape.kind) {
     case "FixedScalar":
       return readScalar(reader, shape.type, shape.nanSentinel === true, path, field);
@@ -196,17 +194,14 @@ function writeFixedValue(
   value: WarmSnapshotValue,
   path: string,
   field: FieldContext,
-): void {
+): PayloadWriteResult {
   switch (shape.kind) {
     case "FixedScalar":
-      writeScalar(writer, shape.type, shape.nanSentinel === true, value, path, field);
-      return;
+      return writeScalar(writer, shape.type, shape.nanSentinel === true, value, path, field);
     case "FixedEnum":
-      writeEnum(writer, shape, value, path, field);
-      return;
+      return writeEnum(writer, shape, value, path, field);
     case "FixedVector":
-      writeVector(writer, shape, value, path, field);
-      return;
+      return writeVector(writer, shape, value, path, field);
   }
 }
 
@@ -215,7 +210,7 @@ function readFixedValue(
   shape: WarmSnapshotPayloadFixedValueShape,
   path: string,
   field: FieldContext,
-): WarmSnapshotValue {
+): PayloadReadResult<WarmSnapshotValue> {
   switch (shape.kind) {
     case "FixedScalar":
       return readScalar(reader, shape.type, shape.nanSentinel === true, path, field);
@@ -226,50 +221,62 @@ function readFixedValue(
   }
 }
 
-function assertPlainSnapshotObject(
-  value: unknown,
-  path: string,
-): asserts value is WarmSnapshotObject {
+function assertPlainSnapshotObject(value: unknown, path: string): PayloadWriteResult {
   if (!isPlainRecord(value)) {
-    throw new WarmEncodeProblem(
-      "invalidSnapshotObject",
-      "warm snapshot must be a plain object",
-      path,
-    );
+    return {
+      ok: false,
+      issue: encodeIssue("invalidSnapshotObject", "warm snapshot must be a plain object", path),
+    };
   }
 
   const keys = ownEnumerableStringKeys(value);
   if (!keys.ok) {
-    throw new WarmEncodeProblem("invalidSnapshotObject", keys.detail, path);
+    return {
+      ok: false,
+      issue: encodeIssue("invalidSnapshotObject", keys.detail, path),
+    };
   }
   if (keys.symbolCount > 0) {
-    throw new WarmEncodeProblem(
-      "invalidSnapshotObject",
-      "warm snapshot must not contain symbol keys",
-      path,
-    );
+    return {
+      ok: false,
+      issue: encodeIssue(
+        "invalidSnapshotObject",
+        "warm snapshot must not contain symbol keys",
+        path,
+      ),
+    };
   }
+
+  return { ok: true };
 }
 
 function assertSnapshotFields(
   fields: readonly NormalizedField[],
   snapshot: WarmSnapshotObject,
-): void {
+): PayloadWriteResult {
   const fieldPaths = new Set(fields.map((field) => field.dotPath));
   const keysResult = ownEnumerableStringKeys(snapshot);
   if (!keysResult.ok) {
-    throw new WarmEncodeProblem("invalidSnapshotObject", keysResult.detail, "snapshot");
+    return {
+      ok: false,
+      issue: encodeIssue("invalidSnapshotObject", keysResult.detail, "snapshot"),
+    };
   }
 
   for (const key of keysResult.stringKeys) {
     if (!fieldPaths.has(key)) {
-      throw new WarmEncodeProblem(
-        "snapshotFieldUnknown",
-        `unknown warm snapshot field ${key}`,
-        `snapshot.${key}`,
-      );
+      return {
+        ok: false,
+        issue: encodeIssue(
+          "snapshotFieldUnknown",
+          `unknown warm snapshot field ${key}`,
+          `snapshot.${key}`,
+        ),
+      };
     }
   }
+
+  return { ok: true };
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
