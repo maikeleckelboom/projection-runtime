@@ -19,6 +19,7 @@ import {
   type PublicationSurfaceRecord,
   type PublicationTransportAttachmentVersion,
   type PublicationWarmFrameDelivery,
+  type PublicationWarmRuntimeFailure,
   type PublicationWarmRuntimeModel,
   type PublicationWarmStreamBinding,
   type PublicationWarmSurfaceRecord,
@@ -93,6 +94,18 @@ describe("@exclave/publication public exports", () => {
       readonly authorityEpoch: bigint;
       readonly bytes: Uint8Array;
     }>();
+    expectTypeOf<PublicationWarmRuntimeFailure["kind"]>().toEqualTypeOf<
+      | "subscriptionNotFound"
+      | "subscriptionInvalidated"
+      | "initialSnapshotRequired"
+      | "initialSnapshotAlreadyPublished"
+      | "authoritySessionNotReady"
+      | "authoritySessionMismatch"
+      | "warmManifestCodecVersionMismatch"
+      | "warmPayloadEncodeRejected"
+      | "warmFrameEncodeRejected"
+      | "attachmentRejected"
+    >();
   });
 
   it("exports publication transport attachment version", () => {
@@ -279,6 +292,76 @@ describe("modeled warm publication runtime", () => {
       expect(rejected.failure).toEqual({
         kind: "initialSnapshotRequired",
         subscriptionId: subscribed.result.ack.subscriptionId,
+      });
+    }
+  });
+
+  it("rejects warm publish when a live subscription remains on a stopping model session", () => {
+    const live = liveRuntimeAttachment();
+    const staleRuntime: PublicationWarmRuntimeModel = {
+      ...live.runtime,
+      session: { state: "stopping", authorityEpoch: live.binding.ack.authorityEpoch },
+    };
+
+    const rejected = publishWarmSnapshot(staleRuntime, {
+      subscriptionId: live.binding.ack.subscriptionId,
+      snapshot: { tempo: 129, playing: false },
+    });
+
+    expect(liveRuntimeSubscription(staleRuntime, live.binding).state).toBe("live");
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.failure).toEqual({
+        kind: "authoritySessionNotReady",
+        subscriptionId: live.binding.ack.subscriptionId,
+        state: "stopping",
+      });
+    }
+  });
+
+  it("rejects warm publish when a live subscription remains on a stopped model session", () => {
+    const live = liveRuntimeAttachment();
+    const staleRuntime: PublicationWarmRuntimeModel = {
+      ...live.runtime,
+      session: { state: "stopped" },
+    };
+
+    const rejected = publishWarmSnapshot(staleRuntime, {
+      subscriptionId: live.binding.ack.subscriptionId,
+      snapshot: { tempo: 129, playing: false },
+    });
+
+    expect(liveRuntimeSubscription(staleRuntime, live.binding).state).toBe("live");
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.failure).toEqual({
+        kind: "authoritySessionNotReady",
+        subscriptionId: live.binding.ack.subscriptionId,
+        state: "stopped",
+      });
+    }
+  });
+
+  it("rejects warm publish when model session authorityEpoch differs from the subscription ack", () => {
+    const live = liveRuntimeAttachment();
+    const staleRuntime: PublicationWarmRuntimeModel = {
+      ...live.runtime,
+      session: { state: "ready", authorityEpoch: live.binding.ack.authorityEpoch + 1n },
+    };
+
+    const rejected = publishWarmSnapshot(staleRuntime, {
+      subscriptionId: live.binding.ack.subscriptionId,
+      snapshot: { tempo: 129, playing: false },
+    });
+
+    expect(liveRuntimeSubscription(staleRuntime, live.binding).state).toBe("live");
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.failure).toEqual({
+        kind: "authoritySessionMismatch",
+        subscriptionId: live.binding.ack.subscriptionId,
+        expectedAuthorityEpoch: live.binding.ack.authorityEpoch,
+        providedAuthorityEpoch: live.binding.ack.authorityEpoch + 1n,
       });
     }
   });
@@ -1074,6 +1157,17 @@ function liveRuntimeAttachment(): {
     consumer: applied.state,
     attachment: initial.attachment,
   };
+}
+
+function liveRuntimeSubscription(
+  runtime: PublicationWarmRuntimeModel,
+  binding: PublicationWarmStreamBinding,
+): PublicationWarmRuntimeModel["subscriptions"][number] {
+  const subscription = runtime.subscriptions.find(
+    (candidate) => candidate.binding.ack.subscriptionId === binding.ack.subscriptionId,
+  );
+  if (subscription === undefined) throw new Error("expected live runtime subscription");
+  return subscription;
 }
 
 function attachmentForFrame(

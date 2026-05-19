@@ -102,6 +102,17 @@ export type PublicationWarmRuntimeFailure =
       readonly subscriptionId: SubscriptionId;
     }
   | {
+      readonly kind: "authoritySessionNotReady";
+      readonly subscriptionId: SubscriptionId;
+      readonly state: AuthoritySessionDescriptor["state"];
+    }
+  | {
+      readonly kind: "authoritySessionMismatch";
+      readonly subscriptionId: SubscriptionId;
+      readonly expectedAuthorityEpoch: bigint;
+      readonly providedAuthorityEpoch: bigint;
+    }
+  | {
       readonly kind: "warmManifestCodecVersionMismatch";
       readonly subscriptionId: SubscriptionId;
       readonly manifestWarmCodecVersion: bigint;
@@ -342,6 +353,15 @@ function publishWarmSnapshotForState(
     };
   }
 
+  const sessionFailure = validateModelSessionForPublish(model.session, subscription);
+  if (sessionFailure !== null) {
+    return {
+      ok: false,
+      model,
+      failure: sessionFailure,
+    };
+  }
+
   const manifestWarmCodecVersion = subscription.binding.payloadManifest.warmCodecVersion;
   if (
     manifestWarmCodecVersion !== undefined &&
@@ -576,6 +596,32 @@ function findSubscription(
   }
 
   return { index, subscription };
+}
+
+function validateModelSessionForPublish(
+  session: AuthoritySessionDescriptor,
+  subscription: PublicationWarmAuthoritySubscription,
+): PublicationWarmRuntimeFailure | null {
+  const subscriptionId = subscription.binding.ack.subscriptionId;
+  if (session.state !== "ready") {
+    return {
+      kind: "authoritySessionNotReady",
+      subscriptionId,
+      state: session.state,
+    };
+  }
+
+  const expectedAuthorityEpoch = subscription.binding.ack.authorityEpoch;
+  if (session.authorityEpoch !== expectedAuthorityEpoch) {
+    return {
+      kind: "authoritySessionMismatch",
+      subscriptionId,
+      expectedAuthorityEpoch,
+      providedAuthorityEpoch: session.authorityEpoch,
+    };
+  }
+
+  return null;
 }
 
 function sessionInvalidationForReplacement(
