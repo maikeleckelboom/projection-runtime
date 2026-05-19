@@ -278,6 +278,38 @@ describe("modeled warm subscription lifecycle", () => {
     ).toThrow();
   });
 
+  it("rejects warm frames whose baselineEpoch disagrees with the subscribe ack", () => {
+    const ack = subscribeAck();
+    const frameBytes = warmFrameBytes(
+      { ...ack, baselineEpoch: ack.baselineEpoch + 1 },
+      { tempo: 128, playing: true },
+    );
+
+    expect(() =>
+      createPublicationFrameAttachmentFromAck({
+        streamKey: "deck-runtime-v0.warm",
+        ack,
+        frameBytes,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects warm frames whose continuityGeneration disagrees with the subscribe ack", () => {
+    const ack = subscribeAck();
+    const frameBytes = warmFrameBytes(
+      { ...ack, continuityGeneration: ack.continuityGeneration + 1 },
+      { tempo: 128, playing: true },
+    );
+
+    expect(() =>
+      createPublicationFrameAttachmentFromAck({
+        streamKey: "deck-runtime-v0.warm",
+        ack,
+        frameBytes,
+      }),
+    ).toThrow();
+  });
+
   it("rejects cold-lane acks because v1 attachments only carry warm frames", () => {
     const ack: SubscribePublicationAck = {
       ...subscribeAck(),

@@ -145,6 +145,12 @@ export function createPublicationFrameAttachmentFromAck(
   if (frame.warmCodecVersion !== ack.laneVersion) {
     throwInputRejected("attachment frame warmCodecVersion must match subscribe ack laneVersion");
   }
+  if (frame.baselineEpoch !== ack.baselineEpoch) {
+    throwInputRejected("attachment frame baselineEpoch must match subscribe ack");
+  }
+  if (frame.continuityGeneration !== ack.continuityGeneration) {
+    throwInputRejected("attachment frame continuityGeneration must match subscribe ack");
+  }
 
   return attachment;
 }
