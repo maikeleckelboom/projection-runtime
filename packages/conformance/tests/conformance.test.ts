@@ -1967,6 +1967,119 @@ describe("@exclave/conformance execution", () => {
     }, "generates duplicate constant X_ML_OFFSET");
   });
 
+  it("accepts generated reader manifests with nested dotPath field names", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const baseManifest = JSON.parse(
+        readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+      ) as Record<string, unknown>;
+      const fields = baseManifest.fields as Record<string, unknown>[];
+      const transportStateField = fields.find(
+        (field) => (field as Record<string, unknown>).dotPath === "transportState",
+      );
+      if (transportStateField === undefined) {
+        throw new Error("deck-runtime manifest must contain transportState");
+      }
+
+      const nestedManifest = { ...baseManifest };
+      nestedManifest.fields = fields.map((field) =>
+        (field as Record<string, unknown>).dotPath === "transportState"
+          ? { ...(field as Record<string, unknown>), dotPath: "transport.state" }
+          : field,
+      );
+
+      const manifestPath = resolve(root, "hot-layout-manifest.json");
+      const outputPath = resolve(root, "generated/hot-reader.ts");
+      await writeFile(manifestPath, `${JSON.stringify(nestedManifest, null, 2)}\n`);
+
+      await expect(
+        writeGeneratedHotReader({
+          fixtureName: "nested-fixture",
+          symbolStem: "NestedFixture",
+          semanticVersion: "0000000000000001",
+          manifestPath,
+          outputPath,
+          generatedFromPath: "fixtures/projection-runtime/nested-fixture/hot-layout-manifest.json",
+        }),
+      ).resolves.toBeUndefined();
+
+      const source = readFileSync(outputPath, "utf8");
+      expect(source).toContain("readonly transportState:");
+      expect(source).toContain("TRANSPORT_STATE_OFFSET");
+      expect(source).toContain("readTransportState");
+      expect(source).toContain("readTransportState(view)");
+    });
+  });
+
+  it("accepts generated writer manifests with nested dotPath field names", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const baseManifest = JSON.parse(
+        readFileSync(resolve(fixtureRoot, "deck-runtime-v0/hot-layout-manifest.json"), "utf8"),
+      ) as Record<string, unknown>;
+      const fields = baseManifest.fields as Record<string, unknown>[];
+      const transportStateField = fields.find(
+        (field) => (field as Record<string, unknown>).dotPath === "transportState",
+      );
+      if (transportStateField === undefined) {
+        throw new Error("deck-runtime manifest must contain transportState");
+      }
+
+      const nestedManifest = { ...baseManifest };
+      nestedManifest.fields = fields.map((field) =>
+        (field as Record<string, unknown>).dotPath === "transportState"
+          ? { ...(field as Record<string, unknown>), dotPath: "transport.state" }
+          : field,
+      );
+
+      const manifestPath = resolve(root, "hot-layout-manifest.json");
+      const outputPath = resolve(root, "generated/hot-writer.ts");
+      await writeFile(manifestPath, `${JSON.stringify(nestedManifest, null, 2)}\n`);
+
+      await expect(
+        writeGeneratedHotWriter({
+          fixtureName: "nested-fixture",
+          symbolStem: "NestedFixture",
+          semanticVersion: "0000000000000001",
+          manifestPath,
+          outputPath,
+          generatedFromPath: "fixtures/projection-runtime/nested-fixture/hot-layout-manifest.json",
+        }),
+      ).resolves.toBeUndefined();
+
+      const source = readFileSync(outputPath, "utf8");
+      expect(source).toContain("TRANSPORT_STATE_OFFSET");
+      expect(source).toContain("validateTransportState");
+      expect(source).toContain("snapshot.transportState");
+    });
+  });
+
+  it("rejects generated reader manifests where nested and flat dotPaths derive the same property name", async () => {
+    await expectGeneratedReaderManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[0] = {
+        ...fields[0],
+        dotPath: "transport.phase",
+      };
+      fields[1] = {
+        ...fields[1],
+        dotPath: "transportPhase",
+      };
+    }, "derives to property name 'transportPhase' that conflicts with another field");
+  });
+
+  it("rejects generated writer manifests where nested and flat dotPaths derive the same property name", async () => {
+    await expectGeneratedWriterManifestRejected((manifest) => {
+      const fields = manifest.fields as Record<string, unknown>[];
+      fields[0] = {
+        ...fields[0],
+        dotPath: "transport.phase",
+      };
+      fields[1] = {
+        ...fields[1],
+        dotPath: "transportPhase",
+      };
+    }, "derives to property name 'transportPhase' that conflicts with another field");
+  });
+
   it("rejects generated writer manifests with duplicate field dotPaths", async () => {
     await expectGeneratedWriterManifestRejected((manifest) => {
       const fields = manifest.fields as Record<string, unknown>[];

@@ -1,6 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { toConstantStem, toPascalCase } from "./generated-hot/identifiers.mts";
+import {
+  dotPathToConstantStem,
+  dotPathToPropertyName,
+  dotPathToSymbolName,
+} from "./generated-hot/identifiers.mts";
 import {
   type HotFieldEntry,
   type HotLayoutManifest,
@@ -87,7 +91,7 @@ export async function writeGeneratedHotReader({
 }
 
 function generatedConstantNamesFor(field: HotFieldEntry): readonly string[] {
-  const constantStem = toConstantStem(field.dotPath);
+  const constantStem = dotPathToConstantStem(field.dotPath);
   const offsetConstant = `${constantStem}_OFFSET`;
 
   switch (field.shape.kind) {
@@ -292,10 +296,11 @@ function renderHelperSources(helpers: readonly GeneratedHelper[]): readonly stri
 }
 
 function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): GeneratedField {
-  const symbol = toPascalCase(field.dotPath);
-  const offsetConstant = `${toConstantStem(field.dotPath)}_OFFSET`;
+  const symbol = dotPathToSymbolName(field.dotPath);
+  const offsetConstant = `${dotPathToConstantStem(field.dotPath)}_OFFSET`;
+  const propertyName = dotPathToPropertyName(field.dotPath);
   const base = {
-    name: field.dotPath,
+    name: propertyName,
     symbol,
     offsetConstant,
   };
@@ -321,7 +326,7 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
         .map((variant) => stringLiteral(variant))
         .join(", ");
       const typeSource = field.shape.variants.map((variant) => stringLiteral(variant)).join(" | ");
-      const variantsConstant = `${toConstantStem(field.dotPath)}_VARIANTS`;
+      const variantsConstant = `${dotPathToConstantStem(field.dotPath)}_VARIANTS`;
 
       requireByteSpan(field, 1);
       return {
@@ -354,7 +359,7 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
     }
 
     case "FixedStringEncoded": {
-      const byteLengthConstant = `${toConstantStem(field.dotPath)}_BYTE_LENGTH`;
+      const byteLengthConstant = `${dotPathToConstantStem(field.dotPath)}_BYTE_LENGTH`;
 
       requireByteSpan(field, field.shape.byteLength);
       return {
@@ -388,7 +393,7 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
     case "FixedVector": {
       const shape = field.shape;
       const unitByteLength = scalarByteWidth(shape.elementType);
-      const constantStem = toConstantStem(field.dotPath);
+      const constantStem = dotPathToConstantStem(field.dotPath);
       const elementConstants = Array.from({ length: shape.length }, (_, index) => {
         const name = `${constantStem}_${index}_OFFSET`;
         return {
@@ -426,7 +431,7 @@ function generateField(manifest: HotLayoutManifest, field: HotFieldEntry): Gener
       const shape = field.shape;
       const reservation = reservationFor(manifest, field);
       const unitByteLength = scalarByteWidth(shape.elementType);
-      const constantStem = toConstantStem(field.dotPath);
+      const constantStem = dotPathToConstantStem(field.dotPath);
       const countOffsetConstant = `${constantStem}_COUNT_OFFSET`;
       const elementsOffsetConstant = `${constantStem}_ELEMENTS_OFFSET`;
       const maxCountConstant = `${constantStem}_MAX_COUNT`;

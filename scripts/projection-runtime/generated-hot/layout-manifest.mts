@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
 import {
-  isFieldName,
+  dotPathToPropertyName,
+  dotPathToSymbolName,
+  isSafeDotPath,
   isSafeFixtureName,
-  isSafeGeneratedPropertyName,
+  isSafeGeneratedPropertyNameFromDotPath,
   isSafeSymbolStem,
 } from "./identifiers.mts";
 import {
@@ -155,7 +157,7 @@ function readHotField(value: unknown, path: string, index: number): HotFieldEntr
   const byteSpan = value.byteSpan;
   const shape = value.shape;
 
-  if (!isFieldName(dotPath)) {
+  if (typeof dotPath !== "string" || !isSafeDotPath(dotPath)) {
     throw new Error(
       `${path}.fields.${index}.dotPath is not supported by generated hot artifact v0`,
     );
@@ -185,7 +187,8 @@ function readHotReservation(value: unknown, path: string, index: number): HotRes
   const unitByteLength = value.unitByteLength;
 
   if (
-    !isFieldName(dotPath) ||
+    typeof dotPath !== "string" ||
+    !isSafeDotPath(dotPath) ||
     typeof countFieldOffset !== "number" ||
     typeof elementsOffset !== "number" ||
     typeof maxCount !== "number" ||
@@ -284,6 +287,7 @@ export function validateHotLayoutManifest(
   const fieldNames = new Set<string>();
   const boundedArrayFields = new Map<string, HotFieldEntry>();
   const generatedPropertyNames = new Set<string>();
+  const generatedSymbolNames = new Set<string>();
   const generatedConstantNames = new Set<string>([
     ...(options.extraRootConstantNames ?? []),
     "SEQLOCK_OFFSET",
@@ -308,13 +312,25 @@ export function validateHotLayoutManifest(
     }
     fieldNames.add(field.dotPath);
 
-    if (!isSafeGeneratedPropertyName(field.dotPath)) {
+    if (!isSafeGeneratedPropertyNameFromDotPath(field.dotPath)) {
       throw new Error(`${fieldPath}.dotPath is not a safe generated TS property name`);
     }
-    if (generatedPropertyNames.has(field.dotPath)) {
-      throw new Error(`${fieldPath}.dotPath duplicates generated TS property ${field.dotPath}`);
+
+    const derivedPropertyName = dotPathToPropertyName(field.dotPath);
+    if (generatedPropertyNames.has(derivedPropertyName)) {
+      throw new Error(
+        `${fieldPath}.dotPath derives to property name '${derivedPropertyName}' that conflicts with another field`,
+      );
     }
-    generatedPropertyNames.add(field.dotPath);
+    generatedPropertyNames.add(derivedPropertyName);
+
+    const derivedSymbolName = dotPathToSymbolName(field.dotPath);
+    if (generatedSymbolNames.has(derivedSymbolName)) {
+      throw new Error(
+        `${fieldPath}.dotPath derives to symbol name '${derivedSymbolName}' that conflicts with another field`,
+      );
+    }
+    generatedSymbolNames.add(derivedSymbolName);
 
     validateFieldShape(field, fieldPath);
 

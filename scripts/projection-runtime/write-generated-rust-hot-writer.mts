@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { toConstantStem, toPascalCase } from "./generated-hot/identifiers.mts";
+import {
+  dotPathToConstantStem,
+  dotPathToRustSnakeIdentifier,
+  dotPathToSymbolName,
+  toPascalCase,
+} from "./generated-hot/identifiers.mts";
 import {
   type HotFieldEntry,
   type HotLayoutManifest,
@@ -122,7 +127,7 @@ function validateRustHotLayoutManifest(manifest: HotLayoutManifest, manifestPath
 }
 
 function generatedConstantNamesFor(field: HotFieldEntry): readonly string[] {
-  const constantStem = toConstantStem(field.dotPath);
+  const constantStem = dotPathToConstantStem(field.dotPath);
   const offsetConstant = `${constantStem}_OFFSET`;
 
   switch (field.shape.kind) {
@@ -164,7 +169,10 @@ function renderRustHotWriter(input: {
   readonly generatedFromPath: string;
   readonly manifest: HotLayoutManifest;
 }): string {
-  const stem = toRustSnakeIdentifier(input.symbolStem, "symbolStem");
+  const stem = validateRustSnakeIdentifier(
+    input.symbolStem.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase(),
+    "symbolStem",
+  );
   const snapshotTypeName = `${input.symbolStem}Snapshot`;
   const publicationTypeName = `${input.symbolStem}Publication`;
   const publishResultTypeName = `${input.symbolStem}PublishResult`;
@@ -475,9 +483,12 @@ function generateField(
   field: HotFieldEntry,
   errorTypeName: string,
 ): GeneratedField {
-  const symbol = toPascalCase(field.dotPath);
-  const constantStem = toConstantStem(field.dotPath);
-  const rustName = toRustSnakeIdentifier(field.dotPath, `${field.dotPath} field`);
+  const symbol = dotPathToSymbolName(field.dotPath);
+  const constantStem = dotPathToConstantStem(field.dotPath);
+  const rustName = validateRustSnakeIdentifier(
+    dotPathToRustSnakeIdentifier(field.dotPath),
+    field.dotPath,
+  );
   const snapshotField = `snapshot.${rustName}`;
   const offsetConstant = `${constantStem}_OFFSET`;
 
@@ -1007,9 +1018,7 @@ function renderWriteF64LeHelper(): string {
   ]);
 }
 
-function toRustSnakeIdentifier(value: string, label: string): string {
-  const normalized = value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-
+function validateRustSnakeIdentifier(normalized: string, label: string): string {
   if (!/^[a-z][a-z0-9_]*$/.test(normalized) || rustKeywords.has(normalized)) {
     throw new Error(`${label} is not a safe generated Rust snake_case identifier`);
   }
