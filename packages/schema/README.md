@@ -70,12 +70,12 @@ import {
 } from "@exclave/schema";
 
 const contract: AuthoredProjectionContract = {
-  key: "deck.runtime",
+  key: "com.example.projection",
   family: "replaceable-snapshot",
   fields: {
-    transport: {
-      tempo: { kind: "fixed-scalar", type: "f64" },
-      playing: { kind: "fixed-scalar", type: "bool" },
+    status: {
+      speed: { kind: "fixed-scalar", type: "f64" },
+      active: { kind: "fixed-scalar", type: "bool" },
     },
   },
   lanes: {

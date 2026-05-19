@@ -106,10 +106,10 @@ Cold declarations are retained as reserved materialization declarations, but com
 import { compileAuthoredProjectionContract } from "@exclave/compiler";
 
 const result = compileAuthoredProjectionContract({
-  key: "deck.runtime",
+  key: "com.example.projection",
   family: "replaceable-snapshot",
   fields: {
-    tempo: { kind: "fixed-scalar", type: "f64" },
+    speed: { kind: "fixed-scalar", type: "f64" },
   },
   lanes: {
     warm: { codec: "framed-snapshot" },
