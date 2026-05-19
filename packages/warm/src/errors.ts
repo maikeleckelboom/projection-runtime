@@ -1,3 +1,7 @@
+// Warm domain errors (ExclaveError thrown exceptions for unrecoverable conditions).
+// This module is an internal convenience, not part of the @exclave/warm public API.
+// Payload codec APIs use recoverable result-failure style (see payload-failure.ts)
+// aligned with framed-snapshot.ts, not thrown ExclaveError instances.
 import {
   defineErrorDomain,
   type ErrorDomainWithFactory,
