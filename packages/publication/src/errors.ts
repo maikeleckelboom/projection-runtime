@@ -13,6 +13,22 @@ const PUBLICATION_DEFS = {
       boundarySafe: true,
     },
   },
+  decodeRejected: {
+    message: "Publication warm payload decode rejected",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
+  surfaceNotFound: {
+    message: "Publication surface not found for subscribe ack",
+    meta: {
+      severity: "error",
+      recoverable: false,
+      boundarySafe: true,
+    },
+  },
 } as const;
 
 export const publicationErrorDomain: ErrorDomainWithFactory<
@@ -24,6 +40,12 @@ type PublicationErrorDetails = {
   readonly inputRejected: {
     readonly detail: string;
   };
+  readonly decodeRejected: {
+    readonly detail: string;
+  };
+  readonly surfaceNotFound: {
+    readonly detail: string;
+  };
 };
 
 export const createPublicationError: KeyedErrorFactoryOf<
@@ -33,4 +55,12 @@ export const createPublicationError: KeyedErrorFactoryOf<
 
 export function throwInputRejected(detail: string): never {
   throw createPublicationError("inputRejected", { detail });
+}
+
+export function throwDecodeRejected(detail: string): never {
+  throw createPublicationError("decodeRejected", { detail });
+}
+
+export function throwSurfaceNotFound(detail: string): never {
+  throw createPublicationError("surfaceNotFound", { detail });
 }

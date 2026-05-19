@@ -9,6 +9,7 @@ import {
   type WarmSnapshotPayloadEncodeFailure,
   type WarmSnapshotPayloadManifest,
 } from "@exclave/warm";
+import { throwDecodeRejected, throwSurfaceNotFound } from "./errors";
 import type {
   PublicationSubscribeFailure,
   PublicationSubscriptionInvalidatedEvent,
@@ -266,7 +267,7 @@ export function applyPublicationFrameAttachmentToConsumer(
     (payload) => {
       const decoded = decodeWarmSnapshotPayload(binding.payloadManifest, payload);
       if (!decoded.ok) {
-        throw new Error(decoded.failure.detail);
+        throwDecodeRejected(decoded.failure.detail);
       }
       return decoded.snapshot;
     },
@@ -571,7 +572,9 @@ function findSurfaceForAck(
       candidate.lane === ack.lane,
   );
   if (surface === undefined) {
-    throw new Error("subscribe ack did not correspond to a warm publication surface");
+    throwSurfaceNotFound(
+      `no warm publication surface for contract key ${ack.contractKey}, projection instance key ${ack.projectionInstanceKey}`,
+    );
   }
   return surface;
 }
