@@ -32,6 +32,7 @@
     "@exclave/compiler": "workspace:*",
     "@exclave/hot-binding": "workspace:*",
     "@exclave/hot-codec": "workspace:*",
-    "@exclave/hot-publisher": "workspace:*"
+    "@exclave/hot-publisher": "workspace:*",
+    "@exclave/warm": "workspace:*"
   }
 }

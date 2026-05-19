@@ -20,7 +20,7 @@ import { appendHotBlockBFixtureComparison } from "./verify/hot-block-b";
 import { appendHotByteFixtureComparison } from "./verify/hot-byte";
 import { appendHotCompleteFixtureRegionComparison } from "./verify/hot-complete-region";
 import { appendHotLayoutVersionCheck } from "./verify/hot-layout-version";
-import { appendResolvedContractComparison } from "./verify/resolved";
+import { appendWarmPayloadFixtureComparison } from "./verify/warm-payload";
 
 export type ProjectionRuntimeArtifactName = Exclude<
   ConformanceArtifactName,
@@ -65,6 +65,7 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
       | "hotCompleteFixtureRegion"
       | "hotLayoutManifest"
       | "resolvedContract"
+      | "warmPayloadFixture"
     >
   >;
 }
@@ -99,6 +100,8 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
     options.expectedArtifacts?.resolvedContract ?? artifacts.resolvedContract;
+  const expectedWarmPayloadFixture =
+    options.expectedArtifacts?.warmPayloadFixture ?? artifacts.warmPayloadFixture;
 
   const compileResult = compileAuthoredProjectionContract(
     artifacts.authoredContract as AuthoredProjectionContractInput,
@@ -120,7 +123,6 @@ export async function runProjectionRuntimeFixture(
   }
 
   const resolved = compileResult.value;
-  const hotLayoutManifest = resolved.laneManifests?.hot;
   const failures: ProjectionRuntimeFixtureFailure[] = [];
 
   appendArtifactComparison(
@@ -129,26 +131,37 @@ export async function runProjectionRuntimeFixture(
     expectedCanonicalManifest,
     resolved.manifest,
   );
-  appendArtifactComparison(
-    failures,
-    "hot-layout-manifest",
-    expectedHotLayoutManifest,
-    hotLayoutManifest,
-  );
-  appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
-  appendHotBlockAFixtureComparison(failures, expectedHotBlockAFixture, hotLayoutManifest, resolved);
-  appendHotBlockBFixtureComparison(failures, expectedHotBlockBFixture);
-  appendHotCompleteFixtureRegionComparison(
-    failures,
-    expectedHotCompleteFixtureRegion,
-    expectedHotByteFixture,
-    expectedHotBlockBFixture,
-    hotLayoutManifest,
-    resolved,
-  );
-  appendResolvedContractComparison(failures, expectedResolvedContract, resolved);
-  appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
-  appendHotLayoutVersionCheck(failures, "actual", resolved);
+  appendArtifactComparison(failures, "resolved-contract", expectedResolvedContract, resolved);
+
+  if (loadedFixture.fixtureProfile === "hot-codec") {
+    const hotLayoutManifest = resolved.laneManifests?.hot;
+    appendArtifactComparison(
+      failures,
+      "hot-layout-manifest",
+      expectedHotLayoutManifest,
+      hotLayoutManifest,
+    );
+    appendHotByteFixtureComparison(failures, expectedHotByteFixture, hotLayoutManifest);
+    appendHotBlockAFixtureComparison(
+      failures,
+      expectedHotBlockAFixture,
+      hotLayoutManifest,
+      resolved,
+    );
+    appendHotBlockBFixtureComparison(failures, expectedHotBlockBFixture);
+    appendHotCompleteFixtureRegionComparison(
+      failures,
+      expectedHotCompleteFixtureRegion,
+      expectedHotByteFixture,
+      expectedHotBlockBFixture,
+      hotLayoutManifest,
+      resolved,
+    );
+    appendHotLayoutVersionCheck(failures, "expected", expectedResolvedContract);
+    appendHotLayoutVersionCheck(failures, "actual", resolved);
+  } else {
+    appendWarmPayloadFixtureComparison(failures, expectedWarmPayloadFixture, resolved);
+  }
 
   return {
     fixtureName: loadedFixture.fixtureName,

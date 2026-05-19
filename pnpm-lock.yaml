@@ -64,6 +64,9 @@ importers:
       '@exclave/hot-publisher':
         specifier: workspace:*
         version: link:../hot-publisher
+      '@exclave/warm':
+        specifier: workspace:*
+        version: link:../warm
 
   packages/control-plane:
     dependencies:

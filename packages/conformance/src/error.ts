@@ -12,13 +12,15 @@ import {
 export type ConformanceArtifactName =
   | "authored-contract"
   | "canonical-manifest"
+  | "fixture-profile"
   | "hot-block-a-fixture"
   | "hot-block-b-fixture"
   | "hot-byte-fixture"
   | "hot-complete-fixture-region"
   | "hot-layout-manifest"
   | "readme"
-  | "resolved-contract";
+  | "resolved-contract"
+  | "warm-payload-fixture";
 
 export type ConformanceFailureArtifactName =
   | ConformanceArtifactName
@@ -38,15 +40,21 @@ export type ConformanceFailureCode =
   | "fixtureNotObject"
   | "headerValidationFailed"
   | "hotLayoutVersionMismatch"
+  | "invalidFixtureProfile"
   | "invalidFixtureJson"
   | "invalidFixtureName"
   | "missingHotLayoutManifest"
   | "missingRequiredFixtureFile"
+  | "missingWarmPayloadManifest"
   | "missingResolvedContract"
   | "mutableRegionByteLengthMismatch"
   | "semanticVersionMismatch"
   | "u64OutOfRange"
-  | "valuesNotObject";
+  | "valuesNotObject"
+  | "warmFrameDecodeRejected"
+  | "warmFrameEncodeRejected"
+  | "warmPayloadDecodeRejected"
+  | "warmPayloadEncodeRejected";
 
 export interface ConformanceErrorDetails extends ErrorDetails {
   readonly detail?: string;
@@ -74,7 +82,9 @@ export interface ConformanceFixtureShapeRejectedDetails extends ConformanceError
     | "expectedString"
     | "expectedU64Hex"
     | "fixtureNotObject"
+    | "invalidFixtureProfile"
     | "missingHotLayoutManifest"
+    | "missingWarmPayloadManifest"
     | "missingResolvedContract"
     | "u64OutOfRange"
     | "valuesNotObject";
@@ -89,7 +99,11 @@ export interface ConformanceFixtureArtifactMismatchDetails extends ConformanceEr
     | "headerValidationFailed"
     | "hotLayoutVersionMismatch"
     | "mutableRegionByteLengthMismatch"
-    | "semanticVersionMismatch";
+    | "semanticVersionMismatch"
+    | "warmFrameDecodeRejected"
+    | "warmFrameEncodeRejected"
+    | "warmPayloadDecodeRejected"
+    | "warmPayloadEncodeRejected";
 }
 
 export interface ConformanceFixtureCompileRejectedDetails extends ConformanceErrorDetails {

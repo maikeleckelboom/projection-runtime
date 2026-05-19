@@ -1,0 +1,61 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": {
+    "active": {
+      "kind": "fixed-scalar",
+      "type": "bool"
+    },
+    "count": {
+      "kind": "fixed-scalar",
+      "type": "u32"
+    },
+    "gains": {
+      "elementType": "f32",
+      "kind": "fixed-vector",
+      "length": 2
+    },
+    "labels": {
+      "kind": "variable-map",
+      "valueShape": {
+        "kind": "variable-string"
+      }
+    },
+    "markers": {
+      "elementType": "u16",
+      "kind": "bounded-array",
+      "maxLength": 4
+    },
+    "notes": {
+      "kind": "variable-string"
+    },
+    "shortAscii": {
+      "byteLength": 8,
+      "encoding": "ascii",
+      "kind": "fixed-string-encoded"
+    },
+    "slots": {
+      "keyByteLength": 4,
+      "keyEncoding": "fixed-ascii",
+      "kind": "bounded-map",
+      "maxEntries": 3,
+      "valueShape": {
+        "kind": "fixed-scalar",
+        "type": "u8"
+      }
+    },
+    "state": {
+      "kind": "fixed-enum",
+      "storage": "u8",
+      "variants": ["idle", "armed", "live"]
+    },
+    "titleUtf8": {
+      "byteLength": 16,
+      "encoding": "utf8",
+      "kind": "fixed-string-encoded"
+    }
+  },
+  "key": "fixture.warmPayload.v0",
+  "lanes": {
+    "warm": {}
+  }
+}
