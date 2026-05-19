@@ -115,6 +115,7 @@ Implemented in source and tests:
 - `hotLayoutVersion` derivation with domain-specific numeric rejection preserving `hotCodec.layoutRejected` error identity
 - Block A identity hashes, version fields, field count, mutable-region byte length, and reserved-byte validation
 - Block B header encode/decode/validation for fixture bytes
+- `decodeHotCompleteFixtureRegion` validates optional expected `baselineEpoch` and `continuityGeneration` against decoded Block B
 - field byte helpers for fixed scalars, enums, vectors, fixed strings, bounded arrays, and bounded maps
 - complete fixture-region encode/decode
 - conformance fixtures for hot layout, hot bytes, complete regions, and generated TS/Rust exchange proofs

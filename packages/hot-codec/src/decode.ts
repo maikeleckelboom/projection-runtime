@@ -19,6 +19,8 @@ import type { HotLayoutManifest } from "./manifest";
 export type HotCompleteFixtureRegionDecodeOptions = {
   readonly expectedContractKey?: string;
   readonly expectedInstanceKey?: string;
+  readonly expectedBaselineEpoch?: number;
+  readonly expectedContinuityGeneration?: number;
 };
 
 export type HotCompleteFixtureRegionDecodeResult = {
@@ -40,6 +42,7 @@ export function decodeHotCompleteFixtureRegion(
     bytes.subarray(HOT_BLOCK_B_BYTE_OFFSET, HOT_BLOCK_B_END_OFFSET),
   );
   validateCompleteFixtureRegionHeaders(manifest, blockABytes, blockA, options);
+  validateCompleteFixtureRegionBlockBIdentity(blockB, options);
 
   return {
     blockA,
@@ -171,4 +174,41 @@ function validateCompleteFixtureRegionExpectedKeys(
   }
 
   return issues;
+}
+
+function validateCompleteFixtureRegionBlockBIdentity(
+  blockB: HotBlockBHeader,
+  options: HotCompleteFixtureRegionDecodeOptions,
+): void {
+  const issues: HotCodecIssue[] = [];
+
+  if (
+    options.expectedBaselineEpoch !== undefined &&
+    blockB.baselineEpoch !== options.expectedBaselineEpoch
+  ) {
+    issues.push(
+      createHotCodecIssue(
+        "header.baselineEpochMismatch",
+        "options.expectedBaselineEpoch",
+        `baselineEpoch mismatch: expected ${options.expectedBaselineEpoch}, got ${blockB.baselineEpoch}`,
+      ),
+    );
+  }
+
+  if (
+    options.expectedContinuityGeneration !== undefined &&
+    blockB.continuityGeneration !== options.expectedContinuityGeneration
+  ) {
+    issues.push(
+      createHotCodecIssue(
+        "header.continuityGenerationMismatch",
+        "options.expectedContinuityGeneration",
+        `continuityGeneration mismatch: expected ${options.expectedContinuityGeneration}, got ${blockB.continuityGeneration}`,
+      ),
+    );
+  }
+
+  if (issues.length > 0) {
+    throw createHotByteRejectedError(issues);
+  }
 }

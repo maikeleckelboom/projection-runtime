@@ -8,6 +8,7 @@ import {
   HOT_SEQLOCK_U64_OFFSET,
   type HotLayoutManifest,
   hexToBytes,
+  isHotCodecError,
 } from "@exclave/hot-codec";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
@@ -448,6 +449,100 @@ describe("@exclave/hot-consumer bounded read attempts", () => {
     });
     expect(result.snapshot.fieldValues).toEqual(expectedValues);
     expect(state.lastGood?.fieldValues).toEqual(expectedValues);
+  });
+
+  it("decodes fixture region through consumer kernel with matching baseline identity", () => {
+    const manifest = hotBasicLayout();
+    const fixtureBytes = hotBasicCompleteFixtureRegionBytes();
+    const copiedRegion = new Uint8Array(new SharedArrayBuffer(fixtureBytes.byteLength));
+    copiedRegion.set(fixtureBytes);
+    const sequence = new BigUint64Array(copiedRegion.buffer, HOT_SEQLOCK_U64_OFFSET, 1);
+    type Snapshot = ReturnType<typeof decodeHotCompleteFixtureRegion>;
+    const state = createHotReadState<Snapshot>();
+
+    const result = tryReadHotSnapshot({
+      sequence,
+      readCandidate: () =>
+        decodeHotCompleteFixtureRegion(manifest, copiedRegion, {
+          expectedContractKey: "fixture.hotBasic",
+          expectedInstanceKey: "hot-basic-v0.instance",
+          expectedBaselineEpoch: 7,
+          expectedContinuityGeneration: 3,
+        }),
+      state,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected read to succeed");
+    expect(result.snapshot.blockB.baselineEpoch).toBe(7);
+    expect(result.snapshot.blockB.continuityGeneration).toBe(3);
+    expect(state.lastGood?.fieldValues).toEqual({
+      cursor: 123,
+      health: "warn",
+      level: 0.75,
+      peaks: [0.125, 0.25, 0.5],
+      phase: 12.5,
+    });
+  });
+
+  it("rejects baselineEpoch mismatch through the consumer readCandidate", () => {
+    const manifest = hotBasicLayout();
+    const fixtureBytes = hotBasicCompleteFixtureRegionBytes();
+    const copiedRegion = new Uint8Array(new SharedArrayBuffer(fixtureBytes.byteLength));
+    copiedRegion.set(fixtureBytes);
+    const sequence = new BigUint64Array(copiedRegion.buffer, HOT_SEQLOCK_U64_OFFSET, 1);
+    const state = createHotReadState<string>();
+    state.lastGood = "prior";
+
+    try {
+      tryReadHotSnapshot({
+        sequence,
+        readCandidate: () =>
+          decodeHotCompleteFixtureRegion(manifest, copiedRegion, {
+            expectedContractKey: "fixture.hotBasic",
+            expectedInstanceKey: "hot-basic-v0.instance",
+            expectedBaselineEpoch: 99,
+          }),
+        state,
+      });
+    } catch (error) {
+      expect(isHotCodecError(error)).toBe(true);
+      expect((error as ExclaveError).code).toBe("hotCodec.byteRejected");
+      expect(state.lastGood).toBe("prior");
+      return;
+    }
+
+    throw new Error("expected baselineEpoch mismatch to be rejected");
+  });
+
+  it("rejects continuityGeneration mismatch through the consumer readCandidate", () => {
+    const manifest = hotBasicLayout();
+    const fixtureBytes = hotBasicCompleteFixtureRegionBytes();
+    const copiedRegion = new Uint8Array(new SharedArrayBuffer(fixtureBytes.byteLength));
+    copiedRegion.set(fixtureBytes);
+    const sequence = new BigUint64Array(copiedRegion.buffer, HOT_SEQLOCK_U64_OFFSET, 1);
+    const state = createHotReadState<string>();
+    state.lastGood = "prior";
+
+    try {
+      tryReadHotSnapshot({
+        sequence,
+        readCandidate: () =>
+          decodeHotCompleteFixtureRegion(manifest, copiedRegion, {
+            expectedContractKey: "fixture.hotBasic",
+            expectedInstanceKey: "hot-basic-v0.instance",
+            expectedContinuityGeneration: 99,
+          }),
+        state,
+      });
+    } catch (error) {
+      expect(isHotCodecError(error)).toBe(true);
+      expect((error as ExclaveError).code).toBe("hotCodec.byteRejected");
+      expect(state.lastGood).toBe("prior");
+      return;
+    }
+
+    throw new Error("expected continuityGeneration mismatch to be rejected");
   });
 
   it("propagates readCandidate errors unchanged and leaves lastGood untouched", () => {

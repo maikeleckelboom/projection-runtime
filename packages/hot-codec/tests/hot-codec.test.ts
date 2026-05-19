@@ -789,6 +789,58 @@ describe("@exclave/hot-codec complete fixture region", () => {
       "header.mutableRegionByteLengthMismatch",
     );
   });
+
+  it("succeeds when expectedBaselineEpoch and expectedContinuityGeneration match the region", () => {
+    const result = decodeHotCompleteFixtureRegion(
+      hotBasicLayout(),
+      encodeHotBasicCompleteFixtureRegion(),
+      {
+        expectedBaselineEpoch: HOT_BASIC_BLOCK_B_INPUT.baselineEpoch,
+        expectedContinuityGeneration: HOT_BASIC_BLOCK_B_INPUT.continuityGeneration,
+      },
+    );
+
+    expect(result.blockB.baselineEpoch).toBe(7);
+    expect(result.blockB.continuityGeneration).toBe(3);
+  });
+
+  it("rejects expectedBaselineEpoch mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), encodeHotBasicCompleteFixtureRegion(), {
+        expectedBaselineEpoch: 99,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.baselineEpochMismatch",
+    );
+  });
+
+  it("rejects expectedContinuityGeneration mismatch with a typed issue code", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), encodeHotBasicCompleteFixtureRegion(), {
+        expectedContinuityGeneration: 99,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code)).toContain(
+      "header.continuityGenerationMismatch",
+    );
+  });
+
+  it("rejects both baselineEpoch and continuityGeneration mismatches together", () => {
+    const error = expectHotByteCodecError(() =>
+      decodeHotCompleteFixtureRegion(hotBasicLayout(), encodeHotBasicCompleteFixtureRegion(), {
+        expectedBaselineEpoch: 9,
+        expectedContinuityGeneration: 5,
+      }),
+    );
+
+    expect(error.details.issues.map((issue) => issue.code).sort()).toEqual([
+      "header.baselineEpochMismatch",
+      "header.continuityGenerationMismatch",
+    ]);
+  });
 });
 
 describe("@exclave/hot-codec fixture artifact guard", () => {
