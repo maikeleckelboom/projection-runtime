@@ -22,6 +22,7 @@ export interface ProjectionRuntimeFixtureArtifacts {
   readonly hotCompleteFixtureRegion?: unknown;
   readonly hotLayoutManifest?: unknown;
   readonly resolvedContract: unknown;
+  readonly rustWarmOutput?: unknown;
   readonly warmPayloadFixture?: unknown;
 }
 
@@ -93,6 +94,11 @@ const resolvedContractFile = {
 const warmPayloadFixtureFile = {
   fileName: "warm-payload-fixture.json",
   artifactName: "warm-payload-fixture",
+} satisfies RequiredFixtureFile;
+
+const rustWarmOutputFile = {
+  fileName: "rust-warm-output.json",
+  artifactName: "rust-warm-output",
 } satisfies RequiredFixtureFile;
 
 export async function listProjectionRuntimeFixtures(
@@ -226,13 +232,19 @@ async function readWarmPayloadFixtureArtifacts(
   fixturePath: string,
   relativeFixturePath: string,
   fixtureName: ProjectionRuntimeFixtureName,
-): Promise<Pick<ProjectionRuntimeFixtureArtifacts, "warmPayloadFixture">> {
+): Promise<Pick<ProjectionRuntimeFixtureArtifacts, "rustWarmOutput" | "warmPayloadFixture">> {
   return {
     warmPayloadFixture: await readRequiredJson(
       fixturePath,
       relativeFixturePath,
       fixtureName,
       warmPayloadFixtureFile,
+    ),
+    rustWarmOutput: await readRequiredJson(
+      fixturePath,
+      relativeFixturePath,
+      fixtureName,
+      rustWarmOutputFile,
     ),
   };
 }

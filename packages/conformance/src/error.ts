@@ -20,6 +20,7 @@ export type ConformanceArtifactName =
   | "hot-layout-manifest"
   | "readme"
   | "resolved-contract"
+  | "rust-warm-output"
   | "warm-payload-fixture";
 
 export type ConformanceFailureArtifactName =
