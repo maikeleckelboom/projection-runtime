@@ -42,6 +42,25 @@ export function appendWarmPayloadFixtureComparison(
   }
 }
 
+export function appendRustWarmOutputComparison(
+  failures: ProjectionRuntimeFixtureFailure[],
+  expectedRustWarmOutput: unknown,
+  expectedWarmPayloadFixture: unknown,
+  resolved: ResolvedProjectionContract,
+  fixtureName: string,
+): void {
+  try {
+    appendArtifactComparison(
+      failures,
+      "rust-warm-output",
+      expectedRustWarmOutput,
+      createRustWarmOutputArtifact(expectedWarmPayloadFixture, resolved, fixtureName),
+    );
+  } catch (error) {
+    failures.push(conformanceFailureFromError(error, "rust-warm-output", expectedRustWarmOutput));
+  }
+}
+
 function createWarmPayloadFixtureArtifact(
   expectedWarmPayloadFixture: unknown,
   resolved: ResolvedProjectionContract,
@@ -142,6 +161,106 @@ function createWarmPayloadFixtureArtifact(
       },
       decodedFrameSnapshot: decodedFramePayload.snapshot,
     },
+  };
+}
+
+function createRustWarmOutputArtifact(
+  expectedWarmPayloadFixture: unknown,
+  resolved: ResolvedProjectionContract,
+  fixtureName: string,
+): unknown {
+  if (!isRecord(expectedWarmPayloadFixture)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "rust-warm-output requires warm-payload-fixture to be an object",
+      failureCode: "fixtureNotObject",
+    });
+  }
+
+  const expected = getObjectProperty(expectedWarmPayloadFixture, "expected");
+  if (!isRecord(expected)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "warm-payload-fixture expected must be an object",
+      failureCode: "fixtureNotObject",
+      path: "expected",
+    });
+  }
+
+  const decodedFrame = getObjectProperty(expected, "decodedFrame");
+  if (!isRecord(decodedFrame)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "warm-payload-fixture expected.decodedFrame must be an object",
+      failureCode: "fixtureNotObject",
+      path: "expected.decodedFrame",
+    });
+  }
+
+  const payloadBytesHex = getHexProperty(expected, "payloadBytesHex", "expected.payloadBytesHex");
+  const frameBytesHex = getHexProperty(expected, "frameBytesHex", "expected.frameBytesHex");
+  const decodedFramePayloadBytesHex = getHexProperty(
+    decodedFrame,
+    "payloadBytesHex",
+    "expected.decodedFrame.payloadBytesHex",
+  );
+  const decodedSnapshot = getObjectProperty(expected, "decodedSnapshot");
+  if (!isRecord(decodedSnapshot)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "warm-payload-fixture expected.decodedSnapshot must be an object",
+      failureCode: "fixtureNotObject",
+      path: "expected.decodedSnapshot",
+    });
+  }
+
+  const laneSequence = decodedFrame.laneSequence;
+  if (laneSequence !== undefined && typeof laneSequence !== "number") {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "expected.decodedFrame.laneSequence must be a number when present",
+      failureCode: "expectedNumber",
+      path: "expected.decodedFrame.laneSequence",
+    });
+  }
+
+  return {
+    fixtureKind: "rust-warm-output",
+    fixtureName,
+    contractKey: resolved.manifest.key,
+    semanticVersion: resolved.semanticVersion,
+    warmCodecVersion: requireWarmCodecVersion(resolved),
+    payloadBytesHex,
+    frameBytesHex,
+    decodedFrame: {
+      frameByteLength: frameBytesHexToFrameByteLength(frameBytesHex),
+      contractKey: resolved.manifest.key,
+      projectionInstanceKey: getStringProperty(
+        decodedFrame,
+        "projectionInstanceKey",
+        "expected.decodedFrame.projectionInstanceKey",
+      ),
+      semanticVersion: resolved.semanticVersion,
+      warmCodecVersion: requireWarmCodecVersion(resolved),
+      baselineEpoch: getNumberProperty(
+        decodedFrame,
+        "baselineEpoch",
+        "expected.decodedFrame.baselineEpoch",
+      ),
+      continuityGeneration: getNumberProperty(
+        decodedFrame,
+        "continuityGeneration",
+        "expected.decodedFrame.continuityGeneration",
+      ),
+      publicationSequence: getU64HexProperty(
+        decodedFrame,
+        "publicationSequence",
+        "expected.decodedFrame.publicationSequence",
+      ),
+      ...(laneSequence === undefined ? {} : { laneSequence }),
+      payloadBytesHex: decodedFramePayloadBytesHex,
+    },
+    decodedSnapshot,
   };
 }
 
@@ -318,4 +437,30 @@ function valuesShapeError(detail: string, path: string): Error {
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function getHexProperty(obj: Record<string, unknown>, key: string, path: string): string {
+  const value = getStringProperty(obj, key, path);
+  if (!/^(?:[\da-f]{2})*$/.test(value)) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: `${path} must be lowercase hex bytes`,
+      failureCode: "expectedString",
+      path,
+    });
+  }
+  return value;
+}
+
+function frameBytesHexToFrameByteLength(frameBytesHex: string): number {
+  const frameByteLength = frameBytesHex.length / 2 - 4;
+  if (!Number.isSafeInteger(frameByteLength) || frameByteLength < 0) {
+    throw createConformanceError("fixtureShapeRejected", {
+      artifact: "rust-warm-output",
+      detail: "expected.frameBytesHex must include a frameByteLength prefix",
+      failureCode: "expectedString",
+      path: "expected.frameBytesHex",
+    });
+  }
+  return frameByteLength;
 }

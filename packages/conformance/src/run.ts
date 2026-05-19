@@ -20,7 +20,10 @@ import { appendHotBlockBFixtureComparison } from "./verify/hot-block-b";
 import { appendHotByteFixtureComparison } from "./verify/hot-byte";
 import { appendHotCompleteFixtureRegionComparison } from "./verify/hot-complete-region";
 import { appendHotLayoutVersionCheck } from "./verify/hot-layout-version";
-import { appendWarmPayloadFixtureComparison } from "./verify/warm-payload";
+import {
+  appendRustWarmOutputComparison,
+  appendWarmPayloadFixtureComparison,
+} from "./verify/warm-payload";
 
 export type ProjectionRuntimeArtifactName = Exclude<
   ConformanceArtifactName,
@@ -65,6 +68,7 @@ export interface RunProjectionRuntimeFixtureOptions extends ProjectionRuntimeFix
       | "hotCompleteFixtureRegion"
       | "hotLayoutManifest"
       | "resolvedContract"
+      | "rustWarmOutput"
       | "warmPayloadFixture"
     >
   >;
@@ -100,6 +104,8 @@ export async function runProjectionRuntimeFixture(
     options.expectedArtifacts?.hotLayoutManifest ?? artifacts.hotLayoutManifest;
   const expectedResolvedContract =
     options.expectedArtifacts?.resolvedContract ?? artifacts.resolvedContract;
+  const expectedRustWarmOutput =
+    options.expectedArtifacts?.rustWarmOutput ?? artifacts.rustWarmOutput;
   const expectedWarmPayloadFixture =
     options.expectedArtifacts?.warmPayloadFixture ?? artifacts.warmPayloadFixture;
 
@@ -161,6 +167,13 @@ export async function runProjectionRuntimeFixture(
     appendHotLayoutVersionCheck(failures, "actual", resolved);
   } else {
     appendWarmPayloadFixtureComparison(failures, expectedWarmPayloadFixture, resolved);
+    appendRustWarmOutputComparison(
+      failures,
+      expectedRustWarmOutput,
+      expectedWarmPayloadFixture,
+      resolved,
+      loadedFixture.fixtureName,
+    );
   }
 
   return {

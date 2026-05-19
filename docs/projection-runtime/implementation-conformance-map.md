@@ -20,6 +20,7 @@ today; it does not define new runtime behavior.
 - `packages/*/README.md`
 - `packages/*/src/**/*.ts`
 - `packages/*/tests/**/*.ts`
+- `crates/*/src/**/*.rs`
 
 ## Document Authority Notes
 
@@ -51,7 +52,7 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and manifest-derived field-value snapshot payload encode/decode. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, transport, or publication runtime. |
 | `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
 | `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
-| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes the first modeled live warm projection path proof, and includes a warm-only payload codec fixture profile for TypeScript warm payload bytes. It is not yet a full shared runtime conformance harness across all drafted planes. |
+| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes the first modeled live warm projection path proof, and includes a warm-only payload codec fixture profile with Rust/TypeScript payload and full warm frame byte agreement for warm-payload-v0. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
 
@@ -272,18 +273,19 @@ Implemented in source and tests:
 - maximum warm frame byte-size enforcement before decode
 - `authorityEpoch` absent from `WarmLaneFrame` bytes and decoded logical frame
 - rejection of obvious resource-body descriptor shapes as framed-snapshot payload input
-- `fixtures/projection-runtime/warm-payload-v0` proves one TypeScript warm-only payload byte fixture, decoded snapshot
-  fixture, and outer frame composition using the existing `encodeWarmLaneFrame`/`decodeWarmLaneFrame` path
+- `fixtures/projection-runtime/warm-payload-v0` proves one warm-only payload byte fixture, decoded snapshot fixture,
+  Rust/TypeScript payload byte agreement, and Rust/TypeScript full warm frame byte agreement using the existing
+  TypeScript `encodeWarmLaneFrame`/`decodeWarmLaneFrame` path plus the fixture-only Rust `warm-abi-conformance` crate
 
 Remaining gaps:
 
 - fatal stream mismatch handling
-- shared Rust/TS byte fixture agreement for warm payloads and full warm frames
+- broader Rust/TypeScript warm fixture coverage beyond warm-payload-v0
 - production transport and publication runtime integration
 
-The payload codec remains separate from the outer framed-snapshot codec. It does not add transport, subscription
-lifecycle, publication runtime, session/control runtime, hot SAB lifecycle, resource runtime, or cold reopen behavior.
-The current checked-in warm payload fixture is TypeScript-only; Rust/TypeScript warm byte agreement remains future work.
+The payload codec remains separate from the outer framed-snapshot codec. The Rust proof is fixture/conformance-only and
+does not add transport, subscription lifecycle, publication runtime, session/control runtime, hot SAB lifecycle,
+resource runtime, or cold reopen behavior.
 
 ## 10. Publication Subscription Lifecycle Conformance
 
@@ -349,10 +351,10 @@ session, resource, warm codec, and publication subscription foundations.
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-3. `test(conformance): add Rust/TS warm byte fixture agreement`
+3. `test(conformance): broaden warm byte fixture agreement`
 
-   Promote the current TypeScript-only warm frame proof into shared fixture evidence with deterministic expected frame
-   bytes across languages.
+   Extend the current warm-payload-v0 Rust/TypeScript payload and full-frame agreement into additional warm fixtures
+   as new warm contract shapes are added.
 
 4. `feat(publication): define production transport attachment points`
 

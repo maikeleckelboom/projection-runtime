@@ -151,6 +151,29 @@ type HotExchangeRustWriterOutput = {
   };
 };
 
+type RustWarmOutput = {
+  readonly fixtureKind: "rust-warm-output";
+  readonly fixtureName: string;
+  readonly contractKey: string;
+  readonly semanticVersion: string;
+  readonly warmCodecVersion: string;
+  readonly payloadBytesHex: string;
+  readonly frameBytesHex: string;
+  readonly decodedFrame: {
+    readonly frameByteLength: number;
+    readonly contractKey: string;
+    readonly projectionInstanceKey: string;
+    readonly semanticVersion: string;
+    readonly warmCodecVersion: string;
+    readonly baselineEpoch: number;
+    readonly continuityGeneration: number;
+    readonly publicationSequence: string;
+    readonly laneSequence?: number;
+    readonly payloadBytesHex: string;
+  };
+  readonly decodedSnapshot: Record<string, unknown>;
+};
+
 type LiveDeckRuntimeFrame = {
   readonly frameIndex: number;
   readonly hotRegionBytesHex: string;
@@ -327,6 +350,7 @@ describe("@exclave/conformance fixture loading", () => {
   it("loads warm-payload-v0 as a warm-only payload codec fixture", async () => {
     const fixture = await loadProjectionRuntimeFixture("warm-payload-v0");
     const warmPayloadFixture = cloneRecord(fixture.artifacts.warmPayloadFixture);
+    const rustWarmOutput = cloneRecord(fixture.artifacts.rustWarmOutput);
 
     expect(fixture.fixtureName).toBe("warm-payload-v0");
     expect(fixture.fixtureProfile).toBe("warm-payload-codec");
@@ -342,6 +366,22 @@ describe("@exclave/conformance fixture loading", () => {
       contractKey: "fixture.warmPayload.v0",
       warmCodecVersion: "63b9e47293d654c5",
       expected: {
+        payloadBytesHex:
+          "012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9",
+      },
+    });
+    expect(rustWarmOutput).toMatchObject({
+      fixtureKind: "rust-warm-output",
+      fixtureName: "warm-payload-v0",
+      contractKey: "fixture.warmPayload.v0",
+      semanticVersion: "10fbe25177301279",
+      warmCodecVersion: "63b9e47293d654c5",
+      payloadBytesHex:
+        "012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9",
+      decodedFrame: {
+        frameByteLength: 184,
+        contractKey: "fixture.warmPayload.v0",
+        projectionInstanceKey: "warm-payload-v0.instance",
         payloadBytesHex:
           "012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9",
       },
@@ -608,6 +648,33 @@ describe("@exclave/conformance fixture loading", () => {
       );
     });
   });
+
+  it("reports missing rust-warm-output.json explicitly for warm payload fixtures", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-warm-fixture");
+      await cp(warmPayloadFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "rust-warm-output.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-warm-fixture", {
+        fixtureRoot: root,
+      });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-warm-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
+          fixtureFile: "rust-warm-output.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain(
+        "broken-warm-fixture/rust-warm-output.json",
+      );
+    });
+  });
 });
 
 describe("@exclave/conformance execution", () => {
@@ -654,6 +721,55 @@ describe("@exclave/conformance execution", () => {
       failures: [],
     });
   });
+
+  it("proves warm-payload-v0 Rust/TypeScript payload and full frame byte agreement", async () => {
+    const fixture = await loadProjectionRuntimeFixture("warm-payload-v0");
+    const warmPayloadFixture = cloneRecord(fixture.artifacts.warmPayloadFixture);
+    const expected = cloneRecord(warmPayloadFixture.expected);
+    const expectedDecodedFrame = cloneRecord(expected.decodedFrame);
+    const committedRustOutput = cloneRecord(fixture.artifacts.rustWarmOutput) as RustWarmOutput;
+
+    const rustOutput = JSON.parse(
+      execFileSync(
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "-p",
+          "warm-abi-conformance",
+          "--",
+          "warm-payload-v0",
+          "fixtures/projection-runtime/warm-payload-v0",
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      ),
+    ) as RustWarmOutput;
+
+    expect(rustOutput).toEqual(committedRustOutput);
+    expect(rustOutput.fixtureKind).toBe("rust-warm-output");
+    expect(rustOutput.fixtureName).toBe("warm-payload-v0");
+    expect(rustOutput.contractKey).toBe(warmPayloadFixture.contractKey);
+    expect(rustOutput.semanticVersion).toBe(warmPayloadFixture.semanticVersion);
+    expect(rustOutput.warmCodecVersion).toBe(warmPayloadFixture.warmCodecVersion);
+    expect(rustOutput.payloadBytesHex).toBe(expected.payloadBytesHex);
+    expect(rustOutput.frameBytesHex).toBe(expected.frameBytesHex);
+    expect(rustOutput.decodedFrame).toEqual({
+      frameByteLength: 184,
+      contractKey: warmPayloadFixture.contractKey,
+      projectionInstanceKey: expectedDecodedFrame.projectionInstanceKey,
+      semanticVersion: warmPayloadFixture.semanticVersion,
+      warmCodecVersion: warmPayloadFixture.warmCodecVersion,
+      baselineEpoch: expectedDecodedFrame.baselineEpoch,
+      continuityGeneration: expectedDecodedFrame.continuityGeneration,
+      publicationSequence: expectedDecodedFrame.publicationSequence,
+      laneSequence: expectedDecodedFrame.laneSequence,
+      payloadBytesHex: expected.payloadBytesHex,
+    });
+    expect(rustOutput.decodedSnapshot).toEqual(expected.decodedSnapshot);
+  }, 30_000);
 
   it("passes aggregate projection-runtime conformance", async () => {
     const result = await runProjectionRuntimeConformance();

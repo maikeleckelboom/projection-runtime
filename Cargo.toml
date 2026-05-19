@@ -1,3 +1,7 @@
 [workspace]
-members = ["crates/hot-publication", "crates/hot-abi-conformance"]
+members = [
+    "crates/hot-publication",
+    "crates/hot-abi-conformance",
+    "crates/warm-abi-conformance",
+]
 resolver = "2"
