@@ -1,3 +1,18 @@
 {
-  "extends": "./tsconfig.tooling.json"
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "tsBuildInfoFile": "./.cache/tsbuildinfo/tooling.tsbuildinfo",
+    "isolatedDeclarations": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["scripts/**/*.mts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", "packages/**/dist"]
 }
