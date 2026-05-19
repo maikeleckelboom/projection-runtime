@@ -13,3 +13,28 @@ export {
   decodeWarmLaneFrame,
   encodeWarmLaneFrame,
 } from "./framed-snapshot";
+export type {
+  WarmSnapshotMapObject,
+  WarmSnapshotObject,
+  WarmSnapshotPayloadBoundedArrayShape,
+  WarmSnapshotPayloadBoundedMapShape,
+  WarmSnapshotPayloadDecodeFailure,
+  WarmSnapshotPayloadDecodeFailureReason,
+  WarmSnapshotPayloadDecodeResult,
+  WarmSnapshotPayloadEncodeFailure,
+  WarmSnapshotPayloadEncodeFailureReason,
+  WarmSnapshotPayloadEncodeResult,
+  WarmSnapshotPayloadField,
+  WarmSnapshotPayloadFixedEnumShape,
+  WarmSnapshotPayloadFixedScalarShape,
+  WarmSnapshotPayloadFixedStringEncodedShape,
+  WarmSnapshotPayloadFixedValueShape,
+  WarmSnapshotPayloadFixedVectorShape,
+  WarmSnapshotPayloadManifest,
+  WarmSnapshotPayloadShape,
+  WarmSnapshotPayloadVariableMapShape,
+  WarmSnapshotPayloadVariableStringShape,
+  WarmSnapshotScalarValue,
+  WarmSnapshotValue,
+} from "./payload";
+export { decodeWarmSnapshotPayload, encodeWarmSnapshotPayload } from "./payload";

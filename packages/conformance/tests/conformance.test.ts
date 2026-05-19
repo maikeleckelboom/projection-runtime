@@ -55,6 +55,7 @@ import {
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/projection-runtime");
 const hotBasicFixtureRoot = resolve(fixtureRoot, "hot-basic-v0");
+const warmPayloadFixtureRoot = resolve(fixtureRoot, "warm-payload-v0");
 const conformanceSourceRoot = resolve(repoRoot, "packages/conformance/src");
 const GENERATED_FIXTURE_FILES = [
   "canonical-manifest.json",
@@ -190,7 +191,12 @@ type LiveDeckRuntimeOutput = {
 describe("@exclave/conformance fixture discovery", () => {
   it("discovers all checked-in projection-runtime fixtures", async () => {
     await expect(listProjectionRuntimeFixtures()).resolves.toEqual(
-      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0", "hot-exchange-v0"]),
+      expect.arrayContaining([
+        "deck-runtime-v0",
+        "hot-basic-v0",
+        "hot-exchange-v0",
+        "warm-payload-v0",
+      ]),
     );
   });
 
@@ -316,6 +322,30 @@ describe("@exclave/conformance fixture loading", () => {
       revision: 57_005,
     });
     expect(expected.decodedValues).toEqual(hotByteFixture.values);
+  });
+
+  it("loads warm-payload-v0 as a warm-only payload codec fixture", async () => {
+    const fixture = await loadProjectionRuntimeFixture("warm-payload-v0");
+    const warmPayloadFixture = cloneRecord(fixture.artifacts.warmPayloadFixture);
+
+    expect(fixture.fixtureName).toBe("warm-payload-v0");
+    expect(fixture.fixtureProfile).toBe("warm-payload-codec");
+    expect(fixture.fixturePath).toBe("fixtures/projection-runtime/warm-payload-v0");
+    expect(fixture.artifacts.authoredContract).toMatchObject({
+      key: "fixture.warmPayload.v0",
+      lanes: { warm: {} },
+    });
+    expect(fixture.artifacts.hotLayoutManifest).toBeUndefined();
+    expect(fixture.artifacts.hotByteFixture).toBeUndefined();
+    expect(warmPayloadFixture).toMatchObject({
+      fixtureKind: "warm-payload-fixture",
+      contractKey: "fixture.warmPayload.v0",
+      warmCodecVersion: "63b9e47293d654c5",
+      expected: {
+        payloadBytesHex:
+          "012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9",
+      },
+    });
   });
 
   it("keeps generated hot artifact manifests consistent with their layout manifests", () => {
@@ -551,6 +581,33 @@ describe("@exclave/conformance fixture loading", () => {
       );
     });
   });
+
+  it("reports missing warm-payload-fixture.json explicitly for warm payload fixtures", async () => {
+    await withTempFixtureRoot(async (root) => {
+      const copiedFixtureRoot = resolve(root, "broken-warm-fixture");
+      await cp(warmPayloadFixtureRoot, copiedFixtureRoot, { recursive: true });
+      await rm(resolve(copiedFixtureRoot, "warm-payload-fixture.json"));
+
+      const result = await runProjectionRuntimeFixture("broken-warm-fixture", {
+        fixtureRoot: root,
+      });
+
+      expect(result).toMatchObject({
+        fixtureName: "broken-warm-fixture",
+        passed: false,
+      });
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          artifact: "fixture-file",
+          failureCode: "missingRequiredFixtureFile",
+          fixtureFile: "warm-payload-fixture.json",
+        }),
+      ]);
+      expect(result.failures[0]?.relativePath).toContain(
+        "broken-warm-fixture/warm-payload-fixture.json",
+      );
+    });
+  });
 });
 
 describe("@exclave/conformance execution", () => {
@@ -587,6 +644,17 @@ describe("@exclave/conformance execution", () => {
     });
   });
 
+  it("passes warm-payload-v0 conformance", async () => {
+    const result = await runProjectionRuntimeFixture("warm-payload-v0");
+
+    expect(result).toEqual({
+      fixtureName: "warm-payload-v0",
+      fixturePath: "fixtures/projection-runtime/warm-payload-v0",
+      passed: true,
+      failures: [],
+    });
+  });
+
   it("passes aggregate projection-runtime conformance", async () => {
     const result = await runProjectionRuntimeConformance();
 
@@ -594,7 +662,12 @@ describe("@exclave/conformance execution", () => {
     expect(result.passedCount).toBe(result.totalCount);
     expect(result.failedCount).toBe(0);
     expect(result.fixtures.map((fixture) => fixture.fixtureName)).toEqual(
-      expect.arrayContaining(["deck-runtime-v0", "hot-basic-v0", "hot-exchange-v0"]),
+      expect.arrayContaining([
+        "deck-runtime-v0",
+        "hot-basic-v0",
+        "hot-exchange-v0",
+        "warm-payload-v0",
+      ]),
     );
   });
 

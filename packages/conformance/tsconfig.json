@@ -10,7 +10,8 @@
   "references": [
     { "path": "../compiler" },
     { "path": "../hot-codec" },
-    { "path": "../hot-binding" }
+    { "path": "../hot-binding" },
+    { "path": "../warm" }
   ],
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "tests"]

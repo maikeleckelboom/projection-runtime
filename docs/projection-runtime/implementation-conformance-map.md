@@ -48,10 +48,10 @@ intended protocol surface, but current implementation conformance must not be in
 | `@exclave/session` | partially implemented | Owns type-level authority session descriptor, session state events, authority invalidation events, and session-bound failure vocabulary. It also provides a product-neutral binding validity fence with `authorityEpoch`, ready/opening/invalidated/closed states, and guard helpers. It does not implement a session manager, epoch issuer, non-reuse enforcement, authority lifecycle runtime, or transport. It does not own resource-handle or hot-handle invalidation events. |
 | `@exclave/control-plane` | partially implemented | Provides JSON-safe request/success/failure envelopes and projects binding validity failures. It does not implement operation dispatch, session issuance, resource opens, publication subscribe, or authority lifecycle. |
 | `@exclave/resource` | partially implemented | Owns Resource Plane v1 protocol types and validation helpers: typed resource contracts, open/chunk-read/mapped-window/close request and reply types, capabilities discriminated union, resource failure union, resource backpressure, resource-handle invalidation event, and descriptor no-body validation. It does not implement a resource authority registry, transport, IO, cache, media decoding, product ownership, or physical mapped-window backing. |
-| `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and opaque already-encoded snapshot payload bytes. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, or full manifest-derived field-value payload encoding. |
+| `@exclave/warm` | partially implemented | Provides the Warm Codec v1 binary framed-snapshot outer frame subset with deterministic encode/decode, length validation, invalid UTF-8 rejection, optional `laneSequence`, maximum frame-size enforcement, and manifest-derived field-value snapshot payload encode/decode. It does not implement JSON event envelopes, warm frame envelope validation, warm owner shapes, stale binding failure projection, transport, or publication runtime. |
 | `@exclave/publication` | partially implemented | Owns publication subscribe request/ack/failure/event types and a modeled warm subscription lifecycle proving ack, initial snapshot application, invalidation, and rebind. It rejects cold subscriptions with `coldLaneNotRatified`. It does not implement real transport, an authority runtime, hot handle open, resource payload access, or cold reopen runtime. |
 | `@exclave/host-contract` | partially implemented | Provides host surface descriptors, hot/control/warm/resource lane descriptors (using `descriptorVersion` for warm stream descriptors), grants, and guarded hot-read tests. It does not implement transport, subscriptions, byte transfer, hot handle open/close, or resource lifecycle. |
-| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, and includes the first modeled live warm projection path proof. It is not yet a full shared runtime conformance harness across all drafted planes. |
+| `@exclave/conformance` | partially implemented | Runs TypeScript-side fixture conformance, includes generated TS/Rust fixture proofs for hot exchange, includes the first modeled live warm projection path proof, and includes a warm-only payload codec fixture profile for TypeScript warm payload bytes. It is not yet a full shared runtime conformance harness across all drafted planes. |
 
 ## 2. Boundary Model Conformance
 
@@ -257,25 +257,33 @@ Implemented in source and tests:
 - canonical binary outer frame with `frameByteLength`
 - little-endian metadata fields
 - deterministic encode/decode for the same logical frame
+- manifest-derived field-value payload encoding and decoding through a package-neutral structural warm payload manifest
 - compiler-derived `warmCodecVersion` from Warm Codec v1 canonical hash coverage
 - compiler-emitted warm lane manifest for framed-snapshot warm declarations
+- canonical payload field order by UTF-8 `dotPath`, with no field names or field count in payload bytes
+- scalar, enum, vector, bounded array, bounded map, variable map, fixed string, and variable string payload encodings
+- deterministic bounded-map and variable-map entry ordering by encoded key bytes
 - optional `laneSequence` presence and value encoding
 - recoverable decode failures for malformed frame length, malformed payload length, invalid `laneSequencePresent`, and
   invalid UTF-8
+- structured payload encode/decode failures for invalid logical values, truncated payloads, invalid bool bytes,
+  out-of-range enum discriminants, invalid counts, non-increasing map keys, invalid UTF-8 keys/strings, fixed-string
+  length overflow, and trailing bytes
 - maximum warm frame byte-size enforcement before decode
 - `authorityEpoch` absent from `WarmLaneFrame` bytes and decoded logical frame
 - rejection of obvious resource-body descriptor shapes as framed-snapshot payload input
+- `fixtures/projection-runtime/warm-payload-v0` proves one TypeScript warm-only payload byte fixture, decoded snapshot
+  fixture, and outer frame composition using the existing `encodeWarmLaneFrame`/`decodeWarmLaneFrame` path
 
 Remaining gaps:
 
-- binary field-value payload encoding for canonical field shapes
-- deterministic map ordering checks for actual payload values
 - fatal stream mismatch handling
-- shared Rust/TS byte fixture agreement for warm frames
+- shared Rust/TS byte fixture agreement for warm payloads and full warm frames
 - production transport and publication runtime integration
 
-The implemented payload is an opaque already-encoded snapshot byte payload for this slice. It is not full field-value
-codec coverage.
+The payload codec remains separate from the outer framed-snapshot codec. It does not add transport, subscription
+lifecycle, publication runtime, session/control runtime, hot SAB lifecycle, resource runtime, or cold reopen behavior.
+The current checked-in warm payload fixture is TypeScript-only; Rust/TypeScript warm byte agreement remains future work.
 
 ## 10. Publication Subscription Lifecycle Conformance
 
@@ -341,17 +349,12 @@ session, resource, warm codec, and publication subscription foundations.
    Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
    SAB remains reachable.
 
-3. `feat(warm): implement manifest-derived field-value payload encoding`
-
-   Add real payload encoding/decoding for canonical field shapes, including bool/enum validation, bounded counts, map
-   ordering, duplicate-key rejection, and string UTF-8 checks.
-
-4. `test(conformance): add Rust/TS warm byte fixture agreement`
+3. `test(conformance): add Rust/TS warm byte fixture agreement`
 
    Promote the current TypeScript-only warm frame proof into shared fixture evidence with deterministic expected frame
    bytes across languages.
 
-5. `feat(publication): define production transport attachment points`
+4. `feat(publication): define production transport attachment points`
 
    Define how the modeled subscription lifecycle attaches to a real transport without making control replies carry
    publication frames or resource bodies.

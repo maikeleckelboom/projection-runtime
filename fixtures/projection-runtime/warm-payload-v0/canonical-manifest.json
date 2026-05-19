@@ -1,0 +1,103 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": [
+    {
+      "dotPath": "active",
+      "fieldId": 1072074851,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "bool"
+      }
+    },
+    {
+      "dotPath": "count",
+      "fieldId": 2498224580,
+      "shape": {
+        "kind": "FixedScalar",
+        "type": "u32"
+      }
+    },
+    {
+      "dotPath": "gains",
+      "fieldId": 2000936206,
+      "shape": {
+        "elementType": "f32",
+        "kind": "FixedVector",
+        "length": 2
+      }
+    },
+    {
+      "dotPath": "labels",
+      "fieldId": 3117867429,
+      "shape": {
+        "kind": "VariableMap",
+        "valueShape": {
+          "kind": "VariableString"
+        }
+      }
+    },
+    {
+      "dotPath": "markers",
+      "fieldId": 3211696774,
+      "shape": {
+        "elementType": "u16",
+        "kind": "BoundedArray",
+        "maxLength": 4
+      }
+    },
+    {
+      "dotPath": "notes",
+      "fieldId": 3876415760,
+      "shape": {
+        "kind": "VariableString"
+      }
+    },
+    {
+      "dotPath": "shortAscii",
+      "fieldId": 3060986356,
+      "shape": {
+        "byteLength": 8,
+        "encoding": "ascii",
+        "kind": "FixedStringEncoded"
+      }
+    },
+    {
+      "dotPath": "slots",
+      "fieldId": 2323584164,
+      "shape": {
+        "keyByteLength": 4,
+        "keyEncoding": "fixed-ascii",
+        "kind": "BoundedMap",
+        "maxEntries": 3,
+        "valueShape": {
+          "kind": "FixedScalar",
+          "type": "u8"
+        }
+      }
+    },
+    {
+      "dotPath": "state",
+      "fieldId": 2821685926,
+      "shape": {
+        "kind": "FixedEnum",
+        "storage": "u8",
+        "variants": ["idle", "armed", "live"]
+      }
+    },
+    {
+      "dotPath": "titleUtf8",
+      "fieldId": 2625468885,
+      "shape": {
+        "byteLength": 16,
+        "encoding": "utf8",
+        "kind": "FixedStringEncoded"
+      }
+    }
+  ],
+  "key": "fixture.warmPayload.v0",
+  "lanes": {
+    "warm": {
+      "codec": "framed-snapshot"
+    }
+  }
+}

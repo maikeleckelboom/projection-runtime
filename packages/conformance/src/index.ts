@@ -17,6 +17,7 @@ export {
   type ProjectionRuntimeFixture,
   type ProjectionRuntimeFixtureArtifacts,
   type ProjectionRuntimeFixtureName,
+  type ProjectionRuntimeFixtureProfile,
   type ProjectionRuntimeFixtureRootOptions,
 } from "./fixtures";
 export {

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { type ConformanceError, createConformanceError } from "./error";
 
 export type ProjectionRuntimeFixtureName = string;
+export type ProjectionRuntimeFixtureProfile = "hot-codec" | "warm-payload-codec";
 
 export interface ProjectionRuntimeFixtureRootOptions {
   readonly fixtureRoot?: string | URL;
@@ -12,19 +13,22 @@ export interface ProjectionRuntimeFixtureRootOptions {
 
 export interface ProjectionRuntimeFixtureArtifacts {
   readonly readme: string;
+  readonly fixtureProfile?: unknown;
   readonly authoredContract: unknown;
   readonly canonicalManifest: unknown;
-  readonly hotByteFixture: unknown;
-  readonly hotBlockAFixture: unknown;
-  readonly hotBlockBFixture: unknown;
-  readonly hotCompleteFixtureRegion: unknown;
-  readonly hotLayoutManifest: unknown;
+  readonly hotByteFixture?: unknown;
+  readonly hotBlockAFixture?: unknown;
+  readonly hotBlockBFixture?: unknown;
+  readonly hotCompleteFixtureRegion?: unknown;
+  readonly hotLayoutManifest?: unknown;
   readonly resolvedContract: unknown;
+  readonly warmPayloadFixture?: unknown;
 }
 
 export interface ProjectionRuntimeFixture {
   readonly fixtureName: ProjectionRuntimeFixtureName;
   readonly fixturePath: string;
+  readonly fixtureProfile: ProjectionRuntimeFixtureProfile;
   readonly artifacts: ProjectionRuntimeFixtureArtifacts;
 }
 
@@ -44,6 +48,11 @@ const readmeFile = {
 const authoredContractFile = {
   fileName: "authored-contract.json",
   artifactName: "authored-contract",
+} satisfies RequiredFixtureFile;
+
+const fixtureProfileFile = {
+  fileName: "fixture-profile.json",
+  artifactName: "fixture-profile",
 } satisfies RequiredFixtureFile;
 
 const canonicalManifestFile = {
@@ -81,6 +90,11 @@ const resolvedContractFile = {
   artifactName: "resolved-contract",
 } satisfies RequiredFixtureFile;
 
+const warmPayloadFixtureFile = {
+  fileName: "warm-payload-fixture.json",
+  artifactName: "warm-payload-fixture",
+} satisfies RequiredFixtureFile;
+
 export async function listProjectionRuntimeFixtures(
   options: ProjectionRuntimeFixtureRootOptions = {},
 ): Promise<readonly ProjectionRuntimeFixtureName[]> {
@@ -104,6 +118,17 @@ export async function loadProjectionRuntimeFixture(
   const relativeFixturePath = relativeRepoPath(fixturePath);
 
   const readme = await readRequiredText(fixturePath, relativeFixturePath, fixtureName, readmeFile);
+  const fixtureProfileArtifact = await readOptionalJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    fixtureProfileFile,
+  );
+  const fixtureProfile = decodeFixtureProfile(
+    fixtureProfileArtifact,
+    relativeFixturePath,
+    fixtureName,
+  );
   const authoredContract = await readRequiredJson(
     fixturePath,
     relativeFixturePath,
@@ -116,6 +141,47 @@ export async function loadProjectionRuntimeFixture(
     fixtureName,
     canonicalManifestFile,
   );
+  const resolvedContract = await readRequiredJson(
+    fixturePath,
+    relativeFixturePath,
+    fixtureName,
+    resolvedContractFile,
+  );
+
+  const profileArtifacts =
+    fixtureProfile === "hot-codec"
+      ? await readHotFixtureArtifacts(fixturePath, relativeFixturePath, fixtureName)
+      : await readWarmPayloadFixtureArtifacts(fixturePath, relativeFixturePath, fixtureName);
+
+  return {
+    fixtureName,
+    fixturePath: relativeFixturePath,
+    fixtureProfile,
+    artifacts: {
+      readme,
+      ...(fixtureProfileArtifact === undefined ? {} : { fixtureProfile: fixtureProfileArtifact }),
+      authoredContract,
+      canonicalManifest,
+      resolvedContract,
+      ...profileArtifacts,
+    },
+  };
+}
+
+async function readHotFixtureArtifacts(
+  fixturePath: string,
+  relativeFixturePath: string,
+  fixtureName: ProjectionRuntimeFixtureName,
+): Promise<
+  Pick<
+    ProjectionRuntimeFixtureArtifacts,
+    | "hotLayoutManifest"
+    | "hotByteFixture"
+    | "hotBlockAFixture"
+    | "hotBlockBFixture"
+    | "hotCompleteFixtureRegion"
+  >
+> {
   const hotLayoutManifest = await readRequiredJson(
     fixturePath,
     relativeFixturePath,
@@ -146,27 +212,28 @@ export async function loadProjectionRuntimeFixture(
     fixtureName,
     hotCompleteFixtureRegionFile,
   );
-  const resolvedContract = await readRequiredJson(
-    fixturePath,
-    relativeFixturePath,
-    fixtureName,
-    resolvedContractFile,
-  );
 
   return {
-    fixtureName,
-    fixturePath: relativeFixturePath,
-    artifacts: {
-      readme,
-      authoredContract,
-      canonicalManifest,
-      hotByteFixture,
-      hotBlockAFixture,
-      hotBlockBFixture,
-      hotCompleteFixtureRegion,
-      hotLayoutManifest,
-      resolvedContract,
-    },
+    hotLayoutManifest,
+    hotByteFixture,
+    hotBlockAFixture,
+    hotBlockBFixture,
+    hotCompleteFixtureRegion,
+  };
+}
+
+async function readWarmPayloadFixtureArtifacts(
+  fixturePath: string,
+  relativeFixturePath: string,
+  fixtureName: ProjectionRuntimeFixtureName,
+): Promise<Pick<ProjectionRuntimeFixtureArtifacts, "warmPayloadFixture">> {
+  return {
+    warmPayloadFixture: await readRequiredJson(
+      fixturePath,
+      relativeFixturePath,
+      fixtureName,
+      warmPayloadFixtureFile,
+    ),
   };
 }
 
@@ -245,9 +312,75 @@ async function readRequiredJson(
   }
 }
 
+async function readOptionalJson(
+  fixturePath: string,
+  relativeFixturePath: string,
+  fixtureName: ProjectionRuntimeFixtureName,
+  file: RequiredFixtureFile,
+): Promise<unknown | undefined> {
+  const path = resolve(fixturePath, file.fileName);
+  let source: string;
+
+  try {
+    source = await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return undefined;
+    }
+
+    throw fileError(
+      "failed to load fixture file",
+      "fixtureFileLoadFailed",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
+  }
+
+  try {
+    return JSON.parse(source);
+  } catch (error) {
+    throw fileError(
+      "invalid fixture JSON",
+      "invalidFixtureJson",
+      relativeFixturePath,
+      fixtureName,
+      file,
+      error,
+    );
+  }
+}
+
+function decodeFixtureProfile(
+  value: unknown | undefined,
+  relativeFixturePath: string,
+  fixtureName: ProjectionRuntimeFixtureName,
+): ProjectionRuntimeFixtureProfile {
+  if (value === undefined) {
+    return "hot-codec";
+  }
+
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const profile = (value as Record<string, unknown>).fixtureProfile;
+    if (profile === "hot-codec" || profile === "warm-payload-codec") {
+      return profile;
+    }
+  }
+
+  throw createConformanceError("fixtureShapeRejected", {
+    detail: "fixture-profile.json must declare fixtureProfile as hot-codec or warm-payload-codec",
+    failureCode: "invalidFixtureProfile",
+    fixtureName,
+    fixturePath: relativeFixturePath,
+    fixtureFile: fixtureProfileFile.fileName,
+    relativePath: `${relativeFixturePath}/${fixtureProfileFile.fileName}`,
+  });
+}
+
 function fileError(
   reason: string,
-  failureCode: "invalidFixtureJson" | "missingRequiredFixtureFile",
+  failureCode: "fixtureFileLoadFailed" | "invalidFixtureJson" | "missingRequiredFixtureFile",
   relativeFixturePath: string,
   fixtureName: ProjectionRuntimeFixtureName,
   file: RequiredFixtureFile,
@@ -266,6 +399,15 @@ function fileError(
       relativePath,
     },
     cause,
+  );
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === "ENOENT"
   );
 }
 
