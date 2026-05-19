@@ -5,3 +5,8 @@ members = [
     "crates/warm-abi-conformance",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"

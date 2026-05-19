@@ -57,25 +57,33 @@ mod tests {
     use super::default_warm_payload_fixture_dir;
     use crate::fixture;
     use crate::payload::json_equivalent;
+    use serde_json::Value;
     use std::fs;
 
     #[test]
     fn warm_payload_v0_matches_committed_payload_and_frame_bytes() {
         let output =
             fixture::generate_warm_payload_v0_output(default_warm_payload_fixture_dir()).unwrap();
+        let fixture: Value = serde_json::from_str(
+            &fs::read_to_string(
+                default_warm_payload_fixture_dir().join("warm-payload-fixture.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let expected = fixture.get("expected").unwrap();
+        let expected_payload_bytes_hex = expected.get("payloadBytesHex").unwrap().as_str().unwrap();
+        let expected_frame_bytes_hex = expected.get("frameBytesHex").unwrap().as_str().unwrap();
 
         assert_eq!(output.fixture_kind, "rust-warm-output");
         assert_eq!(output.fixture_name, "warm-payload-v0");
         assert_eq!(output.contract_key, "fixture.warmPayload.v0");
+        assert_eq!(output.payload_bytes_hex, expected_payload_bytes_hex);
+        assert_eq!(output.frame_bytes_hex, expected_frame_bytes_hex);
         assert_eq!(
-            output.payload_bytes_hex,
-            "012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9"
+            u64::from(output.decoded_frame.frame_byte_length),
+            expected_frame_bytes_hex.len() as u64 / 2 - 4
         );
-        assert_eq!(
-            output.frame_bytes_hex,
-            "b800000016000000666978747572652e7761726d5061796c6f61642e7630180000007761726d2d7061796c6f61642d76302e696e7374616e63657912307751e2fb10c554d69372e4b96307000000030000002a00000000000000010000000059000000012a0000000000003f0000803f0200000005000000616c706861010000004105000000627261766f0100000042020000000700000405000000726561647903006d69780200000061000000016200000002020500436166c3a9"
-        );
-        assert_eq!(output.decoded_frame.frame_byte_length, 184);
         assert_eq!(
             output.decoded_frame.payload_bytes_hex,
             output.payload_bytes_hex

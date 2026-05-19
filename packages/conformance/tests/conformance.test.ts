@@ -757,7 +757,7 @@ describe("@exclave/conformance execution", () => {
     expect(rustOutput.payloadBytesHex).toBe(expected.payloadBytesHex);
     expect(rustOutput.frameBytesHex).toBe(expected.frameBytesHex);
     expect(rustOutput.decodedFrame).toEqual({
-      frameByteLength: 184,
+      frameByteLength: expected.frameBytesHex.length / 2 - 4,
       contractKey: warmPayloadFixture.contractKey,
       projectionInstanceKey: expectedDecodedFrame.projectionInstanceKey,
       semanticVersion: warmPayloadFixture.semanticVersion,
