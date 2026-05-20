@@ -1,4 +1,10 @@
 export {
+  createHostAuthorityRef,
+  createHostAuthorityRefFromBinding,
+  type HostAuthorityRef,
+  validateHostAuthorityRef,
+} from "./host-authority-ref";
+export {
   createHostControlPlaneDescriptor,
   type HostControlPlaneDescriptor,
   validateHostControlPlaneDescriptor,
@@ -10,50 +16,39 @@ export {
   type HostContractValidationResult,
   validateHostContractFailure,
 } from "./host-failure";
-
 export {
-  createBindingExpectationFromHostOwner,
-  createHostSurfaceGrant,
+  createBindingExpectationFromHostAuthorityRef,
+  createHostGrant,
   type HostControlEndpointCapability,
+  type HostGrant,
   type HostHotRegionCapability,
   type HostResourcePlaneCapability,
-  type HostSurfaceGrant,
   type HostWarmStreamCapability,
 } from "./host-grant";
-
+export {
+  createHostGrantDescriptor,
+  createHostGrantInvalidatedEnvelope,
+  createHostGrantReadyEnvelope,
+  HOST_CONTRACT_VERSION,
+  type HostContractVersion,
+  type HostGrantDescriptor,
+  type HostGrantInvalidatedEnvelope,
+  type HostGrantReadyEnvelope,
+  validateHostGrantDescriptor,
+  validateHostGrantInvalidatedEnvelope,
+  validateHostGrantReadyEnvelope,
+} from "./host-grant-descriptor";
 export {
   createHostHotRegionDescriptor,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
   validateHostHotRegionDescriptor,
 } from "./host-hot";
-
-export {
-  createHostAuthorityOwner,
-  createHostAuthorityOwnerFromBinding,
-  type HostAuthorityOwner,
-  validateHostAuthorityOwner,
-} from "./host-owner";
-
 export {
   createHostResourcePlaneDescriptor,
   type HostResourcePlaneDescriptor,
   validateHostResourcePlaneDescriptor,
 } from "./host-resource";
-
-export {
-  createHostSurfaceDescriptor,
-  createHostSurfaceInvalidatedEnvelope,
-  createHostSurfaceReadyEnvelope,
-  HOST_CONTRACT_VERSION,
-  type HostContractVersion,
-  type HostSurfaceDescriptor,
-  type HostSurfaceInvalidatedEnvelope,
-  type HostSurfaceReadyEnvelope,
-  validateHostSurfaceDescriptor,
-  validateHostSurfaceInvalidatedEnvelope,
-  validateHostSurfaceReadyEnvelope,
-} from "./host-surface";
 
 export {
   createHostWarmStreamDescriptor,

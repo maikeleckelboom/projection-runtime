@@ -21,7 +21,7 @@ import {
 function validOwner(): ResourceOwner {
   return {
     authorityKey: "auth-key-1",
-    surfaceKey: "surface-key-1",
+    grantKey: "surface-key-1",
     authorityEpoch: "7",
   };
 }
@@ -158,7 +158,7 @@ describe("ResourceDescriptor", () => {
         version: "v1",
         owner: {
           authorityKey: "a",
-          surfaceKey: "s",
+          grantKey: "s",
           authorityEpoch: 42,
         } as unknown as ResourceOwner,
       }),
@@ -174,7 +174,7 @@ describe("ResourceDescriptor", () => {
         version: "v1",
         owner: {
           authorityKey: "a",
-          surfaceKey: "s",
+          grantKey: "s",
           authorityEpoch: 42n,
         } as unknown as ResourceOwner,
       }),
@@ -183,17 +183,17 @@ describe("ResourceDescriptor", () => {
 
   it("validateResourceOwner accepts canonical non-negative decimal-string authorityEpoch", () => {
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "0" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "0" }),
     ).not.toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "42" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "42" }),
     ).not.toThrow();
 
     expect(() =>
       validateResourceOwner({
         authorityKey: "a",
-        surfaceKey: "s",
+        grantKey: "s",
         authorityEpoch: "9007199254740993",
       }),
     ).not.toThrow();
@@ -201,50 +201,50 @@ describe("ResourceDescriptor", () => {
 
   it("rejects negative decimal-string authorityEpoch", () => {
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "-1" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "-1" }),
     ).toThrow();
   });
 
   it("rejects non-decimal authorityEpoch", () => {
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "1.0" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "1.0" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "1n" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "1n" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "abc" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "abc" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "+1" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "+1" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "" }),
     ).toThrow();
   });
 
   it("rejects leading-zero authorityEpoch except 0", () => {
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "01" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "01" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "007" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "007" }),
     ).toThrow();
 
     expect(() =>
-      validateResourceOwner({ authorityKey: "a", surfaceKey: "s", authorityEpoch: "0" }),
+      validateResourceOwner({ authorityKey: "a", grantKey: "s", authorityEpoch: "0" }),
     ).not.toThrow();
   });
 
   it("rejects owner with symbol keys", () => {
     const owner = {
       authorityKey: "a",
-      surfaceKey: "s",
+      grantKey: "s",
       authorityEpoch: "0",
     } as Record<string, unknown>;
     (owner as Record<symbol, unknown>)[Symbol("secret")] = "x";
@@ -513,7 +513,7 @@ describe("Read Range Request / Receipt Payloads", () => {
         range: { offset: 0, byteLength: 10 },
         owner: {
           authorityKey: "a",
-          surfaceKey: "s",
+          grantKey: "s",
           authorityEpoch: -1,
         } as unknown as ResourceOwner,
       }),
@@ -702,7 +702,7 @@ describe("ResourceReceiptFailure", () => {
       rebindRequired: true,
       binding: {
         authorityKey: "auth-abc",
-        surfaceKey: "surface-xyz",
+        grantKey: "surface-xyz",
         authorityEpoch: 42n,
         state: { kind: "opening" },
       },
@@ -718,7 +718,7 @@ describe("ResourceReceiptFailure", () => {
 
     const binding = details.binding as Record<string, unknown>;
     expect(binding.authorityKey).toBe("auth-abc");
-    expect(binding.surfaceKey).toBe("surface-xyz");
+    expect(binding.grantKey).toBe("surface-xyz");
     expect(binding.authorityEpoch).toBe("42");
     expect(typeof binding.authorityEpoch).toBe("string");
 
@@ -738,13 +738,13 @@ describe("ResourceReceiptFailure", () => {
       rebindRequired: true,
       binding: {
         authorityKey: "auth-stale",
-        surfaceKey: "surface-stale",
+        grantKey: "surface-stale",
         authorityEpoch: 100n,
         state: { kind: "ready" },
       },
       expected: {
         authorityKey: "auth-stale",
-        surfaceKey: "surface-stale",
+        grantKey: "surface-stale",
         authorityEpoch: 200n,
       },
     };
@@ -767,13 +767,13 @@ describe("ResourceReceiptFailure", () => {
       rebindRequired: true,
       binding: {
         authorityKey: "auth-x",
-        surfaceKey: "surface-x",
+        grantKey: "surface-x",
         authorityEpoch: 5n,
         state: { kind: "ready" },
       },
       expected: {
         authorityKey: "auth-x",
-        surfaceKey: "surface-x",
+        grantKey: "surface-x",
         authorityEpoch: 10n,
       },
     };
@@ -793,7 +793,7 @@ describe("ResourceReceiptFailure", () => {
       rebindRequired: true,
       binding: {
         authorityKey: "auth-bad",
-        surfaceKey: "surface-bad",
+        grantKey: "surface-bad",
         authorityEpoch: -5n,
         state: { kind: "opening" as const },
       },

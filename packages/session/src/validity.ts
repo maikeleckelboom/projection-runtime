@@ -1,12 +1,12 @@
 export type AuthorityKey = string;
-export type SurfaceKey = string;
+export type GrantKey = string;
 export type AuthorityEpoch = bigint;
 
 export type InvalidationReason =
   | "authorityRestarted"
   | "authorityReplaced"
-  | "surfaceReplaced"
-  | "surfaceRevoked";
+  | "grantReplaced"
+  | "grantRevoked";
 
 export type BindingState =
   | { readonly kind: "opening" }
@@ -16,14 +16,14 @@ export type BindingState =
 
 export type AuthorityBinding = {
   readonly authorityKey: AuthorityKey;
-  readonly surfaceKey: SurfaceKey;
+  readonly grantKey: GrantKey;
   readonly authorityEpoch: AuthorityEpoch;
   readonly state: BindingState;
 };
 
 export type BindingExpectation = {
   readonly authorityKey: AuthorityKey;
-  readonly surfaceKey: SurfaceKey;
+  readonly grantKey: GrantKey;
   readonly authorityEpoch: AuthorityEpoch;
 };
 
@@ -51,7 +51,7 @@ export type BindingClosedFailure = {
 
 export type BindingExpectationMismatchFailure = {
   readonly ok: false;
-  readonly reason: "authorityKeyMismatch" | "surfaceKeyMismatch" | "authorityEpochMismatch";
+  readonly reason: "authorityKeyMismatch" | "grantKeyMismatch" | "authorityEpochMismatch";
   readonly rebindRequired: true;
   readonly binding: AuthorityBinding;
   readonly expected: BindingExpectation;
@@ -125,12 +125,12 @@ export type SessionStateEvent =
 
 export function createAuthorityBinding(input: {
   readonly authorityKey: AuthorityKey;
-  readonly surfaceKey: SurfaceKey;
+  readonly grantKey: GrantKey;
   readonly authorityEpoch: AuthorityEpoch;
 }): AuthorityBinding {
   return {
     authorityKey: input.authorityKey,
-    surfaceKey: input.surfaceKey,
+    grantKey: input.grantKey,
     authorityEpoch: input.authorityEpoch,
     state: { kind: "opening" },
   };
@@ -188,10 +188,10 @@ export function validateAuthorityBinding(
     };
   }
 
-  if (binding.surfaceKey !== expected.surfaceKey) {
+  if (binding.grantKey !== expected.grantKey) {
     return {
       ok: false,
-      reason: "surfaceKeyMismatch",
+      reason: "grantKeyMismatch",
       rebindRequired: true,
       binding,
       expected,

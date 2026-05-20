@@ -49,24 +49,24 @@ import {
   validateResourceReadRangeRequestPayload,
 } from "../../resource/src/resource-range";
 import {
-  createHostAuthorityOwnerFromBinding,
+  createHostAuthorityRefFromBinding,
   createHostControlPlaneDescriptor,
+  createHostGrant,
+  createHostGrantDescriptor,
+  createHostGrantInvalidatedEnvelope,
+  createHostGrantReadyEnvelope,
   createHostHotRegionDescriptor,
   createHostResourcePlaneDescriptor,
-  createHostSurfaceDescriptor,
-  createHostSurfaceGrant,
-  createHostSurfaceInvalidatedEnvelope,
-  createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
   HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+  type HostGrant,
+  type HostGrantInvalidatedEnvelope,
+  type HostGrantReadyEnvelope,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
-  type HostSurfaceGrant,
-  type HostSurfaceInvalidatedEnvelope,
-  type HostSurfaceReadyEnvelope,
-  validateHostSurfaceInvalidatedEnvelope,
-  validateHostSurfaceReadyEnvelope,
+  validateHostGrantInvalidatedEnvelope,
+  validateHostGrantReadyEnvelope,
 } from "../src/index";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -167,13 +167,13 @@ function loadCompleteRegionFixture(): Record<string, unknown> {
 
 function deriveFixtureIdentity(): {
   authorityKey: string;
-  surfaceKey: string;
+  grantKey: string;
   authorityEpoch: bigint;
 } {
   const blockA = loadBlockAFixture();
   return {
     authorityKey: mustBeString(blockA.contractKey, "fixture.contractKey"),
-    surfaceKey: mustBeString(blockA.instanceKey, "fixture.instanceKey"),
+    grantKey: mustBeString(blockA.instanceKey, "fixture.instanceKey"),
     authorityEpoch: 1n,
   };
 }
@@ -327,7 +327,7 @@ function assertNoBytePayloadFields(value: unknown, path: string): void {
 
 type FixtureHostConfig = {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly hotRegion: HostHotRegionDescriptor;
   readonly controlEndpointKey: string;
   readonly controlOperationKeys: readonly string[];
@@ -347,7 +347,7 @@ class FixtureHost {
     this._binding = markAuthorityBindingReady(
       createAuthorityBinding({
         authorityKey: config.authorityKey,
-        surfaceKey: config.surfaceKey,
+        grantKey: config.grantKey,
         authorityEpoch: 1n,
       }),
     );
@@ -357,8 +357,8 @@ class FixtureHost {
     return this._binding;
   }
 
-  openSurface(): HostSurfaceReadyEnvelope {
-    const owner = createHostAuthorityOwnerFromBinding(this._binding);
+  openGrant(): HostGrantReadyEnvelope {
+    const authorityRef = createHostAuthorityRefFromBinding(this._binding);
 
     const hotRegion = createHostHotRegionDescriptor(this._config.hotRegion);
 
@@ -385,20 +385,20 @@ class FixtureHost {
       closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
     });
 
-    const surface = createHostSurfaceDescriptor({
-      kind: "host.surface",
+    const grantDescriptor = createHostGrantDescriptor({
+      kind: "host.grantDescriptor",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner,
+      authority: authorityRef,
       hotRegions: [hotRegion],
       control,
       warmStreams: [warmStream],
       resourcePlane,
     });
 
-    return createHostSurfaceReadyEnvelope({
-      kind: "host.surfaceReady",
+    return createHostGrantReadyEnvelope({
+      kind: "host.grantReady",
       contractVersion: HOST_CONTRACT_VERSION,
-      surface,
+      grant: grantDescriptor,
     });
   }
 
@@ -472,14 +472,14 @@ class FixtureHost {
     });
   }
 
-  invalidateAuthority(reason: "authorityRestarted"): HostSurfaceInvalidatedEnvelope {
+  invalidateAuthority(reason: "authorityRestarted"): HostGrantInvalidatedEnvelope {
     const invalidated = invalidateAuthorityBinding(this._binding, reason);
-    const owner = createHostAuthorityOwnerFromBinding(invalidated);
+    const authorityRef = createHostAuthorityRefFromBinding(invalidated);
 
-    return createHostSurfaceInvalidatedEnvelope({
-      kind: "host.surfaceInvalidated",
+    return createHostGrantInvalidatedEnvelope({
+      kind: "host.grantInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner,
+      authority: authorityRef,
       reason,
       rebindRequired: true,
     });
@@ -493,45 +493,45 @@ type HotReadFailure =
 type HotReadResult = { ok: true; snapshot: DeckRuntimeSnapshot; sequence: bigint } | HotReadFailure;
 
 class FixtureClient {
-  private _grant: HostSurfaceGrant | null = null;
+  private _grant: HostGrant | null = null;
   private _binding: AuthorityBinding | null = null;
 
-  acceptSurfaceReady(envelope: HostSurfaceReadyEnvelope): HostSurfaceGrant {
+  acceptGrantReady(envelope: HostGrantReadyEnvelope): HostGrant {
     const json = JSON.stringify(envelope);
     const parsed = JSON.parse(json);
-    const validated = validateHostSurfaceReadyEnvelope(parsed);
+    const validated = validateHostGrantReadyEnvelope(parsed);
     if (!validated.ok) {
-      throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      throw new Error(`grantReady validation failed: ${validated.failure.message}`);
     }
 
-    const surface = validated.value.surface;
-    const grant = createHostSurfaceGrant(surface);
+    const grantDescriptor = validated.value.grant;
+    const grant = createHostGrant(grantDescriptor);
     this._grant = grant;
     this._binding = markAuthorityBindingReady(
       createAuthorityBinding({
         authorityKey: grant.expectedBinding.authorityKey,
-        surfaceKey: grant.expectedBinding.surfaceKey,
+        grantKey: grant.expectedBinding.grantKey,
         authorityEpoch: grant.expectedBinding.authorityEpoch,
       }),
     );
     return grant;
   }
 
-  get grant(): HostSurfaceGrant {
+  get grant(): HostGrant {
     if (this._grant === null) {
-      throw new Error("grant not initialized; call acceptSurfaceReady first");
+      throw new Error("grant not initialized; call acceptGrantReady first");
     }
     return this._grant;
   }
 
   get binding(): AuthorityBinding {
     if (this._binding === null) {
-      throw new Error("binding not initialized; call acceptSurfaceReady first");
+      throw new Error("binding not initialized; call acceptGrantReady first");
     }
     return this._binding;
   }
 
-  readHot(grant: HostSurfaceGrant, region: Uint8Array): HotReadResult {
+  readHot(grant: HostGrant, region: Uint8Array): HotReadResult {
     const hotCapability = grant.hot[0];
     if (hotCapability === undefined) {
       throw new Error("grant has no hot capabilities");
@@ -587,7 +587,7 @@ class FixtureClient {
     return this._lastReadSpyCallCount;
   }
 
-  createControlRequest(grant: HostSurfaceGrant, operationKey: string): ControlRequestEnvelope {
+  createControlRequest(grant: HostGrant, operationKey: string): ControlRequestEnvelope {
     if (!grant.control) {
       throw new Error("grant has no control capability");
     }
@@ -633,7 +633,7 @@ class FixtureClient {
   }
 
   createResourceReadRangeRequest(
-    grant: HostSurfaceGrant,
+    grant: HostGrant,
     handleKey: string,
     range: { offset: number; byteLength: number },
   ): ControlRequestEnvelope {
@@ -645,9 +645,9 @@ class FixtureClient {
       handleKey,
       range,
       owner: {
-        authorityKey: grant.owner.authorityKey,
-        surfaceKey: grant.owner.surfaceKey,
-        authorityEpoch: grant.owner.authorityEpoch,
+        authorityKey: grant.authority.authorityKey,
+        grantKey: grant.authority.grantKey,
+        authorityEpoch: grant.authority.authorityEpoch,
       },
     });
 
@@ -701,10 +701,10 @@ class FixtureClient {
     };
   }
 
-  applyInvalidation(envelope: HostSurfaceInvalidatedEnvelope): void {
+  applyInvalidation(envelope: HostGrantInvalidatedEnvelope): void {
     const json = JSON.stringify(envelope);
     const parsed = JSON.parse(json);
-    const validated = validateHostSurfaceInvalidatedEnvelope(parsed);
+    const validated = validateHostGrantInvalidatedEnvelope(parsed);
     if (!validated.ok) {
       throw new Error(`invalidation envelope validation failed: ${validated.failure.message}`);
     }
@@ -713,14 +713,14 @@ class FixtureClient {
       throw new Error("cannot apply invalidation without an active grant/binding");
     }
 
-    const owner = validated.value.owner;
+    const authorityRef = validated.value.authority;
     if (
-      owner.authorityKey !== this._grant.owner.authorityKey ||
-      owner.surfaceKey !== this._grant.owner.surfaceKey ||
-      owner.authorityEpoch !== this._grant.owner.authorityEpoch
+      authorityRef.authorityKey !== this._grant.authority.authorityKey ||
+      authorityRef.grantKey !== this._grant.authority.grantKey ||
+      authorityRef.authorityEpoch !== this._grant.authority.authorityEpoch
     ) {
       throw new Error(
-        "invalidation owner does not match current grant owner; rejecting foreign/stale invalidation",
+        "invalidation authority does not match current grant authority; rejecting foreign/stale invalidation",
       );
     }
 
@@ -737,7 +737,7 @@ function createDeckRuntimeFixtureHost(): FixtureHost {
 
   return new FixtureHost({
     authorityKey: identity.authorityKey,
-    surfaceKey: identity.surfaceKey,
+    grantKey: identity.grantKey,
     hotRegion,
     controlEndpointKey: "deck-runtime-v0.control",
     controlOperationKeys: ["fixture.deckRuntime.describe", "fixture.deckRuntime.invalidate"],
@@ -750,25 +750,25 @@ function createDeckRuntimeFixtureClient(): FixtureClient {
 }
 
 describe("In-process fixture host/client lifecycle", () => {
-  describe("Client opens host surface and creates HostSurfaceGrant", () => {
-    it("validates surfaceReady envelope and projects HostSurfaceGrant from validated surface", () => {
+  describe("Client opens host grant ready and creates HostGrant", () => {
+    it("validates grantReady envelope and projects HostGrant from validated grant", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
-      expect(grant.kind).toBe("host.surfaceGrant");
-      expect(grant.owner.authorityKey).toBe(host.binding.authorityKey);
-      expect(grant.owner.surfaceKey).toBe(host.binding.surfaceKey);
-      expect(grant.owner.authorityEpoch).toBe("1");
+      expect(grant.kind).toBe("host.grant");
+      expect(grant.authority.authorityKey).toBe(host.binding.authorityKey);
+      expect(grant.authority.grantKey).toBe(host.binding.grantKey);
+      expect(grant.authority.authorityEpoch).toBe("1");
 
-      expect(grant.expectedBinding.authorityKey).toBe(grant.owner.authorityKey);
-      expect(grant.expectedBinding.surfaceKey).toBe(grant.owner.surfaceKey);
+      expect(grant.expectedBinding.authorityKey).toBe(grant.authority.authorityKey);
+      expect(grant.expectedBinding.grantKey).toBe(grant.authority.grantKey);
       expect(grant.expectedBinding.authorityEpoch).toBe(1n);
 
       expect(grant.hot).toHaveLength(1);
-      expect(grant.hot[0].kind).toBe("surface.hotRegionCapability");
+      expect(grant.hot[0].kind).toBe("grant.hotRegionCapability");
       expect(grant.hot[0].hotRegionKey).toBe("deck-runtime-v0.hot");
 
       const fixtureBlockA = createFixtureBlockA();
@@ -777,7 +777,7 @@ describe("In-process fixture host/client lifecycle", () => {
       expect(grant.hot[0].expectedByteLength).toBeGreaterThan(0);
 
       expect(grant.control).toBeDefined();
-      expect(grant.control?.kind).toBe("surface.controlEndpointCapability");
+      expect(grant.control?.kind).toBe("grant.controlEndpointCapability");
       expect(grant.control?.endpointKey).toBe("deck-runtime-v0.control");
       expect(grant.control?.supportedOperationKeys).toEqual([
         "fixture.deckRuntime.describe",
@@ -785,14 +785,14 @@ describe("In-process fixture host/client lifecycle", () => {
       ]);
 
       expect(grant.resourcePlane).toBeDefined();
-      expect(grant.resourcePlane?.kind).toBe("surface.resourcePlaneCapability");
+      expect(grant.resourcePlane?.kind).toBe("grant.resourcePlaneCapability");
       expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
-      expect(grant.resourcePlane?.owner.authorityKey).toBe(grant.owner.authorityKey);
+      expect(grant.resourcePlane?.authority.authorityKey).toBe(grant.authority.authorityKey);
 
       expect(grant.warm).toHaveLength(1);
-      expect(grant.warm[0].kind).toBe("surface.warmStreamCapability");
+      expect(grant.warm[0].kind).toBe("grant.warmStreamCapability");
       expect(grant.warm[0].streamKey).toBe("deck-runtime-v0.warm");
-      expect(grant.warm[0].owner.authorityKey).toBe(grant.owner.authorityKey);
+      expect(grant.warm[0].authority.authorityKey).toBe(grant.authority.authorityKey);
       expect(grant.warm[0].attachmentVersion).toBe(PUBLICATION_TRANSPORT_ATTACHMENT_VERSION);
 
       assertNoBytePayloadFields(grant, "grant");
@@ -800,13 +800,13 @@ describe("In-process fixture host/client lifecycle", () => {
     });
   });
 
-  describe("Client performs guarded hot read through HostSurfaceGrant", () => {
+  describe("Client performs guarded hot read through HostGrant", () => {
     it("reads hot region using grant-derived capabilities", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       const { region } = host.getHotRegionForTest();
 
@@ -841,8 +841,8 @@ describe("In-process fixture host/client lifecycle", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       expect(grant.control).toBeDefined();
       if (!grant.control) return;
@@ -878,8 +878,8 @@ describe("In-process fixture host/client lifecycle", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       expect(grant.control).toBeDefined();
       if (!grant.control) return;
@@ -916,8 +916,8 @@ describe("In-process fixture host/client lifecycle", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       expect(grant.resourcePlane).toBeDefined();
       if (!grant.resourcePlane) return;
@@ -958,11 +958,11 @@ describe("In-process fixture host/client lifecycle", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       const invalidationEnvelope = host.invalidateAuthority("authorityRestarted");
-      expect(invalidationEnvelope.kind).toBe("host.surfaceInvalidated");
+      expect(invalidationEnvelope.kind).toBe("host.grantInvalidated");
       expect(invalidationEnvelope.reason).toBe("authorityRestarted");
 
       client.applyInvalidation(invalidationEnvelope);
@@ -992,10 +992,10 @@ describe("In-process fixture host/client lifecycle", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
-      const staleGrant: HostSurfaceGrant = {
+      const staleGrant: HostGrant = {
         ...grant,
         expectedBinding: {
           ...grant.expectedBinding,
@@ -1022,26 +1022,26 @@ describe("In-process fixture host/client lifecycle", () => {
   });
 
   describe("Foreign/stale invalidation envelope does not invalidate client binding", () => {
-    it("rejects invalidation from mismatched owner and preserves binding", () => {
+    it("rejects invalidation from mismatched authority and preserves binding", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
 
-      const envelope = host.openSurface();
-      const grant = client.acceptSurfaceReady(envelope);
+      const envelope = host.openGrant();
+      const grant = client.acceptGrantReady(envelope);
 
       const invalidationEnvelope = host.invalidateAuthority("authorityRestarted");
 
       const epochMutated = JSON.parse(JSON.stringify(invalidationEnvelope));
-      epochMutated.owner.authorityEpoch = "2";
-      expect(() =>
-        client.applyInvalidation(epochMutated as HostSurfaceInvalidatedEnvelope),
-      ).toThrow(/invalidation owner does not match/);
+      epochMutated.authority.authorityEpoch = "2";
+      expect(() => client.applyInvalidation(epochMutated as HostGrantInvalidatedEnvelope)).toThrow(
+        /invalidation authority does not match/,
+      );
 
       const surfaceMutated = JSON.parse(JSON.stringify(invalidationEnvelope));
-      surfaceMutated.owner.surfaceKey = "foreign-surface-key";
+      surfaceMutated.authority.grantKey = "foreign-surface-key";
       expect(() =>
-        client.applyInvalidation(surfaceMutated as HostSurfaceInvalidatedEnvelope),
-      ).toThrow(/invalidation owner does not match/);
+        client.applyInvalidation(surfaceMutated as HostGrantInvalidatedEnvelope),
+      ).toThrow(/invalidation authority does not match/);
 
       const { region } = host.getHotRegionForTest();
       const result = client.readHot(grant, region);

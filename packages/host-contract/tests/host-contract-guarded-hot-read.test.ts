@@ -18,14 +18,14 @@ import {
   type DeckRuntimeSnapshot,
 } from "../../../fixtures/projection-runtime/deck-runtime-v0/generated/hot-reader";
 import {
-  createHostAuthorityOwnerFromBinding,
+  createHostAuthorityRefFromBinding,
+  createHostGrantDescriptor,
+  createHostGrantReadyEnvelope,
   createHostHotRegionDescriptor,
-  createHostSurfaceDescriptor,
-  createHostSurfaceReadyEnvelope,
   HOST_CONTRACT_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
-  validateHostSurfaceReadyEnvelope,
+  validateHostGrantReadyEnvelope,
 } from "../src/index";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -110,17 +110,17 @@ function loadCompleteRegionFixture(): Record<string, unknown> {
 
 // fixture JSON paths used:
 //   hot-block-a-fixture.json.contractKey   -> authorityKey
-//   hot-block-a-fixture.json.instanceKey   -> surfaceKey
+//   hot-block-a-fixture.json.instanceKey   -> grantKey
 
 function deriveFixtureIdentity(): {
   authorityKey: string;
-  surfaceKey: string;
+  grantKey: string;
   authorityEpoch: bigint;
 } {
   const blockA = loadBlockAFixture();
   const authorityKey = mustBeString(blockA.contractKey, "fixture.contractKey");
-  const surfaceKey = mustBeString(blockA.instanceKey, "fixture.instanceKey");
-  return { authorityKey, surfaceKey, authorityEpoch: 1n };
+  const grantKey = mustBeString(blockA.instanceKey, "fixture.instanceKey");
+  return { authorityKey, grantKey, authorityEpoch: 1n };
 }
 
 // fixture JSON paths used:
@@ -279,58 +279,61 @@ function deriveExpectedDeckRuntimeSnapshot(): DeckRuntimeSnapshot {
   };
 }
 
-describe("Host surface guarded hot reads", () => {
+describe("Host grant guarded hot reads", () => {
   describe("ready host surface descriptor permits a guarded generated hot read", () => {
     it("validates surfaceReady envelope, converts owner to session expectation, guards a DeckRuntimeReader read", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);
       const readyBinding = markAuthorityBindingReady(binding);
 
-      const owner = createHostAuthorityOwnerFromBinding(readyBinding);
-      expect(owner.authorityKey).toBe(identity.authorityKey);
-      expect(owner.surfaceKey).toBe(identity.surfaceKey);
-      expect(owner.authorityEpoch).toBe("1");
+      const authorityRef = createHostAuthorityRefFromBinding(readyBinding);
+      expect(authorityRef.authorityKey).toBe(identity.authorityKey);
+      expect(authorityRef.grantKey).toBe(identity.grantKey);
+      expect(authorityRef.authorityEpoch).toBe("1");
 
       const hotRegion = createHostHotRegionDescriptor(createFixtureHotRegion());
 
-      const surface = createHostSurfaceDescriptor({
-        kind: "host.surface",
+      const grantDescriptor = createHostGrantDescriptor({
+        kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        owner,
+        authority: authorityRef,
         hotRegions: [hotRegion],
       });
 
-      const envelope = createHostSurfaceReadyEnvelope({
-        kind: "host.surfaceReady",
+      const envelope = createHostGrantReadyEnvelope({
+        kind: "host.grantReady",
         contractVersion: HOST_CONTRACT_VERSION,
-        surface,
+        grant: grantDescriptor,
       });
 
       const json = JSON.stringify(envelope);
       const parsed = JSON.parse(json);
 
-      const validated = validateHostSurfaceReadyEnvelope(parsed);
+      const validated = validateHostGrantReadyEnvelope(parsed);
       expect(validated.ok).toBe(true);
       if (!validated.ok) {
         throw new Error(`validation failed: ${validated.failure.message}`);
       }
 
-      const validatedHotRegion = validated.value.surface.hotRegions?.[0];
+      const validatedHotRegion = validated.value.grant.hotRegions?.[0];
       expect(validatedHotRegion).toBeDefined();
       if (!validatedHotRegion) {
         throw new Error("validated hot region descriptor is missing");
       }
 
-      const vOwner = validated.value.surface.owner;
+      const vAuthorityRef = validated.value.grant.authority;
 
       const expected: BindingExpectation = {
-        authorityKey: vOwner.authorityKey,
-        surfaceKey: vOwner.surfaceKey,
-        authorityEpoch: decimalStringToBigInt(vOwner.authorityEpoch, "owner.authorityEpoch"),
+        authorityKey: vAuthorityRef.authorityKey,
+        grantKey: vAuthorityRef.grantKey,
+        authorityEpoch: decimalStringToBigInt(
+          vAuthorityRef.authorityEpoch,
+          "authorityRef.authorityEpoch",
+        ),
       };
 
       expect(expected.authorityKey).toBe(identity.authorityKey);
-      expect(expected.surfaceKey).toBe(identity.surfaceKey);
+      expect(expected.grantKey).toBe(identity.grantKey);
       expect(expected.authorityEpoch).toBe(1n);
 
       const { region, totalRegionByteLength } = createSharedRegionFromFixture();
@@ -390,44 +393,47 @@ describe("Host surface guarded hot reads", () => {
       const binding: AuthorityBinding = createAuthorityBinding(identity);
       const readyBinding = markAuthorityBindingReady(binding);
 
-      const owner = createHostAuthorityOwnerFromBinding(readyBinding);
+      const authorityRef = createHostAuthorityRefFromBinding(readyBinding);
 
       const hotRegion = createHostHotRegionDescriptor(createFixtureHotRegion());
 
-      const surface = createHostSurfaceDescriptor({
-        kind: "host.surface",
+      const grantDescriptor = createHostGrantDescriptor({
+        kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        owner,
+        authority: authorityRef,
         hotRegions: [hotRegion],
       });
 
-      const envelope = createHostSurfaceReadyEnvelope({
-        kind: "host.surfaceReady",
+      const envelope = createHostGrantReadyEnvelope({
+        kind: "host.grantReady",
         contractVersion: HOST_CONTRACT_VERSION,
-        surface,
+        grant: grantDescriptor,
       });
 
       const json = JSON.stringify(envelope);
       const parsed = JSON.parse(json);
 
-      const validated = validateHostSurfaceReadyEnvelope(parsed);
+      const validated = validateHostGrantReadyEnvelope(parsed);
       expect(validated.ok).toBe(true);
       if (!validated.ok) {
         throw new Error(`validation failed: ${validated.failure.message}`);
       }
 
-      const validatedHotRegion = validated.value.surface.hotRegions?.[0];
+      const validatedHotRegion = validated.value.grant.hotRegions?.[0];
       expect(validatedHotRegion).toBeDefined();
       if (!validatedHotRegion) {
         throw new Error("validated hot region descriptor is missing");
       }
 
-      const vOwner = validated.value.surface.owner;
+      const vAuthorityRef = validated.value.grant.authority;
 
       const expected: BindingExpectation = {
-        authorityKey: vOwner.authorityKey,
-        surfaceKey: vOwner.surfaceKey,
-        authorityEpoch: decimalStringToBigInt(vOwner.authorityEpoch, "owner.authorityEpoch"),
+        authorityKey: vAuthorityRef.authorityKey,
+        grantKey: vAuthorityRef.grantKey,
+        authorityEpoch: decimalStringToBigInt(
+          vAuthorityRef.authorityEpoch,
+          "authorityRef.authorityEpoch",
+        ),
       };
 
       const invalidatedBinding = invalidateAuthorityBinding(readyBinding, "authorityRestarted");
@@ -468,34 +474,34 @@ describe("Host surface guarded hot reads", () => {
       const binding: AuthorityBinding = createAuthorityBinding(identity);
       const readyBinding = markAuthorityBindingReady(binding);
 
-      const owner = createHostAuthorityOwnerFromBinding(readyBinding);
+      const authorityRef = createHostAuthorityRefFromBinding(readyBinding);
 
       const hotRegion = createHostHotRegionDescriptor(createFixtureHotRegion());
 
-      const surface = createHostSurfaceDescriptor({
-        kind: "host.surface",
+      const grantDescriptor = createHostGrantDescriptor({
+        kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        owner,
+        authority: authorityRef,
         hotRegions: [hotRegion],
       });
 
-      const envelope = createHostSurfaceReadyEnvelope({
-        kind: "host.surfaceReady",
+      const envelope = createHostGrantReadyEnvelope({
+        kind: "host.grantReady",
         contractVersion: HOST_CONTRACT_VERSION,
-        surface,
+        grant: grantDescriptor,
       });
 
       const json = JSON.stringify(envelope);
       const parsed = JSON.parse(json) as Record<string, unknown>;
-      const parsedSurface = parsed.surface as Record<string, unknown>;
-      const parsedOwner = parsedSurface.owner as Record<string, unknown>;
-      parsedOwner.authorityEpoch = "2";
+      const parsedGrant = parsed.grant as Record<string, unknown>;
+      const parsedAuthority = parsedGrant.authority as Record<string, unknown>;
+      parsedAuthority.authorityEpoch = "2";
 
-      const staleValidated = validateHostSurfaceReadyEnvelope(parsed);
+      const staleValidated = validateHostGrantReadyEnvelope(parsed);
       expect(staleValidated.ok).toBe(true);
 
       const staleHotRegion = staleValidated.ok
-        ? staleValidated.value.surface.hotRegions?.[0]
+        ? staleValidated.value.grant.hotRegions?.[0]
         : undefined;
       expect(staleHotRegion).toBeDefined();
       if (!staleHotRegion) {
@@ -504,10 +510,10 @@ describe("Host surface guarded hot reads", () => {
 
       const staleExpected: BindingExpectation = {
         authorityKey: identity.authorityKey,
-        surfaceKey: identity.surfaceKey,
+        grantKey: identity.grantKey,
         authorityEpoch: decimalStringToBigInt(
-          parsedOwner.authorityEpoch,
-          "parsedOwner.authorityEpoch",
+          parsedAuthority.authorityEpoch,
+          "parsedAuthority.authorityEpoch",
         ),
       };
       expect(staleExpected.authorityEpoch).toBe(2n);

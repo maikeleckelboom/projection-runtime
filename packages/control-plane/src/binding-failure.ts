@@ -9,12 +9,12 @@ export type ControlBindingFailureDetails = {
   readonly rebindRequired: boolean;
   readonly binding: {
     readonly authorityKey: string;
-    readonly surfaceKey: string;
+    readonly grantKey: string;
     readonly authorityEpoch: string;
   };
   readonly expected?: {
     readonly authorityKey: string;
-    readonly surfaceKey: string;
+    readonly grantKey: string;
     readonly authorityEpoch: string;
   };
   readonly invalidationReason?: string;
@@ -30,32 +30,32 @@ function encodeEpoch(epoch: bigint): string {
 
 function buildBindingDetails(binding: {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: bigint;
 }): {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: string;
 } {
   return {
     authorityKey: binding.authorityKey,
-    surfaceKey: binding.surfaceKey,
+    grantKey: binding.grantKey,
     authorityEpoch: encodeEpoch(binding.authorityEpoch),
   };
 }
 
 function buildExpectedDetails(expected: {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: bigint;
 }): {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: string;
 } {
   return {
     authorityKey: expected.authorityKey,
-    surfaceKey: expected.surfaceKey,
+    grantKey: expected.grantKey,
     authorityEpoch: encodeEpoch(expected.authorityEpoch),
   };
 }

@@ -11,27 +11,27 @@ import {
   validationSuccess,
 } from "./validation";
 
-export type HostAuthorityOwner = {
+export type HostAuthorityRef = {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: string;
 };
 
-const OWNED_ROOT_KEYS: ReadonlySet<string> = new Set([
+const AUTHORITY_REF_ROOT_KEYS: ReadonlySet<string> = new Set([
   "authorityKey",
-  "surfaceKey",
+  "grantKey",
   "authorityEpoch",
 ]);
 
-export function createHostAuthorityOwner(input: {
+export function createHostAuthorityRef(input: {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: string;
-}): HostAuthorityOwner {
-  return validateHostAuthorityOwnerThrowing(input);
+}): HostAuthorityRef {
+  return validateHostAuthorityRefThrowing(input);
 }
 
-export function createHostAuthorityOwnerFromBinding(binding: AuthorityBinding): HostAuthorityOwner {
+export function createHostAuthorityRefFromBinding(binding: AuthorityBinding): HostAuthorityRef {
   if (typeof binding !== "object" || binding === null) {
     throwInputRejected("authority binding must be a non-null object");
   }
@@ -41,9 +41,9 @@ export function createHostAuthorityOwnerFromBinding(binding: AuthorityBinding): 
     throwInputRejected("binding.authorityKey must be a non-empty string");
   }
 
-  const surfaceKey = binding.surfaceKey;
-  if (typeof surfaceKey !== "string" || surfaceKey.length === 0) {
-    throwInputRejected("binding.surfaceKey must be a non-empty string");
+  const grantKey = binding.grantKey;
+  if (typeof grantKey !== "string" || grantKey.length === 0) {
+    throwInputRejected("binding.grantKey must be a non-empty string");
   }
 
   if (typeof binding.authorityEpoch !== "bigint") {
@@ -56,34 +56,37 @@ export function createHostAuthorityOwnerFromBinding(binding: AuthorityBinding): 
 
   const authorityEpoch = String(binding.authorityEpoch);
 
-  return validateHostAuthorityOwnerThrowing({
+  return validateHostAuthorityRefThrowing({
     authorityKey,
-    surfaceKey,
+    grantKey,
     authorityEpoch,
   });
 }
 
-export function validateHostAuthorityOwnerThrowing(owner: unknown): HostAuthorityOwner {
-  const obj = assertPlainObject(owner, "host authority owner");
-  assertExactRootKeys(obj, OWNED_ROOT_KEYS, "host authority owner");
+export function validateHostAuthorityRefThrowing(authority: unknown): HostAuthorityRef {
+  const obj = assertPlainObject(authority, "host authority reference");
+  assertExactRootKeys(obj, AUTHORITY_REF_ROOT_KEYS, "host authority reference");
 
-  const authorityKey = assertNonEmptyString(obj.authorityKey, "owner.authorityKey");
-  const surfaceKey = assertNonEmptyString(obj.surfaceKey, "owner.surfaceKey");
+  const authorityKey = assertNonEmptyString(obj.authorityKey, "authority.authorityKey");
+  const grantKey = assertNonEmptyString(obj.grantKey, "authority.grantKey");
 
-  const authorityEpoch = assertCanonicalDecimalString(obj.authorityEpoch, "owner.authorityEpoch");
+  const authorityEpoch = assertCanonicalDecimalString(
+    obj.authorityEpoch,
+    "authority.authorityEpoch",
+  );
 
   return {
     authorityKey,
-    surfaceKey,
+    grantKey,
     authorityEpoch,
   };
 }
 
-export function validateHostAuthorityOwner(
-  owner: unknown,
-): HostContractValidationResult<HostAuthorityOwner> {
+export function validateHostAuthorityRef(
+  authority: unknown,
+): HostContractValidationResult<HostAuthorityRef> {
   try {
-    return validationSuccess(validateHostAuthorityOwnerThrowing(owner));
+    return validationSuccess(validateHostAuthorityRefThrowing(authority));
   } catch (error) {
     const message = validationMessageFromError(error);
     const code: "host-contract.invalidDescriptor" = "host-contract.invalidDescriptor";

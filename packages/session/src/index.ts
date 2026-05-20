@@ -15,6 +15,7 @@ export {
   type BindingValidityFailure,
   closeAuthorityBinding,
   createAuthorityBinding,
+  type GrantKey,
   type GuardResult,
   guardAuthorityBinding,
   type InvalidationReason,
@@ -26,6 +27,5 @@ export {
   type SessionInvalidationEvent,
   type SessionMismatchFailure,
   type SessionStateEvent,
-  type SurfaceKey,
   validateAuthorityBinding,
 } from "./validity";

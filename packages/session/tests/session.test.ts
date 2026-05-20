@@ -14,23 +14,23 @@ import {
 } from "../src/index";
 
 const TEST_AUTHORITY_KEY = "test-authority";
-const TEST_SURFACE_KEY = "test-surface";
+const TEST_GRANT_KEY = "test-grant";
 const TEST_EPOCH = 1n;
 
 const AUTHORITY_KEY_A = "authority-alpha";
 const AUTHORITY_KEY_B = "authority-beta";
-const SURFACE_KEY_A = "surface-alpha";
-const SURFACE_KEY_B = "surface-beta";
+const GRANT_KEY_A = "grant-alpha";
+const GRANT_KEY_B = "grant-beta";
 const EPOCH_1 = 1n;
 const EPOCH_2 = 2n;
 
 describe("@exclave/session public exports", () => {
   it("exports the intended type surface", () => {
     expectTypeOf<session.AuthorityKey>().toEqualTypeOf<string>();
-    expectTypeOf<session.SurfaceKey>().toEqualTypeOf<string>();
+    expectTypeOf<session.GrantKey>().toEqualTypeOf<string>();
     expectTypeOf<session.AuthorityEpoch>().toEqualTypeOf<bigint>();
     expectTypeOf<session.InvalidationReason>().toEqualTypeOf<
-      "authorityRestarted" | "authorityReplaced" | "surfaceReplaced" | "surfaceRevoked"
+      "authorityRestarted" | "authorityReplaced" | "grantReplaced" | "grantRevoked"
     >();
     expectTypeOf<session.BindingState>().toEqualTypeOf<
       | { readonly kind: "opening" }
@@ -90,12 +90,12 @@ describe("createAuthorityBinding", () => {
   it("creates a binding with kind opening", () => {
     const binding = createAuthorityBinding({
       authorityKey: TEST_AUTHORITY_KEY,
-      surfaceKey: TEST_SURFACE_KEY,
+      grantKey: TEST_GRANT_KEY,
       authorityEpoch: TEST_EPOCH,
     });
 
     expect(binding.authorityKey).toBe(TEST_AUTHORITY_KEY);
-    expect(binding.surfaceKey).toBe(TEST_SURFACE_KEY);
+    expect(binding.grantKey).toBe(TEST_GRANT_KEY);
     expect(binding.authorityEpoch).toBe(TEST_EPOCH);
     expect(binding.state).toEqual({ kind: "opening" });
   });
@@ -105,13 +105,13 @@ describe("markAuthorityBindingReady", () => {
   it("returns a new binding with kind ready", () => {
     const binding = createAuthorityBinding({
       authorityKey: TEST_AUTHORITY_KEY,
-      surfaceKey: TEST_SURFACE_KEY,
+      grantKey: TEST_GRANT_KEY,
       authorityEpoch: TEST_EPOCH,
     });
     const ready = markAuthorityBindingReady(binding);
 
     expect(ready.authorityKey).toBe(TEST_AUTHORITY_KEY);
-    expect(ready.surfaceKey).toBe(TEST_SURFACE_KEY);
+    expect(ready.grantKey).toBe(TEST_GRANT_KEY);
     expect(ready.authorityEpoch).toBe(TEST_EPOCH);
     expect(ready.state).toEqual({ kind: "ready" });
   });
@@ -119,7 +119,7 @@ describe("markAuthorityBindingReady", () => {
   it("does not mutate the original binding", () => {
     const binding = createAuthorityBinding({
       authorityKey: TEST_AUTHORITY_KEY,
-      surfaceKey: TEST_SURFACE_KEY,
+      grantKey: TEST_GRANT_KEY,
       authorityEpoch: TEST_EPOCH,
     });
 
@@ -135,7 +135,7 @@ describe("invalidateAuthorityBinding", () => {
     const invalidated = invalidateAuthorityBinding(binding, "authorityRestarted");
 
     expect(invalidated.authorityKey).toBe(AUTHORITY_KEY_A);
-    expect(invalidated.surfaceKey).toBe(SURFACE_KEY_A);
+    expect(invalidated.grantKey).toBe(GRANT_KEY_A);
     expect(invalidated.authorityEpoch).toBe(EPOCH_1);
     expect(invalidated.state).toEqual({
       kind: "invalidated",
@@ -148,7 +148,7 @@ describe("invalidateAuthorityBinding", () => {
     const invalidated = invalidateAuthorityBinding(binding, "authorityReplaced");
 
     expect(invalidated.authorityKey).toBe(binding.authorityKey);
-    expect(invalidated.surfaceKey).toBe(binding.surfaceKey);
+    expect(invalidated.grantKey).toBe(binding.grantKey);
     expect(invalidated.authorityEpoch).toBe(binding.authorityEpoch);
   });
 
@@ -165,8 +165,8 @@ describe("invalidateAuthorityBinding", () => {
     const reasons: InvalidationReason[] = [
       "authorityRestarted",
       "authorityReplaced",
-      "surfaceReplaced",
-      "surfaceRevoked",
+      "grantReplaced",
+      "grantRevoked",
     ];
 
     for (const reason of reasons) {
@@ -182,7 +182,7 @@ describe("closeAuthorityBinding", () => {
     const closed = closeAuthorityBinding(binding);
 
     expect(closed.authorityKey).toBe(AUTHORITY_KEY_A);
-    expect(closed.surfaceKey).toBe(SURFACE_KEY_A);
+    expect(closed.grantKey).toBe(GRANT_KEY_A);
     expect(closed.authorityEpoch).toBe(EPOCH_1);
     expect(closed.state).toEqual({ kind: "closed" });
   });
@@ -200,19 +200,19 @@ describe("helper immutability", () => {
   it("all helpers return new objects without mutating the original", () => {
     const original = createAuthorityBinding({
       authorityKey: TEST_AUTHORITY_KEY,
-      surfaceKey: TEST_SURFACE_KEY,
+      grantKey: TEST_GRANT_KEY,
       authorityEpoch: TEST_EPOCH,
     });
 
     const ready = markAuthorityBindingReady(original);
-    const invalidated = invalidateAuthorityBinding(ready, "surfaceRevoked");
+    const invalidated = invalidateAuthorityBinding(ready, "grantRevoked");
     const closed = closeAuthorityBinding(invalidated);
 
     expect(original.state).toEqual({ kind: "opening" });
     expect(ready.state).toEqual({ kind: "ready" });
     expect(invalidated.state).toEqual({
       kind: "invalidated",
-      reason: "surfaceRevoked",
+      reason: "grantRevoked",
     });
     expect(closed.state).toEqual({ kind: "closed" });
 
@@ -237,7 +237,7 @@ describe("validateAuthorityBinding", () => {
   it("rejects opening binding with bindingOpening and rebindRequired true", () => {
     const binding = createAuthorityBinding({
       authorityKey: AUTHORITY_KEY_A,
-      surfaceKey: SURFACE_KEY_A,
+      grantKey: GRANT_KEY_A,
       authorityEpoch: EPOCH_1,
     });
     const expected = createMatchingExpectation();
@@ -292,17 +292,17 @@ describe("validateAuthorityBinding", () => {
     }
   });
 
-  it("rejects surfaceKey mismatch", () => {
-    const binding = createReadyBinding({ surfaceKey: SURFACE_KEY_A });
-    const expected = createMatchingExpectation({ surfaceKey: SURFACE_KEY_B });
+  it("rejects grantKey mismatch", () => {
+    const binding = createReadyBinding({ grantKey: GRANT_KEY_A });
+    const expected = createMatchingExpectation({ grantKey: GRANT_KEY_B });
     const result = validateAuthorityBinding(binding, expected);
 
     expect(result).toMatchObject({
       ok: false,
-      reason: "surfaceKeyMismatch",
+      reason: "grantKeyMismatch",
       rebindRequired: true,
     });
-    if (!result.ok && result.reason === "surfaceKeyMismatch") {
+    if (!result.ok && result.reason === "grantKeyMismatch") {
       expect(result.expected).toEqual(expected);
     }
   });
@@ -322,15 +322,15 @@ describe("validateAuthorityBinding", () => {
     }
   });
 
-  it("reports first mismatch only (authorityKey checked before surfaceKey before epoch)", () => {
+  it("reports first mismatch only (authorityKey checked before grantKey before epoch)", () => {
     const binding = createReadyBinding({
       authorityKey: AUTHORITY_KEY_A,
-      surfaceKey: SURFACE_KEY_A,
+      grantKey: GRANT_KEY_A,
       authorityEpoch: EPOCH_1,
     });
     const expected = createMatchingExpectation({
       authorityKey: AUTHORITY_KEY_B,
-      surfaceKey: SURFACE_KEY_B,
+      grantKey: GRANT_KEY_B,
       authorityEpoch: EPOCH_2,
     });
     const result = validateAuthorityBinding(binding, expected);
@@ -346,7 +346,7 @@ describe("state-first precedence", () => {
   it("opening binding fails before expectation check (even when all expectations match)", () => {
     const binding = createAuthorityBinding({
       authorityKey: AUTHORITY_KEY_A,
-      surfaceKey: SURFACE_KEY_A,
+      grantKey: GRANT_KEY_A,
       authorityEpoch: EPOCH_1,
     });
     const expected = createMatchingExpectation();
@@ -399,7 +399,7 @@ describe("guardAuthorityBinding", () => {
   it("does not call read for opening binding", () => {
     const binding = createAuthorityBinding({
       authorityKey: AUTHORITY_KEY_A,
-      surfaceKey: SURFACE_KEY_A,
+      grantKey: GRANT_KEY_A,
       authorityEpoch: EPOCH_1,
     });
     const expected = createMatchingExpectation();
@@ -463,16 +463,16 @@ describe("guardAuthorityBinding", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  it("does not call read for surfaceKey mismatch", () => {
-    const binding = createReadyBinding({ surfaceKey: SURFACE_KEY_A });
-    const expected = createMatchingExpectation({ surfaceKey: SURFACE_KEY_B });
+  it("does not call read for grantKey mismatch", () => {
+    const binding = createReadyBinding({ grantKey: GRANT_KEY_A });
+    const expected = createMatchingExpectation({ grantKey: GRANT_KEY_B });
     const read = vi.fn(() => "should not be called");
 
     const result = guardAuthorityBinding(binding, expected, read);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.reason).toBe("surfaceKeyMismatch");
+      expect(result.reason).toBe("grantKeyMismatch");
       expect(result.rebindRequired).toBe(true);
     }
     expect(read).not.toHaveBeenCalled();
@@ -497,7 +497,7 @@ describe("guardAuthorityBinding", () => {
 function createReadyBinding(overrides?: Partial<AuthorityBinding>): AuthorityBinding {
   return {
     authorityKey: AUTHORITY_KEY_A,
-    surfaceKey: SURFACE_KEY_A,
+    grantKey: GRANT_KEY_A,
     authorityEpoch: EPOCH_1,
     state: { kind: "ready" },
     ...overrides,
@@ -507,7 +507,7 @@ function createReadyBinding(overrides?: Partial<AuthorityBinding>): AuthorityBin
 function createMatchingExpectation(overrides?: Partial<BindingExpectation>): BindingExpectation {
   return {
     authorityKey: AUTHORITY_KEY_A,
-    surfaceKey: SURFACE_KEY_A,
+    grantKey: GRANT_KEY_A,
     authorityEpoch: EPOCH_1,
     ...overrides,
   };

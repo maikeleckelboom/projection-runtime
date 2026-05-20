@@ -21,7 +21,7 @@ import {
 function validOwner(): ResourceOwner {
   return {
     authorityKey: "auth-key-1",
-    surfaceKey: "surface-key-1",
+    grantKey: "surface-key-1",
     authorityEpoch: "7",
   };
 }
@@ -141,7 +141,7 @@ describe("Resource Control Envelopes", () => {
       rebindRequired: true,
       binding: {
         authorityKey: "auth-roundtrip",
-        surfaceKey: "surface-roundtrip",
+        grantKey: "surface-roundtrip",
         authorityEpoch: 99n,
         state: { kind: "opening" },
       },
@@ -223,7 +223,7 @@ describe("Resource Control Envelopes", () => {
           range: { offset: 0, byteLength: 10 },
           owner: {
             authorityKey: "a",
-            surfaceKey: "s",
+            grantKey: "s",
             authorityEpoch: "01",
           },
         } as unknown as ReturnType<typeof createResourceReadRangeRequestPayload>,

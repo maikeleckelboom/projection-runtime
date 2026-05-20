@@ -45,18 +45,18 @@ import {
 } from "../../resource/src/resource-range";
 
 import {
-  createHostAuthorityOwnerFromBinding,
+  createHostAuthorityRefFromBinding,
   createHostControlPlaneDescriptor,
+  createHostGrantDescriptor,
+  createHostGrantReadyEnvelope,
   createHostHotRegionDescriptor,
   createHostResourcePlaneDescriptor,
-  createHostSurfaceDescriptor,
-  createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
   HOST_WARM_STREAM_DESCRIPTOR_VERSION,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
-  validateHostSurfaceReadyEnvelope,
+  validateHostGrantReadyEnvelope,
 } from "../src/index";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -135,13 +135,13 @@ function mustBeNumber(value: unknown, label: string): number {
 
 function deriveFixtureIdentity(): {
   authorityKey: string;
-  surfaceKey: string;
+  grantKey: string;
   authorityEpoch: bigint;
 } {
   const blockA = loadBlockAFixture();
   const authorityKey = mustBeString(blockA.contractKey, "fixture.contractKey");
-  const surfaceKey = mustBeString(blockA.instanceKey, "fixture.instanceKey");
-  return { authorityKey, surfaceKey, authorityEpoch: 1n };
+  const grantKey = mustBeString(blockA.instanceKey, "fixture.instanceKey");
+  return { authorityKey, grantKey, authorityEpoch: 1n };
 }
 
 function deriveBlockAExpectation(): HostHotBlockAExpectation {
@@ -195,12 +195,12 @@ function createFixtureHotRegion(): HostHotRegionDescriptor {
   };
 }
 
-function createFixtureSurfaceReady() {
+function createFixtureGrantReady() {
   const identity = deriveFixtureIdentity();
   const binding: AuthorityBinding = createAuthorityBinding(identity);
   const readyBinding = markAuthorityBindingReady(binding);
 
-  const owner = createHostAuthorityOwnerFromBinding(readyBinding);
+  const authorityRef = createHostAuthorityRefFromBinding(readyBinding);
   const hotRegion = createHostHotRegionDescriptor(createFixtureHotRegion());
 
   const control = createHostControlPlaneDescriptor({
@@ -226,20 +226,20 @@ function createFixtureSurfaceReady() {
     closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
   });
 
-  const surface = createHostSurfaceDescriptor({
-    kind: "host.surface",
+  const grant = createHostGrantDescriptor({
+    kind: "host.grantDescriptor",
     contractVersion: HOST_CONTRACT_VERSION,
-    owner,
+    authority: authorityRef,
     hotRegions: [hotRegion],
     control,
     warmStreams: [warmStream],
     resourcePlane,
   });
 
-  const envelope = createHostSurfaceReadyEnvelope({
-    kind: "host.surfaceReady",
+  const envelope = createHostGrantReadyEnvelope({
+    kind: "host.grantReady",
     contractVersion: HOST_CONTRACT_VERSION,
-    surface,
+    grant,
   });
 
   const json = JSON.stringify(envelope);
@@ -249,7 +249,7 @@ function createFixtureSurfaceReady() {
     identity,
     readyBinding,
     envelope,
-    validated: validateHostSurfaceReadyEnvelope(parsed),
+    validated: validateHostGrantReadyEnvelope(parsed),
   };
 }
 
@@ -268,16 +268,16 @@ const DESCRIPTOR_LOCAL_FIELD_KEYS = new Set([
 
 describe("Client lane consumption across control, resource, and warm", () => {
   describe("Control lane request/response is descriptor-driven", () => {
-    it("validates host.surfaceReady, extracts control descriptor, creates and validates a control request/response cycle", () => {
-      const { validated } = createFixtureSurfaceReady();
+    it("validates host.grantReady, extracts control descriptor, creates and validates a control request/response cycle", () => {
+      const { validated } = createFixtureGrantReady();
 
       expect(validated.ok).toBe(true);
       if (!validated.ok) {
-        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+        throw new Error(`grantReady validation failed: ${validated.failure.message}`);
       }
 
-      const vSurface = validated.value.surface;
-      const control = vSurface.control;
+      const vGrant = validated.value.grant;
+      const control = vGrant.control;
       expect(control).toBeDefined();
       if (!control) return;
       expect(control.endpointKey).toBe("deck-runtime-v0.control");
@@ -364,14 +364,14 @@ describe("Client lane consumption across control, resource, and warm", () => {
 
   describe("Unsupported operation is rejected using control failure envelope, not dispatch", () => {
     it("request shape validity is separate from operation support; failure is descriptor-driven", () => {
-      const { validated } = createFixtureSurfaceReady();
+      const { validated } = createFixtureGrantReady();
 
       expect(validated.ok).toBe(true);
       if (!validated.ok) {
-        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+        throw new Error(`grantReady validation failed: ${validated.failure.message}`);
       }
 
-      const control = validated.value.surface.control;
+      const control = validated.value.grant.control;
       expect(control).toBeDefined();
       if (!control) return;
       const supportedOps = new Set(control.operationKeys);
@@ -454,15 +454,15 @@ describe("Client lane consumption across control, resource, and warm", () => {
   });
 
   describe("Resource read-range request/response is descriptor-driven through the host resource plane", () => {
-    it("validates host.surfaceReady, extracts resourcePlane, creates and validates a read-range control request/response", () => {
-      const { validated } = createFixtureSurfaceReady();
+    it("validates host.grantReady, extracts resourcePlane, creates and validates a read-range control request/response", () => {
+      const { validated } = createFixtureGrantReady();
       expect(validated.ok).toBe(true);
       if (!validated.ok) {
-        throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+        throw new Error(`grantReady validation failed: ${validated.failure.message}`);
       }
 
-      const owner = validated.value.surface.owner;
-      const resourcePlane = validated.value.surface.resourcePlane;
+      const authorityRef = validated.value.grant.authority;
+      const resourcePlane = validated.value.grant.resourcePlane;
       expect(resourcePlane).toBeDefined();
       if (!resourcePlane) return;
       expect(resourcePlane.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
@@ -473,9 +473,9 @@ describe("Client lane consumption across control, resource, and warm", () => {
         byteLength: 4096,
         version: "1",
         owner: {
-          authorityKey: owner.authorityKey,
-          surfaceKey: owner.surfaceKey,
-          authorityEpoch: owner.authorityEpoch,
+          authorityKey: authorityRef.authorityKey,
+          grantKey: authorityRef.grantKey,
+          authorityEpoch: authorityRef.authorityEpoch,
         },
       });
 
@@ -491,9 +491,9 @@ describe("Client lane consumption across control, resource, and warm", () => {
         handleKey: "fixture.resource.waveform-0",
         range: { offset: 0, byteLength: 4096 },
         owner: {
-          authorityKey: owner.authorityKey,
-          surfaceKey: owner.surfaceKey,
-          authorityEpoch: owner.authorityEpoch,
+          authorityKey: authorityRef.authorityKey,
+          grantKey: authorityRef.grantKey,
+          authorityEpoch: authorityRef.authorityEpoch,
         },
       });
 
@@ -638,13 +638,13 @@ describe("Client lane consumption across control, resource, and warm", () => {
       const readyEpochOneBinding = markAuthorityBindingReady(
         createAuthorityBinding({
           authorityKey: identity.authorityKey,
-          surfaceKey: identity.surfaceKey,
+          grantKey: identity.grantKey,
           authorityEpoch: 1n,
         }),
       );
       const staleExpected = {
         authorityKey: identity.authorityKey,
-        surfaceKey: identity.surfaceKey,
+        grantKey: identity.grantKey,
         authorityEpoch: 2n,
       };
       const epochMismatchFailure = validateAuthorityBinding(readyEpochOneBinding, staleExpected);

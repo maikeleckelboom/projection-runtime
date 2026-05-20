@@ -143,7 +143,7 @@ export function createStaleBindingResourceFailure(
   const binding = failure.binding;
   const bindingDetails: Record<string, unknown> = {
     authorityKey: binding.authorityKey,
-    surfaceKey: binding.surfaceKey,
+    grantKey: binding.grantKey,
     authorityEpoch: encodeEpoch(String(binding.authorityEpoch)),
   };
 
@@ -161,7 +161,7 @@ export function createStaleBindingResourceFailure(
     const expected = failure.expected;
     details.expected = {
       authorityKey: expected.authorityKey,
-      surfaceKey: expected.surfaceKey,
+      grantKey: expected.grantKey,
       authorityEpoch: encodeEpoch(String(expected.authorityEpoch)),
     };
   }

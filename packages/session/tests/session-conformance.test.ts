@@ -12,7 +12,7 @@ import {
   guardAuthorityBinding,
   invalidateAuthorityBinding,
   markAuthorityBindingReady,
-} from "../src/index";
+} from "../src";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 
@@ -51,13 +51,13 @@ describe("@exclave/session guarded fixture read conformance", () => {
     const binding = markAuthorityBindingReady(
       createAuthorityBinding({
         authorityKey: contractKey,
-        surfaceKey: instanceKey,
+        grantKey: instanceKey,
         authorityEpoch: 1n,
       }),
     );
     const expected = {
       authorityKey: contractKey,
-      surfaceKey: instanceKey,
+      grantKey: instanceKey,
       authorityEpoch: 1n,
     };
 
@@ -90,7 +90,7 @@ describe("@exclave/session guarded fixture read conformance", () => {
       markAuthorityBindingReady(
         createAuthorityBinding({
           authorityKey: contractKey,
-          surfaceKey: instanceKey,
+          grantKey: instanceKey,
           authorityEpoch: 1n,
         }),
       ),
@@ -98,7 +98,7 @@ describe("@exclave/session guarded fixture read conformance", () => {
     );
     const expected = {
       authorityKey: contractKey,
-      surfaceKey: instanceKey,
+      grantKey: instanceKey,
       authorityEpoch: 1n,
     };
     const readSpy = vi.fn(() => reader.tryRead({ maxWriterActivePolls: 0, maxTornReads: 0 }));

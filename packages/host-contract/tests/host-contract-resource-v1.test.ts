@@ -10,10 +10,10 @@ import {
 } from "@exclave/resource";
 import { describe, expect, it } from "vitest";
 import {
-  createHostAuthorityOwner,
+  createHostAuthorityRef,
+  createHostGrant,
+  createHostGrantDescriptor,
   createHostResourcePlaneDescriptor,
-  createHostSurfaceDescriptor,
-  createHostSurfaceGrant,
   HOST_CONTRACT_VERSION,
 } from "../src";
 
@@ -30,17 +30,17 @@ function assertNoByteCarrier(value: unknown, path: string): void {
 }
 
 describe("host-contract resource v1 crossing", () => {
-  const owner = createHostAuthorityOwner({
+  const authorityRef = createHostAuthorityRef({
     authorityKey: "authority.fixture",
-    surfaceKey: "surface.fixture",
+    grantKey: "surface.fixture",
     authorityEpoch: "7",
   });
 
   it("carries resource-plane grants as operation metadata, never bytes", () => {
-    const surface = createHostSurfaceDescriptor({
-      kind: "host.surface",
+    const grantDescriptor = createHostGrantDescriptor({
+      kind: "host.grantDescriptor",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner,
+      authority: authorityRef,
       resourcePlane: createHostResourcePlaneDescriptor({
         kind: "host.resourcePlane",
         openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
@@ -51,7 +51,7 @@ describe("host-contract resource v1 crossing", () => {
       }),
     });
 
-    const grant = createHostSurfaceGrant(surface);
+    const grant = createHostGrant(grantDescriptor);
 
     expect(grant.resourcePlane?.openOperationKey).toBe(RESOURCE_OPEN_OPERATION_KEY);
     expect(grant.resourcePlane?.readChunkOperationKey).toBe(RESOURCE_READ_CHUNK_OPERATION_KEY);
@@ -92,11 +92,11 @@ describe("host-contract resource v1 crossing", () => {
   });
 
   it("host resource-plane grants do not advertise resource.readRange", () => {
-    const grant = createHostSurfaceGrant(
-      createHostSurfaceDescriptor({
-        kind: "host.surface",
+    const grant = createHostGrant(
+      createHostGrantDescriptor({
+        kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        owner,
+        authority: authorityRef,
         resourcePlane: createHostResourcePlaneDescriptor({
           kind: "host.resourcePlane",
           openOperationKey: RESOURCE_OPEN_OPERATION_KEY,
@@ -119,11 +119,11 @@ describe("host-contract resource v1 crossing", () => {
   });
 
   it("host resource-plane grants advertise only v1 operation keys", () => {
-    const grant = createHostSurfaceGrant(
-      createHostSurfaceDescriptor({
-        kind: "host.surface",
+    const grant = createHostGrant(
+      createHostGrantDescriptor({
+        kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        owner,
+        authority: authorityRef,
         resourcePlane: createHostResourcePlaneDescriptor({
           kind: "host.resourcePlane",
           openOperationKey: RESOURCE_OPEN_OPERATION_KEY,

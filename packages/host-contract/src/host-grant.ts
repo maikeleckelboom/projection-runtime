@@ -1,13 +1,13 @@
 import type { PUBLICATION_TRANSPORT_ATTACHMENT_VERSION } from "@exclave/publication";
 import type { BindingExpectation } from "@exclave/session";
 import { throwInputRejected } from "./errors";
+import type { HostAuthorityRef } from "./host-authority-ref";
+import { validateHostAuthorityRefThrowing } from "./host-authority-ref";
+import type { HostGrantDescriptor } from "./host-grant-descriptor";
 import type { HostHotBlockAExpectation } from "./host-hot";
-import type { HostAuthorityOwner } from "./host-owner";
-import { validateHostAuthorityOwnerThrowing } from "./host-owner";
-import type { HostSurfaceDescriptor } from "./host-surface";
 
 export type HostHotRegionCapability = {
-  readonly kind: "surface.hotRegionCapability";
+  readonly kind: "grant.hotRegionCapability";
   readonly hotRegionKey: string;
   readonly expectedBlockA: HostHotBlockAExpectation;
   readonly expectedByteLength: number;
@@ -16,31 +16,31 @@ export type HostHotRegionCapability = {
 };
 
 export type HostControlEndpointCapability = {
-  readonly kind: "surface.controlEndpointCapability";
+  readonly kind: "grant.controlEndpointCapability";
   readonly endpointKey: string;
   readonly supportedOperationKeys: readonly string[];
 };
 
 export type HostResourcePlaneCapability = {
-  readonly kind: "surface.resourcePlaneCapability";
+  readonly kind: "grant.resourcePlaneCapability";
   readonly openOperationKey: string;
   readonly readChunkOperationKey: string;
   readonly mapWindowOperationKey: string;
   readonly closeMappingOperationKey: string;
   readonly closeHandleOperationKey: string;
-  readonly owner: HostAuthorityOwner;
+  readonly authority: HostAuthorityRef;
 };
 
 export type HostWarmStreamCapability = {
-  readonly kind: "surface.warmStreamCapability";
+  readonly kind: "grant.warmStreamCapability";
   readonly streamKey: string;
-  readonly owner: HostAuthorityOwner;
+  readonly authority: HostAuthorityRef;
   readonly attachmentVersion: typeof PUBLICATION_TRANSPORT_ATTACHMENT_VERSION;
 };
 
-export type HostSurfaceGrant = {
-  readonly kind: "host.surfaceGrant";
-  readonly owner: HostAuthorityOwner;
+export type HostGrant = {
+  readonly kind: "host.grant";
+  readonly authority: HostAuthorityRef;
   readonly expectedBinding: BindingExpectation;
   readonly hot: readonly HostHotRegionCapability[];
   readonly control?: HostControlEndpointCapability;
@@ -51,34 +51,34 @@ export type HostSurfaceGrant = {
 function canonicalEpochToBigInt(value: string): bigint {
   if (!/^(?:0|[1-9][0-9]*)$/.test(value)) {
     throwInputRejected(
-      'owner.authorityEpoch must be a canonical non-negative decimal string (e.g. "0", "42")',
+      'authority.authorityEpoch must be a canonical non-negative decimal string (e.g. "0", "42")',
     );
   }
   return BigInt(value);
 }
 
-export function createBindingExpectationFromHostOwner(
-  owner: HostAuthorityOwner,
+export function createBindingExpectationFromHostAuthorityRef(
+  authority: HostAuthorityRef,
 ): BindingExpectation {
-  const validated = validateHostAuthorityOwnerThrowing(owner);
+  const validated = validateHostAuthorityRefThrowing(authority);
   const authorityEpoch = canonicalEpochToBigInt(validated.authorityEpoch);
   return {
     authorityKey: validated.authorityKey,
-    surfaceKey: validated.surfaceKey,
+    grantKey: validated.grantKey,
     authorityEpoch,
   };
 }
 
-export function createHostSurfaceGrant(surface: HostSurfaceDescriptor): HostSurfaceGrant {
-  const owner: HostAuthorityOwner = {
-    authorityKey: surface.owner.authorityKey,
-    surfaceKey: surface.owner.surfaceKey,
-    authorityEpoch: surface.owner.authorityEpoch,
+export function createHostGrant(grant: HostGrantDescriptor): HostGrant {
+  const authority: HostAuthorityRef = {
+    authorityKey: grant.authority.authorityKey,
+    grantKey: grant.authority.grantKey,
+    authorityEpoch: grant.authority.authorityEpoch,
   };
-  const expectedBinding = createBindingExpectationFromHostOwner(surface.owner);
+  const expectedBinding = createBindingExpectationFromHostAuthorityRef(grant.authority);
 
-  const hot: HostHotRegionCapability[] = (surface.hotRegions ?? []).map((region) => ({
-    kind: "surface.hotRegionCapability" as const,
+  const hot: HostHotRegionCapability[] = (grant.hotRegions ?? []).map((region) => ({
+    kind: "grant.hotRegionCapability" as const,
     hotRegionKey: region.hotRegionKey,
     expectedBlockA: {
       contractKey: region.blockA.contractKey,
@@ -95,36 +95,36 @@ export function createHostSurfaceGrant(surface: HostSurfaceDescriptor): HostSurf
       : {}),
   }));
 
-  const control: HostControlEndpointCapability | undefined = surface.control
+  const control: HostControlEndpointCapability | undefined = grant.control
     ? {
-        kind: "surface.controlEndpointCapability" as const,
-        endpointKey: surface.control.endpointKey,
-        supportedOperationKeys: [...surface.control.operationKeys],
+        kind: "grant.controlEndpointCapability" as const,
+        endpointKey: grant.control.endpointKey,
+        supportedOperationKeys: [...grant.control.operationKeys],
       }
     : undefined;
 
-  const resourcePlane: HostResourcePlaneCapability | undefined = surface.resourcePlane
+  const resourcePlane: HostResourcePlaneCapability | undefined = grant.resourcePlane
     ? {
-        kind: "surface.resourcePlaneCapability" as const,
-        openOperationKey: surface.resourcePlane.openOperationKey,
-        readChunkOperationKey: surface.resourcePlane.readChunkOperationKey,
-        mapWindowOperationKey: surface.resourcePlane.mapWindowOperationKey,
-        closeMappingOperationKey: surface.resourcePlane.closeMappingOperationKey,
-        closeHandleOperationKey: surface.resourcePlane.closeHandleOperationKey,
-        owner,
+        kind: "grant.resourcePlaneCapability" as const,
+        openOperationKey: grant.resourcePlane.openOperationKey,
+        readChunkOperationKey: grant.resourcePlane.readChunkOperationKey,
+        mapWindowOperationKey: grant.resourcePlane.mapWindowOperationKey,
+        closeMappingOperationKey: grant.resourcePlane.closeMappingOperationKey,
+        closeHandleOperationKey: grant.resourcePlane.closeHandleOperationKey,
+        authority,
       }
     : undefined;
 
-  const warm: HostWarmStreamCapability[] = (surface.warmStreams ?? []).map((stream) => ({
-    kind: "surface.warmStreamCapability" as const,
+  const warm: HostWarmStreamCapability[] = (grant.warmStreams ?? []).map((stream) => ({
+    kind: "grant.warmStreamCapability" as const,
     streamKey: stream.streamKey,
-    owner,
+    authority,
     attachmentVersion: stream.attachmentVersion,
   }));
 
   return {
-    kind: "host.surfaceGrant",
-    owner,
+    kind: "host.grant",
+    authority,
     expectedBinding,
     hot,
     ...(control !== undefined ? { control } : {}),

@@ -42,29 +42,29 @@ import {
 } from "../../resource/src/resource-range";
 
 import {
-  createHostAuthorityOwnerFromBinding,
+  createHostAuthorityRefFromBinding,
   createHostControlPlaneDescriptor,
+  createHostGrant,
+  createHostGrantDescriptor,
+  createHostGrantInvalidatedEnvelope,
+  createHostGrantReadyEnvelope,
   createHostHotRegionDescriptor,
   createHostResourcePlaneDescriptor,
-  createHostSurfaceDescriptor,
-  createHostSurfaceGrant,
-  createHostSurfaceInvalidatedEnvelope,
-  createHostSurfaceReadyEnvelope,
   createHostWarmStreamDescriptor,
   HOST_CONTRACT_VERSION,
   HOST_WARM_STREAM_DESCRIPTOR_VERSION,
+  type HostGrant,
+  type HostGrantInvalidatedEnvelope,
+  type HostGrantReadyEnvelope,
   type HostHotBlockAExpectation,
   type HostHotRegionDescriptor,
-  type HostSurfaceGrant,
-  type HostSurfaceInvalidatedEnvelope,
-  type HostSurfaceReadyEnvelope,
-  validateHostSurfaceInvalidatedEnvelope,
-  validateHostSurfaceReadyEnvelope,
+  validateHostGrantInvalidatedEnvelope,
+  validateHostGrantReadyEnvelope,
 } from "../src/index";
 
 const OWNER = {
   authorityKey: "authority.alpha",
-  surfaceKey: "surface.deck-a",
+  grantKey: "surface.deck-a",
   authorityEpoch: "1",
 } as const;
 
@@ -114,7 +114,7 @@ function createAuthorityBindingReady(): AuthorityBinding {
   return markAuthorityBindingReady(
     createAuthorityBinding({
       authorityKey: OWNER.authorityKey,
-      surfaceKey: OWNER.surfaceKey,
+      grantKey: OWNER.grantKey,
       authorityEpoch: 1n,
     }),
   );
@@ -127,8 +127,8 @@ type TransferredHandle = {
 };
 
 type EndpointMessage =
-  | { readonly kind: "surfaceReady"; readonly envelope: HostSurfaceReadyEnvelope }
-  | { readonly kind: "surfaceInvalidated"; readonly envelope: HostSurfaceInvalidatedEnvelope }
+  | { readonly kind: "grantReady"; readonly envelope: HostGrantReadyEnvelope }
+  | { readonly kind: "grantInvalidated"; readonly envelope: HostGrantInvalidatedEnvelope }
   | { readonly kind: "controlRequest"; readonly envelope: ControlRequestEnvelope }
   | {
       readonly kind: "controlResponse";
@@ -211,8 +211,8 @@ class HostEndpoint {
     return this._binding;
   }
 
-  openSurface(): void {
-    const owner = createHostAuthorityOwnerFromBinding(this._binding);
+  openGrant(): void {
+    const authorityRef = createHostAuthorityRefFromBinding(this._binding);
 
     const hotRegion = createHostHotRegionDescriptor(this._config.hotRegion);
 
@@ -239,24 +239,24 @@ class HostEndpoint {
       closeHandleOperationKey: RESOURCE_CLOSE_HANDLE_OPERATION_KEY,
     });
 
-    const surface = createHostSurfaceDescriptor({
-      kind: "host.surface",
+    const grant = createHostGrantDescriptor({
+      kind: "host.grantDescriptor",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner,
+      authority: authorityRef,
       hotRegions: [hotRegion],
       control,
       warmStreams: [warmStream],
       resourcePlane,
     });
 
-    const envelope = createHostSurfaceReadyEnvelope({
-      kind: "host.surfaceReady",
+    const envelope = createHostGrantReadyEnvelope({
+      kind: "host.grantReady",
       contractVersion: HOST_CONTRACT_VERSION,
-      surface,
+      grant,
     });
 
     this._transport.hostSend({
-      kind: "surfaceReady",
+      kind: "grantReady",
       envelope: jsonRoundtrip(envelope),
     });
   }
@@ -335,30 +335,30 @@ class HostEndpoint {
     this._transport.hostSend({ kind: "controlResponse", envelope: success });
   }
 
-  invalidateSurface(reason: "authorityRestarted"): void {
+  invalidateGrant(reason: "authorityRestarted"): void {
     this._binding = invalidateAuthorityBinding(this._binding, reason);
-    const owner = createHostAuthorityOwnerFromBinding(this._binding);
-    const envelope = createHostSurfaceInvalidatedEnvelope({
-      kind: "host.surfaceInvalidated",
+    const authorityRef = createHostAuthorityRefFromBinding(this._binding);
+    const envelope = createHostGrantInvalidatedEnvelope({
+      kind: "host.grantInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner,
+      authority: authorityRef,
       reason,
       rebindRequired: true,
     });
-    this._transport.hostSend({ kind: "surfaceInvalidated", envelope });
+    this._transport.hostSend({ kind: "grantInvalidated", envelope });
   }
 }
 
 class ClientEndpoint {
   private _transport: TransportBoundary;
-  private _grant: HostSurfaceGrant | null = null;
+  private _grant: HostGrant | null = null;
   private _binding: AuthorityBinding | null = null;
 
   constructor(transport: TransportBoundary) {
     this._transport = transport;
   }
 
-  get grant(): HostSurfaceGrant {
+  get grant(): HostGrant {
     if (this._grant === null) throw new Error("grant not initialized");
     return this._grant;
   }
@@ -368,24 +368,24 @@ class ClientEndpoint {
     return this._binding;
   }
 
-  acceptSurfaceReady(): HostSurfaceGrant {
+  acceptGrantReady(): HostGrant {
     const msg = this._transport.clientReceive();
-    if (msg === null || msg.kind !== "surfaceReady") {
-      throw new EndpointTransportFailure("expected surfaceReady message");
+    if (msg === null || msg.kind !== "grantReady") {
+      throw new EndpointTransportFailure("expected grantReady message");
     }
 
     const parsed = jsonRoundtrip(msg.envelope);
-    const validated = validateHostSurfaceReadyEnvelope(parsed);
+    const validated = validateHostGrantReadyEnvelope(parsed);
     if (!validated.ok) {
-      throw new Error(`surfaceReady validation failed: ${validated.failure.message}`);
+      throw new Error(`grantReady validation failed: ${validated.failure.message}`);
     }
 
-    const grant = createHostSurfaceGrant(validated.value.surface);
+    const grant = createHostGrant(validated.value.grant);
     this._grant = grant;
     this._binding = markAuthorityBindingReady(
       createAuthorityBinding({
         authorityKey: grant.expectedBinding.authorityKey,
-        surfaceKey: grant.expectedBinding.surfaceKey,
+        grantKey: grant.expectedBinding.grantKey,
         authorityEpoch: grant.expectedBinding.authorityEpoch,
       }),
     );
@@ -454,9 +454,9 @@ class ClientEndpoint {
       handleKey: "resource.waveform",
       range: { offset: 0, byteLength: 512 },
       owner: {
-        authorityKey: this._grant.owner.authorityKey,
-        surfaceKey: this._grant.owner.surfaceKey,
-        authorityEpoch: this._grant.owner.authorityEpoch,
+        authorityKey: this._grant.authority.authorityKey,
+        grantKey: this._grant.authority.grantKey,
+        authorityEpoch: this._grant.authority.authorityEpoch,
       },
     });
 
@@ -500,17 +500,17 @@ class ClientEndpoint {
     };
   }
 
-  receiveInvalidation(): HostSurfaceInvalidatedEnvelope {
+  receiveInvalidation(): HostGrantInvalidatedEnvelope {
     const msg = this._transport.clientReceive();
-    if (msg === null || msg.kind !== "surfaceInvalidated") {
-      throw new EndpointTransportFailure("expected surfaceInvalidated message");
+    if (msg === null || msg.kind !== "grantInvalidated") {
+      throw new EndpointTransportFailure("expected grantInvalidated message");
     }
     return msg.envelope;
   }
 
-  applyInvalidation(envelope: HostSurfaceInvalidatedEnvelope): void {
+  applyInvalidation(envelope: HostGrantInvalidatedEnvelope): void {
     const parsed = jsonRoundtrip(envelope);
-    const validated = validateHostSurfaceInvalidatedEnvelope(parsed);
+    const validated = validateHostGrantInvalidatedEnvelope(parsed);
     if (!validated.ok)
       throw new Error(`invalidation validation failed: ${validated.failure.message}`);
 
@@ -518,21 +518,21 @@ class ClientEndpoint {
       throw new Error("cannot apply invalidation without an active grant/binding");
     }
 
-    const owner = validated.value.owner;
+    const authorityRef = validated.value.authority;
     if (
-      owner.authorityKey !== this._grant.owner.authorityKey ||
-      owner.surfaceKey !== this._grant.owner.surfaceKey ||
-      owner.authorityEpoch !== this._grant.owner.authorityEpoch
+      authorityRef.authorityKey !== this._grant.authority.authorityKey ||
+      authorityRef.grantKey !== this._grant.authority.grantKey ||
+      authorityRef.authorityEpoch !== this._grant.authority.authorityEpoch
     ) {
       throw new Error(
-        "invalidation owner does not match current grant owner; rejecting foreign/stale invalidation",
+        "invalidation authority does not match current grant authority; rejecting foreign/stale invalidation",
       );
     }
 
     this._binding = invalidateAuthorityBinding(this._binding, validated.value.reason);
   }
 
-  guardedRead(grant: HostSurfaceGrant): boolean {
+  guardedRead(grant: HostGrant): boolean {
     if (this._binding === null) throw new Error("binding not initialized");
 
     const read = () => {
@@ -578,18 +578,18 @@ function createEndpointBoundaryFixture(): {
   return { transport, host, client };
 }
 
-describe("endpoint surface readiness", () => {
-  it("validates a host.surfaceReady envelope and creates a HostSurfaceGrant only through createHostSurfaceGrant", () => {
+describe("endpoint grant readiness", () => {
+  it("validates a host.grantReady envelope and creates a HostGrant only through createHostGrant", () => {
     const { host, client, transport } = createEndpointBoundaryFixture();
 
-    host.openSurface();
+    host.openGrant();
 
-    const grant = client.acceptSurfaceReady();
+    const grant = client.acceptGrantReady();
 
-    expect(grant.kind).toBe("host.surfaceGrant");
-    expect(grant.owner.authorityKey).toBe(OWNER.authorityKey);
-    expect(grant.owner.surfaceKey).toBe(OWNER.surfaceKey);
-    expect(grant.owner.authorityEpoch).toBe(OWNER.authorityEpoch);
+    expect(grant.kind).toBe("host.grant");
+    expect(grant.authority.authorityKey).toBe(OWNER.authorityKey);
+    expect(grant.authority.grantKey).toBe(OWNER.grantKey);
+    expect(grant.authority.authorityEpoch).toBe(OWNER.authorityEpoch);
     expect(grant.expectedBinding.authorityEpoch).toBe(1n);
     expect(grant.hot).toHaveLength(1);
     expect(grant.hot[0].hotRegionKey).toBe("hot.deck-runtime");
@@ -601,7 +601,7 @@ describe("endpoint surface readiness", () => {
     assertEndpointCarriesOnlyMetadata(grant, "grant");
     expect((grant as Record<string, unknown>).endpoint).toBeUndefined();
     expect((grant as Record<string, unknown>).transport).toBeUndefined();
-    expect((grant as Record<string, unknown>).surface).toBeUndefined();
+    expect((grant as Record<string, unknown>).grant).toBeUndefined();
     expect(transport.closed).toBe(false);
   });
 });
@@ -610,8 +610,8 @@ describe("endpoint hot handle transfer", () => {
   it("carries a TransferredHandle token without bytes, buffer handles, generated readers, or ABI decoding", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    const grant = client.acceptSurfaceReady();
+    host.openGrant();
+    const grant = client.acceptGrantReady();
 
     const handle = host.publishHotHandle();
     expect(handle.hotRegionKey).toBe("hot.deck-runtime");
@@ -634,8 +634,8 @@ describe("endpoint control envelopes", () => {
   it("carries control request from client and correlated response from host; transport does not inspect operation support", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    client.acceptSurfaceReady();
+    host.openGrant();
+    client.acceptGrantReady();
 
     const request = client.sendControlRequest("control.describe");
     expect(request.kind).toBe("control.request");
@@ -652,7 +652,6 @@ describe("endpoint control envelopes", () => {
     expect(consumed.ok).toBe(true);
     expect(consumed.failureCode).toBeUndefined();
 
-    // Client must derive the endpoint key from the grant, not hardcode it.
     const requestPayload = jsonRoundtrip(request).payload as Record<string, unknown>;
     expect(requestPayload.endpointKey).toBe("control.deck-runtime");
   });
@@ -662,8 +661,8 @@ describe("endpoint control operation support", () => {
   it("returns control.unsupportedOperation for unknown operations; failure stays a control response", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    client.acceptSurfaceReady();
+    host.openGrant();
+    client.acceptGrantReady();
 
     const request = client.sendControlRequest("control.unknown");
     const validated = validateControlRequestEnvelope(jsonRoundtrip(request));
@@ -690,8 +689,8 @@ describe("endpoint resource receipts", () => {
   it("validates request payload on host side, returns receipt metadata only, carries no bytes", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    const grant = client.acceptSurfaceReady();
+    host.openGrant();
+    const grant = client.acceptGrantReady();
     expect(grant.resourcePlane).toBeDefined();
 
     const request = client.sendResourceReadRangeRequest();
@@ -736,13 +735,13 @@ describe("endpoint invalidation", () => {
   it("blocks guarded use before the protected read callback runs", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    const grant = client.acceptSurfaceReady();
+    host.openGrant();
+    const grant = client.acceptGrantReady();
 
-    host.invalidateSurface("authorityRestarted");
+    host.invalidateGrant("authorityRestarted");
 
     const invalidationEnvelope = client.receiveInvalidation();
-    expect(invalidationEnvelope.kind).toBe("host.surfaceInvalidated");
+    expect(invalidationEnvelope.kind).toBe("host.grantInvalidated");
     expect(invalidationEnvelope.reason).toBe("authorityRestarted");
 
     client.applyInvalidation(invalidationEnvelope);
@@ -753,44 +752,44 @@ describe("endpoint invalidation", () => {
     expect(client.lastGuardSpyCalled).toBe(0);
   });
 
-  it("rejects invalidation from a foreign owner", () => {
+  it("rejects invalidation from a foreign authority", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    client.acceptSurfaceReady();
+    host.openGrant();
+    client.acceptGrantReady();
 
-    const foreignEnvelope = createHostSurfaceInvalidatedEnvelope({
-      kind: "host.surfaceInvalidated",
+    const foreignEnvelope = createHostGrantInvalidatedEnvelope({
+      kind: "host.grantInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner: {
+      authority: {
         authorityKey: "authority.foreign",
-        surfaceKey: "surface.foreign",
+        grantKey: "surface.foreign",
         authorityEpoch: "1",
       },
       reason: "authorityRestarted",
       rebindRequired: true,
     });
 
-    host.invalidateSurface("authorityRestarted");
+    host.invalidateGrant("authorityRestarted");
     client.receiveInvalidation();
 
     expect(() => client.applyInvalidation(foreignEnvelope)).toThrow(
-      /invalidation owner does not match/,
+      /invalidation authority does not match/,
     );
   });
 
   it("rejects stale invalidation by epoch mismatch and preserves the binding", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    const grant = client.acceptSurfaceReady();
+    host.openGrant();
+    const grant = client.acceptGrantReady();
 
-    const staleEnvelope = createHostSurfaceInvalidatedEnvelope({
-      kind: "host.surfaceInvalidated",
+    const staleEnvelope = createHostGrantInvalidatedEnvelope({
+      kind: "host.grantInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
-      owner: {
+      authority: {
         authorityKey: OWNER.authorityKey,
-        surfaceKey: OWNER.surfaceKey,
+        grantKey: OWNER.grantKey,
         authorityEpoch: "2",
       },
       reason: "authorityRestarted",
@@ -798,7 +797,7 @@ describe("endpoint invalidation", () => {
     });
 
     expect(() => client.applyInvalidation(staleEnvelope)).toThrow(
-      /invalidation owner does not match/,
+      /invalidation authority does not match/,
     );
 
     const readOk = client.guardedRead(grant);
@@ -811,14 +810,14 @@ describe("endpoint transport failures", () => {
   it("produces a test-local transport failure for missing messages", () => {
     const { client } = createEndpointBoundaryFixture();
 
-    expect(() => client.acceptSurfaceReady()).toThrow(EndpointTransportFailure);
+    expect(() => client.acceptGrantReady()).toThrow(EndpointTransportFailure);
   });
 
   it("treats control.unsupportedOperation as a control response, not a transport failure", () => {
     const { host, client } = createEndpointBoundaryFixture();
 
-    host.openSurface();
-    client.acceptSurfaceReady();
+    host.openGrant();
+    client.acceptGrantReady();
 
     client.sendControlRequest("control.unknown");
     host.handleIncomingRequest();
@@ -832,7 +831,7 @@ describe("endpoint transport failures", () => {
   it("produces a transport failure on shutdown, separate from semantic failure", () => {
     const { transport, host } = createEndpointBoundaryFixture();
 
-    host.openSurface();
+    host.openGrant();
     transport.shutdown();
 
     expect(() =>

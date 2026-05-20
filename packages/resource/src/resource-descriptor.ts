@@ -12,7 +12,7 @@ export type ResourceVersion = string;
 
 export type ResourceOwner = {
   readonly authorityKey: string;
-  readonly surfaceKey: string;
+  readonly grantKey: string;
   readonly authorityEpoch: string;
 };
 
@@ -26,16 +26,16 @@ export type ResourceDescriptor = {
 
 export function validateResourceOwner(owner: unknown): ResourceOwner {
   const obj = assertPlainObject(owner, "owner");
-  assertExactRootKeys(obj, new Set(["authorityKey", "surfaceKey", "authorityEpoch"]), "owner");
+  assertExactRootKeys(obj, new Set(["authorityKey", "grantKey", "authorityEpoch"]), "owner");
 
   const authorityKey = assertNonEmptyString(obj.authorityKey, "owner.authorityKey");
-  const surfaceKey = assertNonEmptyString(obj.surfaceKey, "owner.surfaceKey");
+  const grantKey = assertNonEmptyString(obj.grantKey, "owner.grantKey");
 
   const authorityEpoch = assertCanonicalDecimalString(obj.authorityEpoch, "owner.authorityEpoch");
 
   return {
     authorityKey,
-    surfaceKey,
+    grantKey,
     authorityEpoch,
   };
 }

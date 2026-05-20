@@ -16,7 +16,7 @@ describe("@exclave/control-plane binding failure projection", () => {
   it("projects bindingInvalidated with invalidationReason", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-1",
-      surfaceKey: "surf-1",
+      grantKey: "surf-1",
       authorityEpoch: 42n,
     });
     const ready = markAuthorityBindingReady(binding);
@@ -24,7 +24,7 @@ describe("@exclave/control-plane binding failure projection", () => {
 
     const validity = validateAuthorityBinding(invalid, {
       authorityKey: "auth-1",
-      surfaceKey: "surf-1",
+      grantKey: "surf-1",
       authorityEpoch: 42n,
     });
     expect(validity.ok).toBe(false);
@@ -43,14 +43,14 @@ describe("@exclave/control-plane binding failure projection", () => {
   it("projects authorityEpochMismatch with expected", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-1",
-      surfaceKey: "surf-1",
+      grantKey: "surf-1",
       authorityEpoch: 1n,
     });
     const ready = markAuthorityBindingReady(binding);
 
     const validity = validateAuthorityBinding(ready, {
       authorityKey: "auth-1",
-      surfaceKey: "surf-1",
+      grantKey: "surf-1",
       authorityEpoch: 2n,
     });
     expect(validity.ok).toBe(false);
@@ -68,21 +68,21 @@ describe("@exclave/control-plane binding failure projection", () => {
     if (d.expected === undefined || d.expected === null) return;
     const expected = d.expected as Record<string, unknown>;
     expect(expected.authorityKey).toBe("auth-1");
-    expect(expected.surfaceKey).toBe("surf-1");
+    expect(expected.grantKey).toBe("surf-1");
     expect(expected.authorityEpoch).toBe("2");
   });
 
   it("projects authorityEpoch values as decimal strings", () => {
     const binding = createAuthorityBinding({
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     const ready = markAuthorityBindingReady(binding);
 
     const validity = validateAuthorityBinding(ready, {
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 100n,
     });
     expect(validity.ok).toBe(false);
@@ -110,7 +110,7 @@ describe("@exclave/control-plane binding failure projection", () => {
         rebindRequired: true,
         binding: {
           authorityKey: "ak",
-          surfaceKey: "sk",
+          grantKey: "sk",
           authorityEpoch: -1n,
           state: { kind: "opening" },
         },
@@ -126,13 +126,13 @@ describe("@exclave/control-plane binding failure projection", () => {
         rebindRequired: true,
         binding: {
           authorityKey: "ak",
-          surfaceKey: "sk",
+          grantKey: "sk",
           authorityEpoch: 1n,
           state: { kind: "ready" },
         },
         expected: {
           authorityKey: "ak",
-          surfaceKey: "sk",
+          grantKey: "sk",
           authorityEpoch: -1n,
         },
       }),
@@ -142,7 +142,7 @@ describe("@exclave/control-plane binding failure projection", () => {
   it("projected binding failure details pass response envelope validation", () => {
     const binding = createAuthorityBinding({
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     const ready = markAuthorityBindingReady(binding);
@@ -150,7 +150,7 @@ describe("@exclave/control-plane binding failure projection", () => {
 
     const validity = validateAuthorityBinding(invalid, {
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     expect(validity.ok).toBe(false);
@@ -168,7 +168,7 @@ describe("@exclave/control-plane binding failure projection", () => {
   it("projected details contain no bigint after JSON.stringify/parse", () => {
     const binding = createAuthorityBinding({
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     const ready = markAuthorityBindingReady(binding);
@@ -176,7 +176,7 @@ describe("@exclave/control-plane binding failure projection", () => {
 
     const validity = validateAuthorityBinding(invalid, {
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     expect(validity.ok).toBe(false);
@@ -200,7 +200,7 @@ describe("@exclave/control-plane mutation safety on session failures", () => {
   it("does not mutate session failure objects", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-key",
-      surfaceKey: "surf-key",
+      grantKey: "surf-key",
       authorityEpoch: 7n,
     });
     const ready = markAuthorityBindingReady(binding);
@@ -208,7 +208,7 @@ describe("@exclave/control-plane mutation safety on session failures", () => {
 
     const validity = validateAuthorityBinding(invalid, {
       authorityKey: "auth-key",
-      surfaceKey: "surf-key",
+      grantKey: "surf-key",
       authorityEpoch: 7n,
     });
     expect(validity.ok).toBe(false);
@@ -230,7 +230,7 @@ describe("@exclave/control-plane conformance: binding failure round-trips throug
   it("preserves bindingInvalidated failure through JSON round-trip", () => {
     const binding = createAuthorityBinding({
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     const ready = markAuthorityBindingReady(binding);
@@ -238,7 +238,7 @@ describe("@exclave/control-plane conformance: binding failure round-trips throug
 
     const validity = validateAuthorityBinding(invalid, {
       authorityKey: "ak",
-      surfaceKey: "sk",
+      grantKey: "sk",
       authorityEpoch: 42n,
     });
     expect(validity.ok).toBe(false);

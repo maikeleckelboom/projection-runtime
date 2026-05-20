@@ -3,7 +3,7 @@
 Product-neutral binding validity fence.
 
 Answers whether an already-opened binding may be used for the expected
-authorityKey, surfaceKey, and authorityEpoch.
+authorityKey, grantKey, and authorityEpoch.
 
 Seqlock proves a publication was not torn.
 Session validity proves the binding still belongs to the current authority
