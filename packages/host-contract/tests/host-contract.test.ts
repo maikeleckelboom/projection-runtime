@@ -51,7 +51,7 @@ import {
 function validAuthorityRef(): HostAuthorityRef {
   return {
     authorityKey: "auth-1",
-    grantKey: "surf-1",
+    grantKey: "grant-1",
     authorityEpoch: "42",
   };
 }
@@ -162,26 +162,26 @@ describe("HostAuthorityRef", () => {
   it("createHostAuthorityRef accepts valid authority ref", () => {
     const authorityRef = createHostAuthorityRef(validAuthorityRef());
     expect(authorityRef.authorityKey).toBe("auth-1");
-    expect(authorityRef.grantKey).toBe("surf-1");
+    expect(authorityRef.grantKey).toBe("grant-1");
     expect(authorityRef.authorityEpoch).toBe("42");
   });
 
   it("createHostAuthorityRefFromBinding converts bigint authorityEpoch to decimal string", () => {
     const binding: AuthorityBinding = createAuthorityBinding({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 9007199254740993n,
     });
     const authorityRef = createHostAuthorityRefFromBinding(binding);
     expect(authorityRef.authorityKey).toBe("auth-1");
-    expect(authorityRef.grantKey).toBe("surf-1");
+    expect(authorityRef.grantKey).toBe("grant-1");
     expect(authorityRef.authorityEpoch).toBe("9007199254740993");
   });
 
   it("rejects number authorityEpoch", () => {
     const result = validateHostAuthorityRef({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 42,
     });
     expect(result.ok).toBe(false);
@@ -194,7 +194,7 @@ describe("HostAuthorityRef", () => {
   it("rejects bigint authorityEpoch", () => {
     const result = validateHostAuthorityRef({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 42n,
     });
     expect(result.ok).toBe(false);
@@ -208,7 +208,7 @@ describe("HostAuthorityRef", () => {
     for (const epoch of accepted) {
       const result = validateHostAuthorityRef({
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: epoch,
       });
       expect(result.ok).toBe(true);
@@ -220,7 +220,7 @@ describe("HostAuthorityRef", () => {
     for (const epoch of rejected) {
       const result = validateHostAuthorityRef({
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: epoch,
       });
       expect(result.ok).toBe(false);
@@ -233,7 +233,7 @@ describe("HostAuthorityRef", () => {
   it("rejects extra keys and symbol keys", () => {
     const obj = {
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: "0",
       extra: true,
     };
@@ -246,7 +246,7 @@ describe("HostAuthorityRef", () => {
 
     const resultSymbol = validateHostAuthorityRef({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: "0",
       [Symbol("x")]: 1,
     });
@@ -259,7 +259,7 @@ describe("HostAuthorityRef", () => {
   it("rejects class instance and accessor/getter input", () => {
     class FakeOwner {
       authorityKey = "auth-1";
-      grantKey = "surf-1";
+      grantKey = "grant-1";
       get authorityEpoch() {
         return "0";
       }
@@ -282,7 +282,7 @@ describe("HostAuthorityRef", () => {
     for (const epoch of [0n, 1n, 42n, 9007199254740993n]) {
       const binding = createAuthorityBinding({
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: epoch,
       });
       const authorityRef = createHostAuthorityRefFromBinding(binding);
@@ -293,7 +293,7 @@ describe("HostAuthorityRef", () => {
   it("rejects -1n from binding", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: -1n,
     });
     expect(() => createHostAuthorityRefFromBinding(binding)).toThrow();
@@ -302,7 +302,7 @@ describe("HostAuthorityRef", () => {
   it("authorityRef-from-binding output authorityEpoch is a string", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 42n,
     });
     const authorityRef = createHostAuthorityRefFromBinding(binding);
@@ -312,7 +312,7 @@ describe("HostAuthorityRef", () => {
   it("authorityRef-from-binding output does not include state", () => {
     const binding = createAuthorityBinding({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 42n,
     });
     const authorityRef = createHostAuthorityRefFromBinding(binding);
@@ -959,7 +959,7 @@ describe("HostGrantInvalidatedEnvelope", () => {
       contractVersion: HOST_CONTRACT_VERSION,
       authority: {
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: 42n,
       },
       reason: "grantRevoked",
@@ -1104,11 +1104,11 @@ describe("createHostGrant", () => {
 
     expect(grant.kind).toBe("host.grant");
     expect(grant.authority.authorityKey).toBe("auth-1");
-    expect(grant.authority.grantKey).toBe("surf-1");
+    expect(grant.authority.grantKey).toBe("grant-1");
     expect(grant.authority.authorityEpoch).toBe("42");
 
     expect(grant.expectedBinding.authorityKey).toBe("auth-1");
-    expect(grant.expectedBinding.grantKey).toBe("surf-1");
+    expect(grant.expectedBinding.grantKey).toBe("grant-1");
     expect(grant.expectedBinding.authorityEpoch).toBe(42n);
   });
 
@@ -1317,7 +1317,7 @@ describe("createHostGrant", () => {
     const grant = createHostGrant(grantDescriptor);
 
     expect(grant.authority.authorityKey).toBe("auth-1");
-    expect(grant.authority.grantKey).toBe("surf-1");
+    expect(grant.authority.grantKey).toBe("grant-1");
     expect(grant.authority.authorityEpoch).toBe("42");
     expect(grant.expectedBinding.authorityEpoch).toBe(42n);
     expect(grant.hot[0].hotRegionKey).toBe("hr-1");
@@ -1354,7 +1354,7 @@ describe("createHostGrant", () => {
     resourcePlaneAny.readChunkOperationKey = "tampered";
 
     expect(grant.authority.authorityKey).toBe("auth-1");
-    expect(grant.authority.grantKey).toBe("surf-1");
+    expect(grant.authority.grantKey).toBe("grant-1");
     expect(grant.authority.authorityEpoch).toBe("42");
     expect(grant.expectedBinding.authorityEpoch).toBe(42n);
     expect(grant.hot[0].hotRegionKey).toBe("hr-1");
@@ -1374,7 +1374,7 @@ describe("createHostGrant", () => {
         contractVersion: HOST_CONTRACT_VERSION,
         authority: {
           authorityKey: "auth-1",
-          grantKey: "surf-1",
+          grantKey: "grant-1",
           authorityEpoch: "42",
           extra: true,
         },
@@ -1385,7 +1385,7 @@ describe("createHostGrant", () => {
       createHostGrant({
         kind: "host.grantDescriptor",
         contractVersion: HOST_CONTRACT_VERSION,
-        authority: { authorityKey: "", grantKey: "surf-1", authorityEpoch: "42" },
+        authority: { authorityKey: "", grantKey: "grant-1", authorityEpoch: "42" },
       } as HostGrantDescriptor),
     ).toThrow();
   });
@@ -1395,21 +1395,21 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
   it("converts canonical decimal string authorityEpoch to bigint", () => {
     const binding: AuthorityBinding = createAuthorityBinding({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: 42n,
     });
     const authorityRef = createHostAuthorityRefFromBinding(binding);
     const expectation = createBindingExpectationFromHostAuthorityRef(authorityRef);
 
     expect(expectation.authorityKey).toBe("auth-1");
-    expect(expectation.grantKey).toBe("surf-1");
+    expect(expectation.grantKey).toBe("grant-1");
     expect(expectation.authorityEpoch).toBe(42n);
   });
 
   it("handles epoch 0", () => {
     const authorityRef = createHostAuthorityRef({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: "0",
     });
     const expectation = createBindingExpectationFromHostAuthorityRef(authorityRef);
@@ -1420,7 +1420,7 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
   it("handles epoch exceeding Number.MAX_SAFE_INTEGER", () => {
     const authorityRef = createHostAuthorityRef({
       authorityKey: "auth-1",
-      grantKey: "surf-1",
+      grantKey: "grant-1",
       authorityEpoch: "9007199254740993",
     });
     const expectation = createBindingExpectationFromHostAuthorityRef(authorityRef);
@@ -1434,7 +1434,7 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
       expect(() =>
         createBindingExpectationFromHostAuthorityRef({
           authorityKey: "auth-1",
-          grantKey: "surf-1",
+          grantKey: "grant-1",
           authorityEpoch: epoch,
         }),
       ).toThrow();
@@ -1445,7 +1445,7 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
     expect(() =>
       createBindingExpectationFromHostAuthorityRef({
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: 42 as unknown as string,
       }),
     ).toThrow();
@@ -1455,7 +1455,7 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
     expect(() =>
       createBindingExpectationFromHostAuthorityRef({
         authorityKey: "",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: "1",
       }),
     ).toThrow();
@@ -1475,7 +1475,7 @@ describe("createBindingExpectationFromHostAuthorityRef", () => {
     expect(() =>
       createBindingExpectationFromHostAuthorityRef({
         authorityKey: "auth-1",
-        grantKey: "surf-1",
+        grantKey: "grant-1",
         authorityEpoch: "1",
         extra: true,
       } as HostAuthorityRef),

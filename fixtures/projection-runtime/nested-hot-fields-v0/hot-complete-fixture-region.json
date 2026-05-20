@@ -1,0 +1,36 @@
+{
+  "blockABytesHex": "53514c4b01000000f4e3b9bbfd29130a8680695508edd20e9f5c5e58673d56a173f98d01fba7900647abe0f97384c05fcc2901608d71116504000000300000000000000000000000",
+  "blockBBytesHex": "020000000000000007000000030000002a00000000000000",
+  "completeFixtureRegionBytesHex": "53514c4b01000000f4e3b9bbfd29130a8680695508edd20e9f5c5e58673d56a173f98d01fba7900647abe0f97384c05fcc2901608d71116504000000300000000000000000000000020000000000000007000000030000002a0000000000000000000000000059400000000000006940010000000000c03f",
+  "contractKey": "fixture.nestedHotFields",
+  "decoded": {
+    "blockA": {
+      "contractKeyHashHex": "f4e3b9bbfd29130a8680695508edd20e",
+      "fieldCount": 4,
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "6511718d600129cc",
+      "instanceKeyHashHex": "9f5c5e58673d56a173f98d01fba79006",
+      "mutableRegionByteLength": 48,
+      "regionMagicHex": "53514c4b",
+      "reservedHex": "0000000000000000",
+      "semanticVersion": "5fc08473f9e0ab47"
+    },
+    "blockB": {
+      "baselineEpoch": 7,
+      "continuityGeneration": 3,
+      "publicationSequence": "000000000000002a",
+      "seqlockCounter": "0000000000000002"
+    },
+    "fieldValues": {
+      "meters.left": 100,
+      "meters.right": 200,
+      "status.active": true,
+      "status.speed": 1.5
+    }
+  },
+  "fieldBytesHex": "00000000000059400000000000006940010000000000c03f",
+  "fixtureKind": "hot-complete-fixture-region",
+  "hotLayoutVersion": "6511718d600129cc",
+  "instanceKey": "nested-hot-fields-v0.instance",
+  "totalRegionByteLength": 120
+}

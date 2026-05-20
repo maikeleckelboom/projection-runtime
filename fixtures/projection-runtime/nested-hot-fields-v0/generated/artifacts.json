@@ -1,0 +1,19 @@
+{
+  "artifactManifestVersion": 1,
+  "fixtureName": "nested-hot-fields-v0",
+  "contractKey": "fixture.nestedHotFields",
+  "symbolStem": "NestedHotFields",
+  "hotAbiVersion": 1,
+  "hotLayoutVersion": "6511718d600129cc",
+  "source": {
+    "hotLayoutManifest": "../hot-layout-manifest.json",
+    "hotBlockAFixture": "../hot-block-a-fixture.json",
+    "hotCompleteFixtureRegion": "../hot-complete-fixture-region.json",
+    "resolvedContract": "../resolved-contract.json"
+  },
+  "artifacts": {
+    "reader": "hot-reader.ts",
+    "rustWriter": "hot_writer.rs",
+    "writer": "hot-writer.ts"
+  }
+}

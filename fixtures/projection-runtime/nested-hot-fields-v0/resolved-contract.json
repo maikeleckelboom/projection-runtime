@@ -1,0 +1,111 @@
+{
+  "hotLayoutVersion": "6511718d600129cc",
+  "laneManifests": {
+    "hot": {
+      "baselineEpochOffset": 80,
+      "blockASize": 72,
+      "blockBStartOffset": 72,
+      "continuityGenOffset": 84,
+      "contractKey": "fixture.nestedHotFields",
+      "fieldDataOrigin": 96,
+      "fields": [
+        {
+          "absoluteOffset": 96,
+          "alignment": 8,
+          "byteSpan": 8,
+          "dotPath": "meters.left",
+          "fieldId": 1923665339,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f64"
+          }
+        },
+        {
+          "absoluteOffset": 104,
+          "alignment": 8,
+          "byteSpan": 8,
+          "dotPath": "meters.right",
+          "fieldId": 1823965422,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f64"
+          }
+        },
+        {
+          "absoluteOffset": 112,
+          "alignment": 1,
+          "byteSpan": 1,
+          "dotPath": "status.active",
+          "fieldId": 2386138137,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "bool"
+          }
+        },
+        {
+          "absoluteOffset": 116,
+          "alignment": 4,
+          "byteSpan": 4,
+          "dotPath": "status.speed",
+          "fieldId": 3281089916,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f32"
+          }
+        }
+      ],
+      "hotAbiVersion": 1,
+      "hotLayoutVersion": "6511718d600129cc",
+      "mutableRegionByteLength": 48,
+      "publicationSeqOffset": 88,
+      "reservations": [],
+      "seqlockOffset": 72,
+      "totalRegionByteLength": 120
+    }
+  },
+  "manifest": {
+    "family": "replaceable-snapshot",
+    "fields": [
+      {
+        "dotPath": "meters.left",
+        "fieldId": 1923665339,
+        "shape": {
+          "kind": "FixedScalar",
+          "type": "f64"
+        }
+      },
+      {
+        "dotPath": "meters.right",
+        "fieldId": 1823965422,
+        "shape": {
+          "kind": "FixedScalar",
+          "type": "f64"
+        }
+      },
+      {
+        "dotPath": "status.active",
+        "fieldId": 2386138137,
+        "shape": {
+          "kind": "FixedScalar",
+          "type": "bool"
+        }
+      },
+      {
+        "dotPath": "status.speed",
+        "fieldId": 3281089916,
+        "shape": {
+          "kind": "FixedScalar",
+          "type": "f32"
+        }
+      }
+    ],
+    "key": "fixture.nestedHotFields",
+    "lanes": {
+      "hot": {
+        "codec": "mapped-fixed",
+        "reservations": []
+      }
+    }
+  },
+  "semanticVersion": "5fc08473f9e0ab47"
+}

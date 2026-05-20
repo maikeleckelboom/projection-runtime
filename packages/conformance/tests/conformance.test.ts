@@ -38,6 +38,12 @@ import {
   readHotExchangeSnapshotUnchecked,
 } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-reader.ts";
 import { createHotExchangeWriter } from "../../../fixtures/projection-runtime/hot-exchange-v0/generated/hot-writer.ts";
+import {
+  createNestedHotFieldsReader,
+  type NestedHotFieldsSnapshot,
+  readNestedHotFieldsSnapshotUnchecked,
+} from "../../../fixtures/projection-runtime/nested-hot-fields-v0/generated/hot-reader.ts";
+import { createNestedHotFieldsWriter } from "../../../fixtures/projection-runtime/nested-hot-fields-v0/generated/hot-writer.ts";
 import { writeGeneratedHotReader } from "../../../scripts/projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "../../../scripts/projection-runtime/write-generated-hot-writer.mts";
 import { writeGeneratedRustHotWriter } from "../../../scripts/projection-runtime/write-generated-rust-hot-writer.mts";
@@ -1859,7 +1865,7 @@ describe("@exclave/conformance execution", () => {
   });
 
   it("keeps generated hot reader sources zero-discovery", () => {
-    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+    const sources = ["deck-runtime-v0", "hot-exchange-v0", "nested-hot-fields-v0"].map((fixtureName) =>
       readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot-reader.ts"), "utf8"),
     );
 
@@ -1878,7 +1884,7 @@ describe("@exclave/conformance execution", () => {
   });
 
   it("keeps generated hot writer sources zero-discovery", () => {
-    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+    const sources = ["deck-runtime-v0", "hot-exchange-v0", "nested-hot-fields-v0"].map((fixtureName) =>
       readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot-writer.ts"), "utf8"),
     );
 
@@ -1898,7 +1904,7 @@ describe("@exclave/conformance execution", () => {
   });
 
   it("keeps generated Rust hot writer sources zero-discovery", () => {
-    const sources = ["deck-runtime-v0", "hot-exchange-v0"].map((fixtureName) =>
+    const sources = ["deck-runtime-v0", "hot-exchange-v0", "nested-hot-fields-v0"].map((fixtureName) =>
       readFileSync(resolve(fixtureRoot, fixtureName, "generated/hot_writer.rs"), "utf8"),
     );
 
@@ -2103,9 +2109,119 @@ describe("@exclave/conformance execution", () => {
     }, "variant not-safe is not supported by generated Rust writer v0");
   });
 
+  describe("nested-hot-fields-v0 through the full authored-contract-to-generated-artifact pipeline", () => {
+    it("passes nested-hot-fields-v0 conformance", async () => {
+      const result = await runProjectionRuntimeFixture("nested-hot-fields-v0");
+
+      expect(result).toEqual({
+        fixtureName: "nested-hot-fields-v0",
+        fixturePath: "fixtures/projection-runtime/nested-hot-fields-v0",
+        passed: true,
+        failures: [],
+      });
+    });
+
+    it("canonical manifest preserves dotted dotPath identity after compilation", async () => {
+      const fixture = await loadProjectionRuntimeFixture("nested-hot-fields-v0");
+      const canonicalManifest = cloneRecord(fixture.artifacts.canonicalManifest);
+      const fieldsArray = canonicalManifest.fields as readonly Record<string, unknown>[];
+
+      expect(fieldsArray).toBeDefined();
+      const dotPaths = fieldsArray.map((field) => field.dotPath).sort();
+      expect(dotPaths).toEqual(["meters.left", "meters.right", "status.active", "status.speed"]);
+    });
+
+    it("hot layout manifest preserves dotted dotPath identity after compilation", async () => {
+      const fixture = await loadProjectionRuntimeFixture("nested-hot-fields-v0");
+      const hotLayoutManifest = cloneRecord(fixture.artifacts.hotLayoutManifest);
+      const fieldsArray = hotLayoutManifest.fields as readonly Record<string, unknown>[];
+
+      expect(fieldsArray).toBeDefined();
+      const dotPaths = fieldsArray.map((field) => field.dotPath).sort();
+      expect(dotPaths).toEqual(["meters.left", "meters.right", "status.active", "status.speed"]);
+    });
+
+    it("reads nested-hot-fields-v0 through the generated hot reader using derived local property names", async () => {
+      const fixture = await loadProjectionRuntimeFixture("nested-hot-fields-v0");
+      const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const reader = createNestedHotFieldsReader(region, {
+        instanceKey: "nested-hot-fields-v0.instance",
+      });
+
+      const result = reader.tryRead({
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        throw new Error("expected generated nested-hot-fields reader to succeed");
+      }
+      expect(result.sequence).toBe(2n);
+
+      // Assert generated local property names (derived safe names)
+      expect(result.snapshot.statusSpeed).toBeCloseTo(1.5);
+      expect(result.snapshot.statusActive).toBe(true);
+      expect(result.snapshot.metersLeft).toBeCloseTo(100);
+      expect(result.snapshot.metersRight).toBeCloseTo(200);
+
+      // Assert unchecked read produces the same snapshot
+      expect(readNestedHotFieldsSnapshotUnchecked(region)).toEqual(result.snapshot);
+    });
+
+    it("publishes nested-hot-fields-v0 through the generated writer and reads it back", async () => {
+      const fixture = await loadProjectionRuntimeFixture("nested-hot-fields-v0");
+      const completeRegion = cloneRecord(fixture.artifacts.hotCompleteFixtureRegion);
+      const bytes = hexToBytes(completeRegion.completeFixtureRegionBytesHex as string);
+      const region = copyIntoSharedRegion(bytes);
+      const seqlock = blockBSeqlockView(region);
+      const publicationSequence = blockBPublicationSequenceView(region);
+      const previousSeqlockCounter = Atomics.load(seqlock, 0);
+      const previousPublicationSequence = Atomics.load(publicationSequence, 0);
+      const writer = createNestedHotFieldsWriter(region, {
+        instanceKey: "nested-hot-fields-v0.instance",
+      });
+
+      const snapshot: NestedHotFieldsSnapshot = {
+        statusSpeed: 0.5,
+        statusActive: false,
+        metersLeft: 42,
+        metersRight: 84,
+      };
+
+      const publishResult = writer.publish(snapshot);
+      const reader = createNestedHotFieldsReader(region, {
+        instanceKey: "nested-hot-fields-v0.instance",
+      });
+      const readResult = reader.tryRead({
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      });
+
+      expect(publishResult).toEqual({
+        previousSeqlockCounter,
+        seqlockCounter: previousSeqlockCounter + 2n,
+        previousPublicationSequence,
+        publicationSequence: previousPublicationSequence + 1n,
+      });
+      expect(Atomics.load(seqlock, 0)).toBe(previousSeqlockCounter + 2n);
+      expect(Atomics.load(publicationSequence, 0)).toBe(previousPublicationSequence + 1n);
+      expect(readResult.ok).toBe(true);
+      if (!readResult.ok) {
+        throw new Error("expected generated nested-hot-fields round trip to succeed");
+      }
+      expect(readResult.sequence).toBe(previousSeqlockCounter + 2n);
+      expect(readResult.snapshot).toEqual(snapshot);
+      expect(readNestedHotFieldsSnapshotUnchecked(region)).toEqual(snapshot);
+    });
+  });
+
   describe("@exclave/conformance consumer binding source", () => {
     const consumerBindingProfiles = [
       { fixtureName: "hot-basic-v0", symbolStem: "HotBasic", constStem: "hotBasic" },
+      { fixtureName: "nested-hot-fields-v0", symbolStem: "NestedHotFields", constStem: "nestedHotFields" },
       { fixtureName: "deck-runtime-v0", symbolStem: "DeckRuntime", constStem: "deckRuntime" },
       {
         fixtureName: "hot-exchange-v0",
@@ -2340,6 +2456,7 @@ describe("@exclave/conformance execution", () => {
       "hot-basic-v0",
       "deck-runtime-v0",
       "hot-exchange-v0",
+      "nested-hot-fields-v0",
     ]);
 
     execFileSync("node", ["scripts/write-projection-runtime-fixture.mts"], {
@@ -2348,7 +2465,7 @@ describe("@exclave/conformance execution", () => {
     });
 
     expect(
-      readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0"]),
+      readGeneratedFixtureFiles(["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0", "nested-hot-fields-v0"]),
     ).toEqual(before);
   });
 
@@ -2896,7 +3013,7 @@ function decodeHotLayoutManifestFixture(value: unknown): HotLayoutManifest {
 }
 
 function readGeneratedFixtureFiles(
-  fixtureNames: readonly ["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0"][number][],
+  fixtureNames: readonly ["hot-basic-v0", "deck-runtime-v0", "hot-exchange-v0", "nested-hot-fields-v0"][number][],
 ): Record<string, string> {
   return Object.fromEntries(
     fixtureNames.flatMap((fixtureName) =>
@@ -2909,9 +3026,9 @@ function readGeneratedFixtureFiles(
 }
 
 function generatedFixtureFilesFor(
-  fixtureName: "hot-basic-v0" | "deck-runtime-v0" | "hot-exchange-v0",
+  fixtureName: "hot-basic-v0" | "deck-runtime-v0" | "hot-exchange-v0" | "nested-hot-fields-v0",
 ): readonly string[] {
-  if (fixtureName === "deck-runtime-v0" || fixtureName === "hot-exchange-v0") {
+  if (fixtureName === "deck-runtime-v0" || fixtureName === "hot-exchange-v0" || fixtureName === "nested-hot-fields-v0") {
     return GENERATED_HOT_ARTIFACT_FIXTURE_FILES;
   }
 

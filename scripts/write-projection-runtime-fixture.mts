@@ -45,6 +45,13 @@ type DeckRuntimeSampleValues = {
   readonly transportState: "playing";
 };
 
+type NestedHotFieldsSampleValues = {
+  readonly "status.speed": number;
+  readonly "status.active": boolean;
+  readonly "meters.left": number;
+  readonly "meters.right": number;
+};
+
 type HotExchangeSampleValues = {
   readonly displayName: string;
   readonly gain: number;
@@ -225,6 +232,13 @@ const deckRuntimeSampleValues = {
   transportState: "playing",
 } satisfies DeckRuntimeSampleValues;
 
+const nestedHotFieldsSampleValues = {
+  "status.speed": 1.5,
+  "status.active": true,
+  "meters.left": 100,
+  "meters.right": 200,
+} satisfies NestedHotFieldsSampleValues;
+
 const hotExchangeSampleValues = {
   displayName: "deckA-hot",
   gain: 0.625,
@@ -240,6 +254,11 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
     values: hotBasicSampleValues,
   },
   {
+    fixtureName: "nested-hot-fields-v0",
+    instanceKey: "nested-hot-fields-v0.instance",
+    values: nestedHotFieldsSampleValues,
+  },
+  {
     fixtureName: "deck-runtime-v0",
     instanceKey: "deck-runtime-v0.instance",
     values: deckRuntimeSampleValues,
@@ -252,6 +271,10 @@ const fixtureProfiles: readonly FixtureProfile<HotFieldValues>[] = [
 ] as const satisfies readonly FixtureProfile<HotFieldValues>[];
 
 const generatedHotArtifactProfiles: readonly GeneratedHotArtifactProfile[] = [
+  {
+    fixtureName: "nested-hot-fields-v0",
+    symbolStem: "NestedHotFields",
+  },
   {
     fixtureName: "deck-runtime-v0",
     symbolStem: "DeckRuntime",
@@ -271,6 +294,10 @@ const generatedConsumerBindingProfiles: readonly GeneratedConsumerBindingProfile
   {
     fixtureName: "hot-basic-v0",
     symbolStem: "HotBasic",
+  },
+  {
+    fixtureName: "nested-hot-fields-v0",
+    symbolStem: "NestedHotFields",
   },
   {
     fixtureName: "deck-runtime-v0",

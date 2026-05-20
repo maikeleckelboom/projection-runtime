@@ -1,0 +1,31 @@
+{
+  "family": "replaceable-snapshot",
+  "fields": {
+    "status": {
+      "speed": {
+        "kind": "fixed-scalar",
+        "type": "f32"
+      },
+      "active": {
+        "kind": "fixed-scalar",
+        "type": "bool"
+      }
+    },
+    "meters": {
+      "left": {
+        "kind": "fixed-scalar",
+        "type": "f64"
+      },
+      "right": {
+        "kind": "fixed-scalar",
+        "type": "f64"
+      }
+    }
+  },
+  "key": "fixture.nestedHotFields",
+  "lanes": {
+    "hot": {
+      "reservations": []
+    }
+  }
+}

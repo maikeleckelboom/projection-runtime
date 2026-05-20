@@ -1,0 +1,23 @@
+{
+  "contractKey": "fixture.nestedHotFields",
+  "expected": {
+    "decodedValues": {
+      "meters.left": 100,
+      "meters.right": 200,
+      "status.active": true,
+      "status.speed": 1.5
+    },
+    "fieldBytesHex": "00000000000059400000000000006940010000000000c03f",
+    "fixtureRegionBytesHex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000059400000000000006940010000000000c03f"
+  },
+  "fieldDataOrigin": 96,
+  "fixtureKind": "hot-byte-fixture",
+  "hotLayoutVersion": "6511718d600129cc",
+  "totalRegionByteLength": 120,
+  "values": {
+    "meters.left": 100,
+    "meters.right": 200,
+    "status.active": true,
+    "status.speed": 1.5
+  }
+}

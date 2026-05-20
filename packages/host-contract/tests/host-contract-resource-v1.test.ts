@@ -32,7 +32,7 @@ function assertNoByteCarrier(value: unknown, path: string): void {
 describe("host-contract resource v1 crossing", () => {
   const authorityRef = createHostAuthorityRef({
     authorityKey: "authority.fixture",
-    grantKey: "surface.fixture",
+    grantKey: "grant.fixture",
     authorityEpoch: "7",
   });
 
