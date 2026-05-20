@@ -987,7 +987,7 @@ describe("In-process fixture host/client lifecycle", () => {
     });
   });
 
-  describe("Stale owner epoch in grant prevents hot read before reader.tryRead", () => {
+  describe("Stale authority epoch in grant prevents hot read before reader.tryRead", () => {
     it("epoch 2 grant vs epoch 1 binding fails with authorityEpochMismatch; tryRead not called", () => {
       const host = createDeckRuntimeFixtureHost();
       const client = createDeckRuntimeFixtureClient();
@@ -1037,11 +1037,11 @@ describe("In-process fixture host/client lifecycle", () => {
         /invalidation authority does not match/,
       );
 
-      const surfaceMutated = JSON.parse(JSON.stringify(invalidationEnvelope));
-      surfaceMutated.authority.grantKey = "foreign-surface-key";
-      expect(() =>
-        client.applyInvalidation(surfaceMutated as HostGrantInvalidatedEnvelope),
-      ).toThrow(/invalidation authority does not match/);
+      const keyMutated = JSON.parse(JSON.stringify(invalidationEnvelope));
+      keyMutated.authority.grantKey = "foreign-grant-key";
+      expect(() => client.applyInvalidation(keyMutated as HostGrantInvalidatedEnvelope)).toThrow(
+        /invalidation authority does not match/,
+      );
 
       const { region } = host.getHotRegionForTest();
       const result = client.readHot(grant, region);

@@ -62,9 +62,9 @@ import {
   validateHostGrantReadyEnvelope,
 } from "../src/index";
 
-const OWNER = {
+const IDENTITY = {
   authorityKey: "authority.alpha",
-  grantKey: "surface.deck-a",
+  grantKey: "grant.deck-a",
   authorityEpoch: "1",
 } as const;
 
@@ -113,8 +113,8 @@ function assertEndpointCarriesOnlyMetadata(value: unknown, path: string): void {
 function createAuthorityBindingReady(): AuthorityBinding {
   return markAuthorityBindingReady(
     createAuthorityBinding({
-      authorityKey: OWNER.authorityKey,
-      grantKey: OWNER.grantKey,
+      authorityKey: IDENTITY.authorityKey,
+      grantKey: IDENTITY.grantKey,
       authorityEpoch: 1n,
     }),
   );
@@ -587,9 +587,9 @@ describe("endpoint grant readiness", () => {
     const grant = client.acceptGrantReady();
 
     expect(grant.kind).toBe("host.grant");
-    expect(grant.authority.authorityKey).toBe(OWNER.authorityKey);
-    expect(grant.authority.grantKey).toBe(OWNER.grantKey);
-    expect(grant.authority.authorityEpoch).toBe(OWNER.authorityEpoch);
+    expect(grant.authority.authorityKey).toBe(IDENTITY.authorityKey);
+    expect(grant.authority.grantKey).toBe(IDENTITY.grantKey);
+    expect(grant.authority.authorityEpoch).toBe(IDENTITY.authorityEpoch);
     expect(grant.expectedBinding.authorityEpoch).toBe(1n);
     expect(grant.hot).toHaveLength(1);
     expect(grant.hot[0].hotRegionKey).toBe("hot.deck-runtime");
@@ -763,7 +763,7 @@ describe("endpoint invalidation", () => {
       contractVersion: HOST_CONTRACT_VERSION,
       authority: {
         authorityKey: "authority.foreign",
-        grantKey: "surface.foreign",
+        grantKey: "grant.foreign",
         authorityEpoch: "1",
       },
       reason: "authorityRestarted",
@@ -788,8 +788,8 @@ describe("endpoint invalidation", () => {
       kind: "host.grantInvalidated",
       contractVersion: HOST_CONTRACT_VERSION,
       authority: {
-        authorityKey: OWNER.authorityKey,
-        grantKey: OWNER.grantKey,
+        authorityKey: IDENTITY.authorityKey,
+        grantKey: IDENTITY.grantKey,
         authorityEpoch: "2",
       },
       reason: "authorityRestarted",

@@ -1,7 +1,7 @@
 {
   "name": "@exclave/session",
   "version": "0.0.0",
-  "description": "Minimal binding validity fence. Answers whether an already-opened binding may be used for the expected authority key, surface key, and authority epoch.",
+  "description": "Minimal binding validity fence. Answers whether an already-opened binding may be used for the expected authority key, grant key, and authority epoch.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

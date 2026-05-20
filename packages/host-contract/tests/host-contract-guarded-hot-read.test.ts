@@ -280,8 +280,8 @@ function deriveExpectedDeckRuntimeSnapshot(): DeckRuntimeSnapshot {
 }
 
 describe("Host grant guarded hot reads", () => {
-  describe("ready host surface descriptor permits a guarded generated hot read", () => {
-    it("validates surfaceReady envelope, converts owner to session expectation, guards a DeckRuntimeReader read", () => {
+  describe("ready host grant descriptor permits a guarded generated hot read", () => {
+    it("validates grantReady envelope, converts authority to session expectation, guards a DeckRuntimeReader read", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);
       const readyBinding = markAuthorityBindingReady(binding);
@@ -468,7 +468,7 @@ describe("Host grant guarded hot reads", () => {
     });
   });
 
-  describe("stale owner epoch from host descriptor prevents hot read", () => {
+  describe("stale authority epoch from host descriptor prevents hot read", () => {
     it("stale authorityEpoch in host descriptor survives host-contract validation but fails session guard", () => {
       const identity = deriveFixtureIdentity();
       const binding: AuthorityBinding = createAuthorityBinding(identity);

@@ -207,7 +207,7 @@ function createFixtureHotRegion(): HostHotRegionDescriptor {
 }
 
 describe("HostGrantDescriptor ready composition integration", () => {
-  it("composes a ready host surface descriptor from fixture-derived inputs and survives JSON round-trip", () => {
+  it("composes a ready host grant descriptor from fixture-derived inputs and survives JSON round-trip", () => {
     const identity = deriveFixtureIdentity();
 
     const binding: AuthorityBinding = createAuthorityBinding(identity);
@@ -325,7 +325,7 @@ describe("HostGrantDescriptor ready composition integration", () => {
 });
 
 describe("HostGrantInvalidatedEnvelope invalidation composition integration", () => {
-  it("composes a host surface invalidated envelope from session invalidation and survives JSON round-trip", () => {
+  it("composes a host grant invalidated envelope from session invalidation and survives JSON round-trip", () => {
     const identity = deriveFixtureIdentity();
     const binding = createAuthorityBinding(identity);
     const readyBinding = markAuthorityBindingReady(binding);
@@ -363,7 +363,7 @@ describe("HostGrantInvalidatedEnvelope invalidation composition integration", ()
 });
 
 describe("HostGrantDescriptor stale epoch integration", () => {
-  it("a stale owner epoch survives host-contract grantReady validation but fails session binding validation", () => {
+  it("a stale authority epoch survives host-contract grantReady validation but fails session binding validation", () => {
     const identity = deriveFixtureIdentity();
     const binding = createAuthorityBinding(identity);
     const readyBinding = markAuthorityBindingReady(binding);

@@ -1,6 +1,6 @@
 # @exclave/host-contract
 
-Product-neutral host boundary contract. Tells a client which authority-owned surface is available and which lane
+Product-neutral host boundary contract. Tells a client which authority-owned grant is available and which lane
 descriptors belong to it.
 
 ## Ownership
