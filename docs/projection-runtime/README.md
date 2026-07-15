@@ -8,6 +8,10 @@ This folder contains the current Exclave projection/runtime boundary specs.
 - Exclave Projection Spine: Canonical Architecture Spec
 - Exclave Hot Lane Codec and Layout Spec
 
+## Production ownership
+
+- [SeqWire Convergence and Production Ownership](seqwire-convergence.md)
+
 ## Runtime companions
 
 - Control Plane Session Rules
@@ -23,16 +27,17 @@ This folder contains the current Exclave projection/runtime boundary specs.
 
 1. Boundary Model
 2. Exclave Projection Spine: Canonical Architecture Spec
-3. Exclave Hot Lane Codec and Layout Spec
-4. Control Plane Session Rules
-5. Cold Reopen Sequence
-6. Warm Codec v1
-7. Resource Plane v1
-8. Hot Lane Consumer Runtime
-9. Hot SAB Lifecycle
-10. Compiler and Conformance Layout
-11. Publication Subscription Lifecycle
-12. Redesign Migration Note, for historical context only
+3. SeqWire Convergence and Production Ownership
+4. Exclave Hot Lane Codec and Layout Spec
+5. Control Plane Session Rules
+6. Cold Reopen Sequence
+7. Warm Codec v1
+8. Resource Plane v1
+9. Hot Lane Consumer Runtime
+10. Hot SAB Lifecycle
+11. Compiler and Conformance Layout
+12. Publication Subscription Lifecycle
+13. Redesign Migration Note, for historical context only
 
 ## Historical context
 

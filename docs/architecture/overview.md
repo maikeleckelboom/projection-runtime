@@ -18,7 +18,8 @@ low-latency publication surfaces, but shared memory is not the whole system.
 - `control-plane` -> `base`, `session`
 - `resource` -> `base`, `session`, `control-plane`
 - `warm` -> `base`, `session`
-- `host-contract` -> `base`, `session`, `control-plane`, `warm`, `resource`
+- `publication` -> `base`, `session`, `warm`
+- `host-contract` -> `base`, `session`, `control-plane`, `publication`, `warm`, `resource`
 
 ## Package ownership
 
@@ -35,7 +36,8 @@ low-latency publication surfaces, but shared memory is not the whole system.
 | `@exclave/session`       | minimal product-neutral binding validity fence; answers whether a caller may use an already-opened binding for the expected authorityKey, surfaceKey, and authorityEpoch; does not open bindings, allocate regions, publish bytes, transport messages, or manage app lifecycle |
 | `@exclave/control-plane` | JSON-safe request/response envelope shapes for boundary control messages; does not transport messages, dispatch operations, open resources, publish hot bytes, manage sessions, or own product authority semantics |
 | `@exclave/resource`      | resource handle descriptors, read-range contracts, read-range receipts, and resource failures; does not transport bytes, stream data, allocate buffers, read files, decode media, publish hot state, manage sessions, dispatch operations, or own product semantics |
-| `@exclave/warm`          | product-neutral warm frame envelope shapes for observable non-audio-critical state; warm is for progress, invalidation, availability, and projection-change notifications; does not transport frames, subscribe, replay, persist, dispatch, poll, open resources, carry bytes, publish hot state, or own product semantics |
+| `@exclave/warm`          | binary Warm Codec v1 framed-snapshot encoding and decoding, including already-encoded snapshot payload bytes; does not transport frames, subscribe, replay, persist, dispatch, poll, open resources, publish hot state, or own product semantics |
+| `@exclave/publication`   | publication subscribe/ack/invalidation protocol, warm-frame transport attachment shape, and a modeled warm subscription lifecycle; does not implement a production authority, transport, queue, replay, backpressure, or hot-handle lifecycle |
 | `@exclave/host-contract` | product-neutral host boundary contract; tells a client which authority-owned surface is available and which lane descriptors belong to it; connects session, hot, control, warm, and resource lanes without implementing transport, dispatcher, subscriptions, replay, polling, backpressure, byte transfer, resource lifecycle, hot binding, command execution, or product semantics |
 
 ## Out of scope
