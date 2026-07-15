@@ -8,6 +8,10 @@ system.
 
 This repository is a clean public extraction and not a bulk copy of the old research-and-development workspace.
 
+The [SeqWire convergence and production ownership](docs/projection-runtime/seqwire-convergence.md) document records the
+authoritative repository boundary: Exclave is the sole production Electron renderer-to-native Rust architecture, while
+SeqWire is limited to donor material, a possible Exclave-artifact laboratory, or eventual archive.
+
 Currently landed:
 
 - `@exclave/base`
