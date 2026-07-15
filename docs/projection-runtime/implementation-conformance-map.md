@@ -142,6 +142,9 @@ Implemented in source and tests:
 - rejection of non-shared sequence buffers
 - no exposure of torn candidates
 - tests using hot-codec complete fixture regions as caller-provided candidate readers
+- conformance composes generated Rust-written region bytes with the generated TypeScript reader's retained last-good
+  state under forced zero-budget torn and writer-active attempts; malformed writer-active candidate bytes are not
+  decoded or exposed
 
 Gaps:
 
@@ -356,12 +359,19 @@ session, resource, warm codec, and publication subscription foundations.
    represented in projection-runtime fixture/conformance evidence (hot-basic-v0, deck-runtime-v0, hot-exchange-v0).
    Live runtime binding (`bind()`, transport, session, control) remains future work.
 
-2. `test(hot-binding): prove hot handle lifecycle invalidation`
+2. `test(hot-binding): prove hot handle lifecycle invalidation` — **done**.
 
-   Add a focused test showing an invalidated hot handle stops guarded reads even when Block A still validates and the
-   SAB remains reachable.
+   Host-contract guarded-read tests show an invalidated authority binding stops the generated read before it runs even
+   while the fixture-backed SAB remains reachable. This is a modeled guard proof, not a complete hot-handle registry or
+   mapping lifecycle.
 
-3. `test(conformance): broaden warm byte fixture agreement`
+3. `test(conformance): retain Rust-authored last-good under bounded contention` — **done**.
+
+   The generated TypeScript reader now seeds last-good from generated Rust writer bytes, rejects a forced torn
+   candidate, and avoids decoding malformed bytes while the writer-active counter is odd. This proves composition of
+   byte agreement and bounded fallback without claiming native mapped-memory concurrency.
+
+4. `test(conformance): broaden warm byte fixture agreement`
 
    Extend the current warm-payload-v0 Rust/TypeScript payload and full-frame agreement into additional warm fixtures
    as new warm contract shapes are added.

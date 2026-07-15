@@ -15,5 +15,6 @@ from the repo root:
 node scripts/write-projection-runtime-fixture.mts
 ```
 
-This is not runtime binding lifecycle, SAB lifecycle management, host mapping/open/close behavior, Electron integration,
-or Rust/TS cross-language exchange. It is the TypeScript prerequisite before generated bindings or Rust writer work.
+This fixture now participates in generated Rust-to-TypeScript and TypeScript-to-Rust byte exchange tests. Those tests
+prove artifact and byte agreement over fixture buffers; they do not prove runtime binding lifecycle, SAB lifecycle
+management, host mapping/open/close behavior, native mapped-memory concurrency, or Electron integration.

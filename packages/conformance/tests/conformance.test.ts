@@ -24,7 +24,7 @@ import {
   hexToBytes,
 } from "@exclave/hot-codec";
 import ts from "typescript";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   createDeckRuntimeReader,
@@ -1011,6 +1011,70 @@ describe("@exclave/conformance execution", () => {
       readUnusedStemGainSlotBytes(region, hotLayoutManifest, expectedSnapshot.stemGains),
     ).toEqual(new Uint8Array(8));
     expect(readDeckRuntimeSnapshotUnchecked(region)).toEqual(expectedSnapshot);
+
+    const seqlock = blockBSeqlockView(region);
+    view.setFloat32(hotLayoutFieldAbsoluteOffset(hotLayoutManifest, "level"), 0.75, true);
+
+    const originalLoad = Atomics.load;
+    let sequenceLoadCount = 0;
+    const loadSpy = vi.spyOn(Atomics, "load").mockImplementation(((
+      typedArray: BigUint64Array,
+      index: number,
+    ) => {
+      if (
+        typedArray.buffer === seqlock.buffer &&
+        typedArray.byteOffset === seqlock.byteOffset &&
+        index === 0
+      ) {
+        sequenceLoadCount += 1;
+        return sequenceLoadCount === 1 ? 2n : 4n;
+      }
+
+      return originalLoad(typedArray, index);
+    }) as typeof Atomics.load);
+
+    let tornResult: ReturnType<typeof reader.tryRead>;
+    try {
+      tornResult = reader.tryRead({
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      });
+    } finally {
+      loadSpy.mockRestore();
+    }
+
+    expect(sequenceLoadCount).toBe(2);
+    expect(readDeckRuntimeSnapshotUnchecked(region).level).toBe(0.75);
+    expect(tornResult).toEqual({
+      ok: false,
+      snapshot: expectedSnapshot,
+      lastGood: expectedSnapshot,
+      reason: "tornReadBudgetExhausted",
+      writerActivePolls: 0,
+      tornReads: 1,
+      usedFallback: true,
+    });
+
+    view.setUint8(hotLayoutFieldAbsoluteOffset(hotLayoutManifest, "loopActive"), 2);
+    Atomics.store(seqlock, 0, 3n);
+    expect(() => readDeckRuntimeSnapshotUnchecked(region)).toThrow(
+      "loopActive bool byte must be 0 or 1",
+    );
+
+    expect(
+      reader.tryRead({
+        maxWriterActivePolls: 0,
+        maxTornReads: 0,
+      }),
+    ).toEqual({
+      ok: false,
+      snapshot: expectedSnapshot,
+      lastGood: expectedSnapshot,
+      reason: "writerActiveBudgetExhausted",
+      writerActivePolls: 1,
+      tornReads: 0,
+      usedFallback: true,
+    });
   }, 30_000);
 
   it("reads generated Rust-written hot-exchange-v0 hot region bytes through the generated reader", async () => {
@@ -2898,6 +2962,28 @@ function fixedStringFieldLayout(
     throw new Error(`hot layout manifest field "${dotPath}" shape.byteLength must be a number`);
   }
   return { absoluteOffset, byteLength };
+}
+
+function hotLayoutFieldAbsoluteOffset(manifest: Record<string, unknown>, dotPath: string): number {
+  const fields = manifest.fields;
+  if (!Array.isArray(fields)) {
+    throw new Error("hot layout manifest fields must be an array");
+  }
+  const field = fields.find(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      entry.dotPath === dotPath,
+  );
+  if (field === undefined) {
+    throw new Error(`hot layout manifest field "${dotPath}" not found`);
+  }
+  const absoluteOffset = field.absoluteOffset;
+  if (typeof absoluteOffset !== "number") {
+    throw new Error(`hot layout manifest field "${dotPath}" absoluteOffset must be a number`);
+  }
+  return absoluteOffset;
 }
 
 async function expectGeneratedReaderManifestRejected(
