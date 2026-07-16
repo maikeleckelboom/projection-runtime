@@ -40,6 +40,22 @@ low-latency publication surfaces, but shared memory is not the whole system.
 | `@exclave/publication`   | publication subscribe/ack/invalidation protocol, warm-frame transport attachment shape, and a modeled warm subscription lifecycle; does not implement a production authority, transport, queue, replay, backpressure, or hot-handle lifecycle |
 | `@exclave/host-contract` | product-neutral host boundary contract; tells a client which authority-owned surface is available and which lane descriptors belong to it; connects session, hot, control, warm, and resource lanes without implementing transport, dispatcher, subscriptions, replay, polling, backpressure, byte transfer, resource lifecycle, hot binding, command execution, or product semantics |
 
+## Production-shaped integration evidence
+
+The non-public
+[Electron ↔ Rust Warm Authority Profile v0](../projection-runtime/electron-rust-warm-authority-profile-v0.md) now
+implements one complete application path: a standalone Rust authority owns deck state, Electron main supervises and
+brokers a private framed-stdio stream, an isolated bundled preload owns a dedicated `MessagePort`, and a sandboxed
+renderer consumes generated warm snapshots through a narrow API.
+
+The executable proof covers typed control, bounded one-in-flight plus one-pending-latest delivery, renderer reload,
+authority crash and restart, epoch non-reuse, explicit resubscription, continuity rebase, and clean process teardown.
+Warm framed snapshots are the default Electron renderer lane. Hot remains valid for native consumers; direct renderer
+mapping is deferred until measurement demonstrates a concrete need.
+
+This private profile does not change public package ownership, define general Electron application architecture, or add
+a SeqWire, shared-memory, or native-mapping dependency.
+
 ## Out of scope
 
 Exclave does not define:

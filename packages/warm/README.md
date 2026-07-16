@@ -15,7 +15,8 @@ Warm is for progress, invalidation, availability, and projection-change notifica
 - Typed decode and encode failures for malformed lengths, invalid `laneSequencePresent`, invalid UTF-8, oversized
   frames, and invalid payload input.
 - Maximum frame byte-size enforcement before decode.
-- Payload bytes as already-encoded snapshot payload for this slice.
+- Manifest-derived deterministic snapshot payload encode/decode for the supported scalar, enum, vector, string, array,
+  and map shapes.
 
 ## What It Does Not Own
 
@@ -25,5 +26,12 @@ Warm is for progress, invalidation, availability, and projection-change notifica
 - Electron, Tauri, Node, or native bridge.
 - JSON event envelopes or warm frame envelopes.
 - Publication subscribe/ack/rebind/invalidation lifecycle.
-- Full manifest-derived field-value warm payload encoding.
 - Session validity, authority epoch, or stale binding projection.
+
+## Integration Evidence
+
+The non-public
+[Electron ↔ Rust Warm Authority Profile v0](../../docs/projection-runtime/electron-rust-warm-authority-profile-v0.md)
+uses this TypeScript codec in isolated preload and the matching private Rust codec in the standalone authority behind
+canonical publication attachments. Transport, lifecycle, backpressure, and product authority remain integration-owned;
+the executable proof does not move those responsibilities into `@exclave/warm`.

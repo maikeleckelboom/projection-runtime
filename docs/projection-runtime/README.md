@@ -11,6 +11,7 @@ This folder contains the current Exclave projection/runtime boundary specs.
 ## Production ownership
 
 - [SeqWire Convergence and Production Ownership](seqwire-convergence.md)
+- [Electron ↔ Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md)
 
 ## Runtime companions
 
@@ -22,6 +23,7 @@ This folder contains the current Exclave projection/runtime boundary specs.
 - Hot SAB Lifecycle
 - Compiler and Conformance Layout
 - Publication Subscription Lifecycle
+- Electron ↔ Rust Warm Authority Profile v0
 
 ## Recommended reading order
 
@@ -37,7 +39,8 @@ This folder contains the current Exclave projection/runtime boundary specs.
 10. Hot SAB Lifecycle
 11. Compiler and Conformance Layout
 12. Publication Subscription Lifecycle
-13. Redesign Migration Note, for historical context only
+13. Electron ↔ Rust Warm Authority Profile v0
+14. Redesign Migration Note, for historical context only
 
 ## Historical context
 
@@ -71,3 +74,6 @@ The current document set incorporates the pre-ratification alignment work needed
 - Publication Subscription Lifecycle requires an initial complete snapshot after ack, a lane-scoped
   `PublicationSurfaceReadyEvent`, `coldLaneNotRatified` for cold subscription attempts in v1, a typed warm-frame
   `PublicationFrameAttachment`, and separate `WarmFrameRejectedEvent` and `WarmStreamFatalEvent` paths.
+- Electron ↔ Rust Warm Authority Profile v0 composes those existing contracts into a private executable application
+  path. It makes warm framed snapshots the default Electron renderer lane without moving transport, lifecycle, or
+  product authority into a public substrate package.
