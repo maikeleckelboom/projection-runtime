@@ -1372,13 +1372,20 @@ lanes: {
 
 **Authority**: Rust audio engine.
 **Instances**: `"deck.a"`, `"deck.b"`. Independent publication streams.
-**Hot lane**: primary renderer waveform and transport display.
-**Warm lane**: auxiliary tool windows, secondary deck surfaces.
+**Hot lane**: native or same-process latency-critical consumers. A renderer mapping profile is optional and requires
+measurement showing that warm delivery cannot meet a concrete requirement.
+**Warm lane**: default Electron renderer delivery profile, including the first transport display and auxiliary or
+secondary deck surfaces.
 **Cold lane**: not declared. `coldCodecVersion` is reserved and unratified. Cold materialization remains a future
 capability blocked on a cold materialization codec spec. Until `coldCodecVersion` is ratified, product contracts must
 not declare cold publication lanes in v1 implementation examples.
 
 All fields are `FixedScalar` or `FixedEnum`. Hot admissible: yes. Resolver accepts the hot and warm lane declarations.
+
+The non-public [Electron ↔ Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md) provides the
+executable renderer-path evidence for this lane choice using the generated `deck-runtime-v0` contract: Rust remains the
+sole state authority, warm is the default renderer lane, and direct native renderer mapping remains measurement-gated.
+The integration profile does not alter this contract's semantic identity or the lane-independence laws above.
 
 ---
 

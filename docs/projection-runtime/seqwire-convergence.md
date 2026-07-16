@@ -52,9 +52,15 @@ The Exclave repository currently implements and tests:
 - Rust-to-TypeScript warm payload and framed-snapshot byte agreement for the current warm fixture
 - session binding validity checks for authority identity, grant identity, and authority epoch
 - publication, resource, control-plane, and host-contract protocol types and validation helpers
+- a private, non-public Electron/Rust integration in which a standalone Rust process owns the simulated deck timeline,
+  epoch, typed tempo mutation, subscription state, and complete warm publication assembly
+- real Electron main supervision and brokering over private framed stdio and a per-renderer `MessagePort`, with a bundled
+  isolated preload and a sandboxed renderer
+- bounded upstream and downstream delivery, renderer reload without authority restart, authority crash and replacement,
+  explicit resubscription and continuity rebase, and deterministic child-process cleanup
 
-These are real implementation assets, but they are substrate and conformance slices rather than a completed production
-Electron/native runtime.
+The public packages remain product-neutral substrate and conformance slices. The private integration profile composes
+them into one production-shaped executable application path without turning Electron hosting into a public package.
 
 ### Modeled or test-only
 
@@ -67,28 +73,36 @@ The repository currently models or proves in tests:
 - repeated generated Rust publication into in-process byte buffers
 - generated TypeScript consumption of Rust-authored fixture bytes
 
-These proofs establish contracts and failure precedence. They do not create a native mapping, transfer an operating
-system mapping descriptor, enforce renderer read-only access, revoke a production handle, or cross a real Electron
-process boundary.
+In isolation, these modeled proofs establish contracts and failure precedence rather than a process topology. The
+private integration below supplies the real process-boundary evidence for the warm path; it deliberately does not
+create a native mapping or transfer an operating-system mapping descriptor.
 
-### Missing production runtime
+### Implemented private integration profile
 
-The following production capabilities do not yet exist:
+The [Electron ↔ Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md) now implements:
 
-- an authority-owned native shared-memory mapping with the required alignment and atomic memory-ordering guarantees
-- a native authority registry that allocates, initializes, publishes, revokes, and retires hot regions
-- an Electron main-process host adapter that brokers opaque mapping descriptors and hot handles
-- a renderer-side read-only mapping path that never exposes mutable shared memory to application code
-- a production hot-handle open, close, invalidation, replacement, and remap lifecycle
-- production authority epoch issuance and non-reuse enforcement
-- a restart flow that invalidates the old handle, opens a new mapping, and explicitly rebases continuity
-- cross-thread and cross-process native publication tests over the real mapping implementation
-- a product audio authority and a concrete Electron transport profile
+- a standalone Rust authority as sole owner of epoch, simulated deck timeline, tempo mutation, subscription state, and
+  complete warm snapshot assembly
+- private EXCL v0 length-prefixed stdio with incremental binary-safe decoding, a 1 MiB hard limit, explicit packet
+  kinds, malformed-frame failures, and protocol-only standard output
+- Electron main supervision, host-lifetime epoch non-reuse enforcement, opaque control/publication routing, process-death
+  invalidation, per-client cleanup, and deterministic replacement
+- one dedicated main-to-preload `MessagePort` per renderer client, retained in bundled isolated preload and represented
+  to the sandboxed main world only through a narrow typed API
+- generated-manifest-backed `deck-runtime-v0` warm decoding and attachment validation before snapshot application and
+  acknowledgement
+- one in-flight plus one replaceable pending-latest publication at both transport hops, with stale credit rejection and
+  positive coalescing evidence under a paused consumer
+- typed `deck.setTempoRatio` intent that mutates only Rust state and is observed in a later authority publication
+- renderer reload that replaces the client and subscription while preserving Rust PID, epoch, and advancing timeline
+- authority crash and replacement with immediate stale state, a non-reused epoch, no automatic resubscribe, and an
+  explicit new baseline and continuity rebase
+- a real hidden Electron test that launches the compiled Rust binary and proves clean shutdown with no surviving child
 
-The Rust publication proof currently operates on caller-provided byte slices. It proves layout and generated writer
-agreement, not atomic publication into a live native mapping shared with a renderer.
+This is one non-public production-shaped profile, not a generic Exclave runtime. The deck engine and meter evolution are
+simulated, proof actions are fixture-only, and no real audio device or resource-plane surface is present.
 
-## First executable convergence slice
+## Earlier generated hot convergence slice
 
 The first executable convergence slice is implemented in
 `packages/conformance/tests/conformance.test.ts` and recorded in the implementation conformance map.
@@ -105,6 +119,9 @@ the malformed writer-active candidate is not decoded.
 This slice deliberately ports scenario knowledge rather than SeqWire architecture. It strengthens the composition of
 Rust byte agreement, generated TypeScript reads, bounded failure, and last-good retention. It does not claim native
 mapped-memory concurrency, Electron transport, handle revocation, or lifecycle completion.
+
+That earlier hot proof remains valid. The implemented Electron/Rust profile adds the real warm process topology without
+changing hot layout identity or importing SeqWire architecture.
 
 ## Forbidden migrations from SeqWire
 
@@ -160,44 +177,12 @@ laboratory, Exclave remains their author and source of truth.
 
 ## Next production milestone
 
-The next milestone is an authority-owned native hot mapping with a revocable Electron handle.
+Integrate a real Dekzer deck/audio authority behind the proven process, control, warm-publication and restart profile,
+then add one real resource-plane surface such as waveform access.
 
-The milestone must implement this concrete flow:
+The private EXCL v0 stdio profile remains replaceable, and the Electron assembly remains non-public. Warm framed
+snapshots remain the default renderer lane. Hot remains available for native consumers, while direct native renderer
+mapping remains deferred until measurements show that warm delivery cannot meet a concrete requirement.
 
-1. Compile an Exclave authored projection contract into its canonical manifest, hot layout, generated Rust writer, and
-   generated TypeScript reader.
-2. Let the native Rust authority allocate and initialize an aligned shared mapping from that generated layout.
-3. Publish complete snapshots through the Rust authority using the canonical Block A/Block B ABI and correct atomic
-   ordering.
-4. Let an Electron main-process host adapter register the mapping and return an opaque, epoch-bound hot handle and
-   mapping descriptor.
-5. Open the renderer mapping as read-only and construct only the generated TypeScript consumer behind a guarded host
-   API.
-6. Invalidate the handle on authority replacement or explicit revocation even if the old bytes remain physically
-   reachable.
-7. After replacement readiness, issue a new authority epoch and handle, remap, validate, and explicitly establish a new
-   baseline and continuity generation.
-
-### Acceptance criteria
-
-The milestone is complete only when all of the following are executable:
-
-- The native authority, not the renderer, owns allocation and mutation of the hot mapping.
-- The layout and identity bytes come exclusively from Exclave's canonical compiler and generated artifacts.
-- The renderer receives no writable mapping or raw mutable shared-memory object through the application API.
-- Rust publication uses the required atomic acquire/release contract on a correctly aligned live mapping.
-- A generated TypeScript consumer validates Block A identity before its first read.
-- Writer-active and torn reads are bounded independently, accept zero budgets, never expose candidate bytes, and retain
-  last-good.
-- One Rust publication commits every field and its Block B metadata as one coherent snapshot.
-- Rust-written bytes are read by TypeScript and TypeScript fixtures are decoded by Rust with byte-exact agreement.
-- Revocation prevents guarded reads before candidate decoding while demonstrating that the old bytes may still be
-  physically reachable.
-- Authority restart invalidates the old epoch and handle; neither can become valid again.
-- A replacement mapping requires a new handle and explicit continuity rebase rather than implicit resume.
-- Open, close, revoke, replacement, and stale-operation failures are typed and covered by integration tests.
-- A real Electron main/renderer integration test proves descriptor brokering and read-only consumer access.
-- No Exclave production package or generated artifact depends on SeqWire.
-
-Until these criteria pass against the native mapping and Electron host path, the production hot runtime remains an
-implementation milestone rather than a completed capability.
+No part of that next milestone requires or permits a SeqWire schema, planner, ABI, handoff, binding, runtime, or
+compatibility layer.
