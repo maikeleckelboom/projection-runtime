@@ -104,6 +104,8 @@ run("typecheck", "pnpm", ["typecheck"]);
 run("test", "pnpm", ["test"]);
 run("build", "pnpm", ["build"]);
 run("cargo test", "cargo", ["test"]);
+run("build Electron/Rust warm authority proof", "pnpm", ["build:electron-rust-warm-authority"]);
+run("test Electron/Rust warm authority proof", "pnpm", ["test:electron-rust-warm-authority"]);
 run("biome check", "pnpm", ["exec", "biome", "check", "."]);
 run("check file names", "node", ["scripts/check-file-names.mts"]);
 

@@ -202,6 +202,16 @@ export default defineConfig({
           ],
         },
       },
+      {
+        resolve: {
+          alias: workspaceAliases,
+        },
+        test: {
+          name: "electron-rust-warm-authority",
+          environment: "node",
+          include: ["integration/electron-rust-warm-authority/tests/**/*.test.ts"],
+        },
+      },
     ],
   },
 });

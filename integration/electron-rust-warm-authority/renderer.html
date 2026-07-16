@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Exclave warm authority proof</title>
+    <link rel="stylesheet" href="./renderer.css" />
+    <script type="module" src="./renderer.js"></script>
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Electron · Rust · warm lane</p>
+          <h1>Authority transport proof</h1>
+        </div>
+        <output id="proof-badge" class="status-badge" data-tone="neutral">Idle</output>
+      </header>
+
+      <section class="status-grid" aria-label="Runtime status">
+        <article class="panel">
+          <h2>Authority</h2>
+          <dl>
+            <div>
+              <dt>Process</dt>
+              <dd id="authority-process">Unavailable</dd>
+            </div>
+            <div>
+              <dt>Epoch</dt>
+              <dd id="authority-epoch" class="monospace">—</dd>
+            </div>
+            <div>
+              <dt>Subscription</dt>
+              <dd id="subscription-state">None</dd>
+            </div>
+            <div>
+              <dt>Last failure</dt>
+              <dd id="last-failure">—</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="panel">
+          <h2>Warm snapshot</h2>
+          <dl class="snapshot-grid">
+            <div class="wide-row">
+              <dt>Projection instance</dt>
+              <dd id="snapshot-projection-instance" class="monospace">&mdash;</dd>
+            </div>
+            <div>
+              <dt>Baseline epoch</dt>
+              <dd id="snapshot-baseline-epoch">&mdash;</dd>
+            </div>
+            <div>
+              <dt>Continuity generation</dt>
+              <dd id="snapshot-continuity-generation">&mdash;</dd>
+            </div>
+            <div>
+              <dt>Sequence</dt>
+              <dd id="snapshot-sequence" class="monospace">—</dd>
+            </div>
+            <div>
+              <dt>Sample position</dt>
+              <dd id="snapshot-sample-position" class="monospace">—</dd>
+            </div>
+            <div>
+              <dt>Tempo ratio</dt>
+              <dd id="snapshot-tempo-ratio">—</dd>
+            </div>
+            <div>
+              <dt>Transport</dt>
+              <dd id="snapshot-transport">—</dd>
+            </div>
+            <div>
+              <dt>Media time</dt>
+              <dd id="snapshot-media-time">—</dd>
+            </div>
+            <div>
+              <dt>Beat phase</dt>
+              <dd id="snapshot-beat-phase">—</dd>
+            </div>
+            <div>
+              <dt>Level</dt>
+              <dd id="snapshot-level">—</dd>
+            </div>
+            <div>
+              <dt>Loop active</dt>
+              <dd id="snapshot-loop-active">—</dd>
+            </div>
+            <div class="wide-row">
+              <dt>Stem gains</dt>
+              <dd id="snapshot-stem-gains">—</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="panel">
+          <h2>Bounded delivery</h2>
+          <dl>
+            <div>
+              <dt>Upstream coalesced</dt>
+              <dd id="upstream-coalesced">0</dd>
+            </div>
+            <div>
+              <dt>Downstream coalesced</dt>
+              <dd id="downstream-coalesced">0</dd>
+            </div>
+            <div>
+              <dt>Observed skips</dt>
+              <dd id="skipped-publications">0</dd>
+            </div>
+            <div>
+              <dt>Upstream max in-flight / pending</dt>
+              <dd id="upstream-bounds" class="monospace">0 / 0</dd>
+            </div>
+            <div>
+              <dt>Downstream max in-flight / pending</dt>
+              <dd id="downstream-bounds" class="monospace">0 / 0</dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="panel controls" aria-labelledby="controls-heading">
+        <div>
+          <h2 id="controls-heading">Controls</h2>
+          <p>Subscription and control requests cross only the isolated preload bridge.</p>
+        </div>
+        <div class="control-actions">
+          <button id="subscribe-button" type="button">Subscribe</button>
+          <label for="tempo-input">Tempo ratio</label>
+          <input
+            id="tempo-input"
+            type="number"
+            min="0.5"
+            max="2"
+            step="0.05"
+            value="1.25"
+            inputmode="decimal"
+          />
+          <button id="tempo-button" type="button">Apply tempo</button>
+          <button id="reload-button" type="button">Proof: reload renderer</button>
+          <button id="restart-button" type="button">Proof: restart authority</button>
+          <button id="proof-button" class="primary" type="button">Run automated proof</button>
+        </div>
+        <output id="control-result" aria-live="polite">No control request issued.</output>
+      </section>
+
+      <section class="panel proof-panel" aria-labelledby="proof-heading">
+        <div>
+          <h2 id="proof-heading">Automated proof</h2>
+          <p id="proof-step" aria-live="polite">Waiting to start.</p>
+        </div>
+        <ol id="proof-log" aria-label="Proof events"></ol>
+      </section>
+    </main>
+  </body>
+</html>

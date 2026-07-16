@@ -10,9 +10,12 @@
   "scripts": {
     "clean": "node scripts/clean.mts",
     "build": "tsc -b tsconfig.packages.json",
-    "typecheck": "pnpm typecheck:packages && pnpm typecheck:tooling",
+    "typecheck": "pnpm typecheck:packages && pnpm typecheck:tooling && pnpm typecheck:electron-rust-warm-authority",
     "typecheck:packages": "tsc -b tsconfig.packages.json --pretty false",
     "typecheck:tooling": "tsc -p tsconfig.json --pretty false",
+    "typecheck:electron-rust-warm-authority": "tsc -p integration/electron-rust-warm-authority/tsconfig.json --pretty false",
+    "build:electron-rust-warm-authority": "node integration/electron-rust-warm-authority/scripts/build.mts",
+    "test:electron-rust-warm-authority": "node integration/electron-rust-warm-authority/scripts/run-e2e.mts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome lint .",
@@ -31,6 +34,8 @@
     "@commitlint/config-conventional": "^21.0.1",
     "@commitlint/types": "^21.0.1",
     "@types/node": "^25.7.0",
+    "electron": "^43.1.1",
+    "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   }
