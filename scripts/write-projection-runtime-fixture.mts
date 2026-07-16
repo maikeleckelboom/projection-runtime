@@ -11,6 +11,7 @@ import { writeGeneratedHotArtifactManifest } from "./projection-runtime/write-ge
 import { writeGeneratedHotReader } from "./projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "./projection-runtime/write-generated-hot-writer.mts";
 import { writeGeneratedRustHotWriter } from "./projection-runtime/write-generated-rust-hot-writer.mts";
+import { writeGeneratedRustWarmSnapshot } from "./projection-runtime/write-generated-rust-warm-snapshot.mts";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonArray | JsonObject;
@@ -107,6 +108,11 @@ type FixtureProfile<TValues extends HotFieldValues> = {
 };
 
 type GeneratedHotArtifactProfile = {
+  readonly fixtureName: string;
+  readonly symbolStem: string;
+};
+
+type GeneratedRustWarmSnapshotProfile = {
   readonly fixtureName: string;
   readonly symbolStem: string;
 };
@@ -262,6 +268,13 @@ const generatedHotArtifactProfiles: readonly GeneratedHotArtifactProfile[] = [
   },
 ] as const;
 
+const generatedRustWarmSnapshotProfiles: readonly GeneratedRustWarmSnapshotProfile[] = [
+  {
+    fixtureName: "deck-runtime-v0",
+    symbolStem: "DeckRuntime",
+  },
+] as const;
+
 type GeneratedConsumerBindingProfile = {
   readonly fixtureName: string;
   readonly symbolStem: string;
@@ -302,6 +315,7 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
   const generatedHotReaderPath = resolve(fixtureRoot, "generated/hot-reader.ts");
   const generatedHotWriterPath = resolve(fixtureRoot, "generated/hot-writer.ts");
   const generatedRustHotWriterPath = resolve(fixtureRoot, "generated/hot_writer.rs");
+  const generatedRustWarmSnapshotPath = resolve(fixtureRoot, "generated/warm_snapshot.rs");
   const generatedHotArtifactManifestPath = resolve(fixtureRoot, "generated/artifacts.json");
   const resolvedContractPath = resolve(fixtureRoot, "resolved-contract.json");
   const authoredContract: AuthoredProjectionContract = parseJsonFile(authoredContractPath);
@@ -389,6 +403,20 @@ async function writeProjectionRuntimeFixture<TValues extends HotFieldValues>(
       consumerBindingSource,
       outputPath: resolve(fixtureRoot, "generated/consumer-binding.ts"),
       generatedFromPath: `fixtures/projection-runtime/${generatedConsumerBindingProfile.fixtureName}/resolved-contract.json`,
+    });
+  }
+
+  const generatedRustWarmSnapshotProfile = generatedRustWarmSnapshotProfiles.find(
+    (entry) => entry.fixtureName === profile.fixtureName,
+  );
+
+  if (generatedRustWarmSnapshotProfile !== undefined) {
+    await writeGeneratedRustWarmSnapshot({
+      fixtureName: generatedRustWarmSnapshotProfile.fixtureName,
+      symbolStem: generatedRustWarmSnapshotProfile.symbolStem,
+      resolved,
+      outputPath: generatedRustWarmSnapshotPath,
+      generatedFromPath: `fixtures/projection-runtime/${generatedRustWarmSnapshotProfile.fixtureName}/resolved-contract.json`,
     });
   }
 }

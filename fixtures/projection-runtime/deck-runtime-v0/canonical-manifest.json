@@ -73,6 +73,9 @@
     "hot": {
       "codec": "mapped-fixed",
       "reservations": ["stemGains"]
+    },
+    "warm": {
+      "codec": "framed-snapshot"
     }
   }
 }

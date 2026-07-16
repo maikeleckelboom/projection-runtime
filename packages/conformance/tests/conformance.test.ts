@@ -41,6 +41,7 @@ import { createHotExchangeWriter } from "../../../fixtures/projection-runtime/ho
 import { writeGeneratedHotReader } from "../../../scripts/projection-runtime/write-generated-hot-reader.mts";
 import { writeGeneratedHotWriter } from "../../../scripts/projection-runtime/write-generated-hot-writer.mts";
 import { writeGeneratedRustHotWriter } from "../../../scripts/projection-runtime/write-generated-rust-hot-writer.mts";
+import { renderGeneratedRustWarmSnapshotSource } from "../../../scripts/projection-runtime/write-generated-rust-warm-snapshot.mts";
 import * as conformance from "../src/index";
 import {
   type ConformanceError,
@@ -1978,6 +1979,27 @@ describe("@exclave/conformance execution", () => {
     }
   });
 
+  it("keeps the generated Rust warm snapshot surface in sync with deck-runtime-v0", () => {
+    const resolvedPath = resolve(fixtureRoot, "deck-runtime-v0/resolved-contract.json");
+    const resolved = JSON.parse(readFileSync(resolvedPath, "utf8")) as unknown;
+    const generatedFromPath = "fixtures/projection-runtime/deck-runtime-v0/resolved-contract.json";
+    const expected = renderGeneratedRustWarmSnapshotSource({
+      fixtureName: "deck-runtime-v0",
+      symbolStem: "DeckRuntime",
+      resolved,
+      generatedFromPath,
+    });
+    const committed = readFileSync(
+      resolve(fixtureRoot, "deck-runtime-v0/generated/warm_snapshot.rs"),
+      "utf8",
+    );
+
+    expect(committed).toBe(expected);
+    expect(committed).toContain("pub const DECK_RUNTIME_WARM_FIELDS");
+    expect(committed).toContain("pub struct DeckRuntimeWarmSnapshot");
+    expect(committed).toContain("pub enum DeckRuntimeTransportState");
+  });
+
   it("rejects generated reader manifests with duplicate field dotPaths", async () => {
     await expectGeneratedReaderManifestRejected((manifest) => {
       const fields = manifest.fields as Record<string, unknown>[];
@@ -2056,12 +2078,24 @@ describe("@exclave/conformance execution", () => {
 
   describe("@exclave/conformance consumer binding source", () => {
     const consumerBindingProfiles = [
-      { fixtureName: "hot-basic-v0", symbolStem: "HotBasic", constStem: "hotBasic" },
-      { fixtureName: "deck-runtime-v0", symbolStem: "DeckRuntime", constStem: "deckRuntime" },
+      {
+        fixtureName: "hot-basic-v0",
+        symbolStem: "HotBasic",
+        constStem: "hotBasic",
+        runtimeAvailabilitySource: '{\n  hot: "source-shape-only",\n} as const',
+      },
+      {
+        fixtureName: "deck-runtime-v0",
+        symbolStem: "DeckRuntime",
+        constStem: "deckRuntime",
+        runtimeAvailabilitySource:
+          '{\n  hot: "source-shape-only",\n  warm: "source-shape-only",\n} as const',
+      },
       {
         fixtureName: "hot-exchange-v0",
         symbolStem: "HotExchange",
         constStem: "hotExchange",
+        runtimeAvailabilitySource: '{\n  hot: "source-shape-only",\n} as const',
       },
     ] as const;
 
@@ -2141,7 +2175,7 @@ describe("@exclave/conformance execution", () => {
             runtimeAvailabilityConst?.declarationList.declarations[0]?.initializer?.getText(
               sourceFile,
             ),
-          ).toBe('{\n  hot: "source-shape-only",\n} as const');
+          ).toBe(profile.runtimeAvailabilitySource);
         });
 
         it("consumer binding type includes runtimeAvailability as a readonly static marker", async () => {

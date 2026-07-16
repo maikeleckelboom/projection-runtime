@@ -37,10 +37,12 @@ export const deckRuntimeConsumerBindingMetadata = {
   contractKey: "fixture.deckRuntime",
   semanticVersion: 0xe3636f7cdffa73b2n,
   hotLayoutVersion: 0xaddeef4f8ef66eadn,
+  warmCodecVersion: 0x712fca42549416den,
 } as const;
 
 export const deckRuntimeConsumerBindingRuntimeAvailability = {
   hot: "source-shape-only",
+  warm: "source-shape-only",
 } as const;
 
 export type DeckRuntimeProjectionSnapshot = {
@@ -73,10 +75,28 @@ export type DeckRuntimeHotReadSurface = {
   ) => HotReadAttemptResult<DeckRuntimeHotSnapshot>;
 };
 
+export type DeckRuntimeWarmSnapshot = {
+  readonly beatPhase01: number;
+  readonly level: number;
+  readonly loopActive: boolean;
+  readonly mediaTimeSeconds: number;
+  readonly samplePosition: bigint;
+  readonly stemGains: readonly number[];
+  readonly tempoRatio: number;
+  readonly transportState: "stopped" | "cueing" | "playing" | "paused";
+};
+
+export type DeckRuntimeWarmSnapshotSurface = {
+  readonly lane: "warm";
+  readonly warmCodecVersion: typeof deckRuntimeConsumerBindingMetadata.warmCodecVersion;
+  readonly snapshot: DeckRuntimeWarmSnapshot;
+};
+
 export type DeckRuntimeConsumerBinding = {
   readonly fields: typeof deckRuntimeFields;
   readonly fieldIds: typeof deckRuntimeFieldIds;
   readonly metadata: typeof deckRuntimeConsumerBindingMetadata;
   readonly runtimeAvailability: typeof deckRuntimeConsumerBindingRuntimeAvailability;
   readonly hot: DeckRuntimeHotReadSurface;
+  readonly warm: DeckRuntimeWarmSnapshotSurface;
 };

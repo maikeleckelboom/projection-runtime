@@ -115,6 +115,80 @@
       ],
       "seqlockOffset": 72,
       "totalRegionByteLength": 160
+    },
+    "warm": {
+      "codec": "framed-snapshot",
+      "contractKey": "fixture.deckRuntime",
+      "fields": [
+        {
+          "dotPath": "beatPhase01",
+          "fieldId": 3213911613,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f32"
+          }
+        },
+        {
+          "dotPath": "level",
+          "fieldId": 2921991399,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f32"
+          }
+        },
+        {
+          "dotPath": "loopActive",
+          "fieldId": 2600609301,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "bool"
+          }
+        },
+        {
+          "dotPath": "mediaTimeSeconds",
+          "fieldId": 714320550,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f64"
+          }
+        },
+        {
+          "dotPath": "samplePosition",
+          "fieldId": 1487766962,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "u64"
+          }
+        },
+        {
+          "dotPath": "stemGains",
+          "fieldId": 1302981354,
+          "shape": {
+            "elementType": "f32",
+            "kind": "BoundedArray",
+            "maxLength": 4
+          }
+        },
+        {
+          "dotPath": "tempoRatio",
+          "fieldId": 3925450382,
+          "shape": {
+            "kind": "FixedScalar",
+            "type": "f32"
+          }
+        },
+        {
+          "dotPath": "transportState",
+          "fieldId": 1379000454,
+          "shape": {
+            "kind": "FixedEnum",
+            "storage": "u8",
+            "variants": ["stopped", "cueing", "playing", "paused"]
+          }
+        }
+      ],
+      "semanticVersion": "e3636f7cdffa73b2",
+      "warmCodecVersion": "712fca42549416de"
     }
   },
   "manifest": {
@@ -192,8 +266,12 @@
       "hot": {
         "codec": "mapped-fixed",
         "reservations": ["stemGains"]
+      },
+      "warm": {
+        "codec": "framed-snapshot"
       }
     }
   },
-  "semanticVersion": "e3636f7cdffa73b2"
+  "semanticVersion": "e3636f7cdffa73b2",
+  "warmCodecVersion": "712fca42549416de"
 }
