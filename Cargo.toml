@@ -4,6 +4,7 @@ members = [
     "crates/hot-abi-conformance",
     "crates/warm-codec",
     "crates/warm-abi-conformance",
+    "integration/electron-rust-warm-authority/authority",
 ]
 resolver = "2"
 

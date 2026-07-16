@@ -47,6 +47,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "electron-rust-warm-authority"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "warm-codec",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
