@@ -1,4 +1,27 @@
+//! Warm lane frame encoding and decoding.
+
 use crate::hex;
+
+pub const DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH: usize = 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WarmFrameCodecOptions {
+    pub max_frame_byte_length: usize,
+}
+
+impl WarmFrameCodecOptions {
+    pub const fn new(max_frame_byte_length: usize) -> Self {
+        Self {
+            max_frame_byte_length,
+        }
+    }
+}
+
+impl Default for WarmFrameCodecOptions {
+    fn default() -> Self {
+        Self::new(DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WarmLaneFrame {
@@ -20,6 +43,14 @@ pub struct DecodedWarmLaneFrame {
 }
 
 pub fn encode_warm_lane_frame(input: &WarmLaneFrame) -> Result<Vec<u8>, String> {
+    encode_warm_lane_frame_with_options(input, WarmFrameCodecOptions::default())
+}
+
+pub fn encode_warm_lane_frame_with_options(
+    input: &WarmLaneFrame,
+    options: WarmFrameCodecOptions,
+) -> Result<Vec<u8>, String> {
+    let max_frame_byte_length = normalize_max_frame_byte_length(options)?;
     require_non_empty_utf8(&input.contract_key, "contractKey")?;
     require_non_empty_utf8(&input.projection_instance_key, "projectionInstanceKey")?;
 
@@ -38,6 +69,11 @@ pub fn encode_warm_lane_frame(input: &WarmLaneFrame) -> Result<Vec<u8>, String> 
 
     if frame_byte_length > u32::MAX as usize {
         return Err("frameByteLength must fit in u32".to_string());
+    }
+    if total_byte_length > max_frame_byte_length {
+        return Err(format!(
+            "warm frame byte length {total_byte_length} exceeds maxFrameByteLength {max_frame_byte_length}"
+        ));
     }
 
     let mut writer = ByteWriter::with_capacity(total_byte_length);
@@ -63,12 +99,32 @@ pub fn encode_warm_lane_frame(input: &WarmLaneFrame) -> Result<Vec<u8>, String> 
 }
 
 pub fn decode_warm_lane_frame(bytes: &[u8]) -> Result<DecodedWarmLaneFrame, String> {
+    decode_warm_lane_frame_with_options(bytes, WarmFrameCodecOptions::default())
+}
+
+pub fn decode_warm_lane_frame_with_options(
+    bytes: &[u8],
+    options: WarmFrameCodecOptions,
+) -> Result<DecodedWarmLaneFrame, String> {
+    let max_frame_byte_length = normalize_max_frame_byte_length(options)?;
+    if bytes.len() > max_frame_byte_length {
+        return Err(format!(
+            "warm frame byte length {} exceeds maxFrameByteLength {max_frame_byte_length}",
+            bytes.len()
+        ));
+    }
     if bytes.len() < 4 {
         return Err("frame is shorter than frameByteLength prefix".to_string());
     }
 
     let mut reader = ByteReader::new(bytes);
     let frame_byte_length = reader.read_u32("frameByteLength")?;
+    let declared_total_byte_length = u64::from(frame_byte_length) + 4;
+    if declared_total_byte_length > max_frame_byte_length as u64 {
+        return Err(format!(
+            "declared warm frame byte length {declared_total_byte_length} exceeds maxFrameByteLength {max_frame_byte_length}"
+        ));
+    }
     if frame_byte_length as usize != bytes.len() - 4 {
         return Err(format!(
             "declared frameByteLength {} does not match actual {}",
@@ -119,6 +175,14 @@ pub fn decode_warm_lane_frame(bytes: &[u8]) -> Result<DecodedWarmLaneFrame, Stri
 
 pub fn frame_payload_hex(frame: &WarmLaneFrame) -> String {
     hex::encode_lower(&frame.payload)
+}
+
+fn normalize_max_frame_byte_length(options: WarmFrameCodecOptions) -> Result<usize, String> {
+    let max_frame_byte_length = options.max_frame_byte_length;
+    if max_frame_byte_length == 0 || max_frame_byte_length > u32::MAX as usize {
+        return Err("maxFrameByteLength must be a positive u32 value".to_string());
+    }
+    Ok(max_frame_byte_length)
 }
 
 fn checked_frame_byte_length(
@@ -241,5 +305,125 @@ impl<'a> ByteReader<'a> {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        decode_warm_lane_frame, decode_warm_lane_frame_with_options, encode_warm_lane_frame,
+        encode_warm_lane_frame_with_options, WarmFrameCodecOptions, WarmLaneFrame,
+        DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH,
+    };
+
+    fn fixture_frame() -> WarmLaneFrame {
+        WarmLaneFrame {
+            contract_key: "fixture.warm.v0".to_string(),
+            projection_instance_key: "projection-1".to_string(),
+            semantic_version: 11,
+            warm_codec_version: 3,
+            baseline_epoch: 5,
+            continuity_generation: 8,
+            publication_sequence: 13,
+            lane_sequence: Some(21),
+            payload: vec![1, 2, 3, 5, 8],
+        }
+    }
+
+    #[test]
+    fn frame_round_trips_without_changing_bytes_or_metadata() {
+        let frame = fixture_frame();
+        let encoded = encode_warm_lane_frame(&frame).unwrap();
+        let decoded = decode_warm_lane_frame(&encoded).unwrap();
+
+        assert_eq!(decoded.frame_byte_length as usize, encoded.len() - 4);
+        assert_eq!(decoded.frame, frame);
+        assert_eq!(encode_warm_lane_frame(&decoded.frame).unwrap(), encoded);
+    }
+
+    #[test]
+    fn configurable_max_is_enforced_for_encode_and_decode() {
+        let frame = fixture_frame();
+        let encoded = encode_warm_lane_frame(&frame).unwrap();
+        let exact_limit = WarmFrameCodecOptions::new(encoded.len());
+        let too_small_limit = WarmFrameCodecOptions::new(encoded.len() - 1);
+
+        assert_eq!(
+            encode_warm_lane_frame_with_options(&frame, exact_limit).unwrap(),
+            encoded
+        );
+        assert_eq!(
+            decode_warm_lane_frame_with_options(&encoded, exact_limit)
+                .unwrap()
+                .frame,
+            frame
+        );
+
+        let expected = format!(
+            "warm frame byte length {} exceeds maxFrameByteLength {}",
+            encoded.len(),
+            encoded.len() - 1
+        );
+        assert_eq!(
+            encode_warm_lane_frame_with_options(&frame, too_small_limit).unwrap_err(),
+            expected
+        );
+        assert_eq!(
+            decode_warm_lane_frame_with_options(&encoded, too_small_limit).unwrap_err(),
+            expected
+        );
+    }
+
+    #[test]
+    fn default_max_matches_typescript_and_rejects_oversized_frames() {
+        assert_eq!(DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH, 1024 * 1024);
+
+        let mut frame = fixture_frame();
+        frame.payload = vec![0; DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH];
+        let error = encode_warm_lane_frame(&frame).unwrap_err();
+
+        assert!(error.starts_with("warm frame byte length "));
+        assert!(error.ends_with(&format!(
+            " exceeds maxFrameByteLength {DEFAULT_MAX_WARM_FRAME_BYTE_LENGTH}"
+        )));
+    }
+
+    #[test]
+    fn declared_oversize_is_rejected_before_length_mismatch_or_body_decode() {
+        let max_frame_byte_length = 64;
+        let bytes = 64_u32.to_le_bytes();
+
+        assert_eq!(
+            decode_warm_lane_frame_with_options(
+                &bytes,
+                WarmFrameCodecOptions::new(max_frame_byte_length)
+            )
+            .unwrap_err(),
+            "declared warm frame byte length 68 exceeds maxFrameByteLength 64"
+        );
+    }
+
+    #[test]
+    fn malformed_declared_length_is_rejected() {
+        let bytes = 1_u32.to_le_bytes();
+
+        assert_eq!(
+            decode_warm_lane_frame(&bytes).unwrap_err(),
+            "declared frameByteLength 1 does not match actual 0"
+        );
+    }
+
+    #[test]
+    fn invalid_max_is_rejected_before_codec_work() {
+        let options = WarmFrameCodecOptions::new(0);
+
+        assert_eq!(
+            encode_warm_lane_frame_with_options(&fixture_frame(), options).unwrap_err(),
+            "maxFrameByteLength must be a positive u32 value"
+        );
+        assert_eq!(
+            decode_warm_lane_frame_with_options(&[], options).unwrap_err(),
+            "maxFrameByteLength must be a positive u32 value"
+        );
     }
 }

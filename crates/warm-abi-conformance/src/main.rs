@@ -1,7 +1,4 @@
 mod fixture;
-mod frame;
-mod hex;
-mod payload;
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -56,9 +53,9 @@ fn default_warm_payload_fixture_dir() -> &'static Path {
 mod tests {
     use super::default_warm_payload_fixture_dir;
     use crate::fixture;
-    use crate::payload::json_equivalent;
     use serde_json::Value;
     use std::fs;
+    use warm_codec::payload::json_equivalent;
 
     #[test]
     fn warm_payload_v0_matches_committed_payload_and_frame_bytes() {

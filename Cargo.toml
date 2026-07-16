@@ -2,6 +2,7 @@
 members = [
     "crates/hot-publication",
     "crates/hot-abi-conformance",
+    "crates/warm-codec",
     "crates/warm-abi-conformance",
 ]
 resolver = "2"

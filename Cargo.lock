@@ -195,6 +195,15 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "warm-codec",
+]
+
+[[package]]
+name = "warm-codec"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

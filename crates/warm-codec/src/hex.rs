@@ -1,3 +1,5 @@
+//! Lowercase hexadecimal helpers used by the warm codec and fixture tooling.
+
 pub fn encode_lower(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
@@ -8,7 +10,7 @@ pub fn encode_lower(bytes: &[u8]) -> String {
 }
 
 pub fn decode_lower(value: &str, label: &str) -> Result<Vec<u8>, String> {
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return Err(format!(
             "{label} must contain an even number of hex characters"
         ));
