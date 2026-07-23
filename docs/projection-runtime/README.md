@@ -1,70 +1,94 @@
 # Electron–Rust Runtime Architecture
 
-This folder contains the active Projection Runtime architecture, protocol, and
-conformance documents.
+This is the documentation index for Projection Runtime. The architecture keeps
+four concerns distinct: typed control intent, published state, resource access,
+and authority-bound lifecycle. Generated contracts connect the lanes without
+giving any one transport or package ownership of the whole system.
 
-## Conceptual center
+The executable center is a real Electron process supervising a compiled Rust
+authority. The proof demonstrates one bounded warm-publication profile. It does
+not turn every specification or public package into a complete runtime.
+
+## Choose a reading path
+
+### Architecture overview
+
+For the core model and ownership boundaries:
+
+1. [Boundary Model](boundary-model.md)
+2. [Projection Spine: Canonical Architecture Spec](projection-spine-canonical-architecture.md)
+3. [Hot Lane Codec and Layout Spec](hot-lane-codec-and-layout-spec.md)
+
+### Executable evidence
+
+For what actually runs, fails, recovers, and is tested:
+
+1. [Executable Electron–Rust proof](../../integration/electron-rust-warm-authority/README.md)
+2. [Electron–Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md)
+3. [Implementation Conformance Map](implementation-conformance-map.md)
+
+The conformance map is the quickest way to distinguish implemented behavior,
+contract-only surfaces, deliberate omissions, and possible next work.
+
+### Protocol details
+
+For the individual lanes and lifecycle contracts:
+
+- [Control Plane Session Rules](control-plane-session-rules.md)
+- [Publication Subscription Lifecycle](publication-subscription-lifecycle.md)
+- [Warm Codec v1](warm-codec-v1.md)
+- [Hot Lane Consumer Runtime](hot-lane-consumer-runtime.md)
+- [Hot SAB Lifecycle](hot-sab-lifecycle.md)
+- [Resource Plane v1](resource-plane-v1.md)
+- [Cold Reopen Sequence](cold-reopen-sequence.md)
+- [Compiler and Conformance Layout](compiler-and-conformance-layout.md)
+
+## Full document index
+
+### Architecture
 
 - [Boundary Model](boundary-model.md)
 - [Projection Spine: Canonical Architecture Spec](projection-spine-canonical-architecture.md)
 - [Hot Lane Codec and Layout Spec](hot-lane-codec-and-layout-spec.md)
-- [Electron–Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md)
+- [Compiler and Conformance Layout](compiler-and-conformance-layout.md)
 
-## Relationship record
-
-- [Research Lineage: Projection Runtime and SeqWire](research-lineage.md)
-
-## Runtime companions
+### Runtime and protocol
 
 - [Control Plane Session Rules](control-plane-session-rules.md)
-- [Cold Reopen Sequence](cold-reopen-sequence.md)
+- [Publication Subscription Lifecycle](publication-subscription-lifecycle.md)
 - [Warm Codec v1](warm-codec-v1.md)
-- [Resource Plane v1](resource-plane-v1.md)
 - [Hot Lane Consumer Runtime](hot-lane-consumer-runtime.md)
 - [Hot SAB Lifecycle](hot-sab-lifecycle.md)
-- [Compiler and Conformance Layout](compiler-and-conformance-layout.md)
-- [Publication Subscription Lifecycle](publication-subscription-lifecycle.md)
+- [Resource Plane v1](resource-plane-v1.md)
+- [Cold Reopen Sequence](cold-reopen-sequence.md)
 
-## Evidence
+### Evidence
 
-- [Implementation Conformance Map](implementation-conformance-map.md)
+- [Executable Electron–Rust proof](../../integration/electron-rust-warm-authority/README.md)
 - [Electron–Rust Warm Authority Profile v0](electron-rust-warm-authority-profile-v0.md)
+- [Implementation Conformance Map](implementation-conformance-map.md)
 
-## Recommended reading order
+### Research history
 
-1. Boundary Model
-2. Projection Spine: Canonical Architecture Spec
-3. Hot Lane Codec and Layout Spec
-4. Control Plane Session Rules
-5. Cold Reopen Sequence
-6. Warm Codec v1
-7. Resource Plane v1
-8. Hot Lane Consumer Runtime
-9. Hot SAB Lifecycle
-10. Compiler and Conformance Layout
-11. Publication Subscription Lifecycle
-12. Electron–Rust Warm Authority Profile v0
-13. Implementation Conformance Map
-14. Research Lineage
-15. Redesign Migration Note, for historical context only
+- [Research Lineage: Projection Runtime and SeqWire](research-lineage.md)
+- [Redesign Migration Note](redesign-migration-note.md), historical and
+  non-authoritative
 
 ## Current posture
 
-The document set defines a production-shaped research architecture. The private
-Electron and Rust integration proves one warm-path process profile, including
-supervision, reload, crash invalidation, epoch replacement, explicit
-resubscription, continuity rebase, and deterministic teardown.
+The private Electron and Rust integration proves supervision, typed control,
+bounded warm publication, renderer reload, crash invalidation, epoch
+replacement, explicit resubscription, continuity rebase, and deterministic
+teardown.
 
-The deck engine and meters are simulated. No real audio device or resource-plane
-implementation is present. The repository is not a shipped application runtime.
+The deck engine and meters are simulated. No real audio device,
+resource-plane implementation, waveform surface, or native renderer mapping is
+present. The private `EXCL` v0 stdio profile is proof-specific and replaceable.
+Projection Runtime is production-shaped research, not a shipped application
+runtime or a Dekzer runtime.
 
 `@exclave` is the npm publishing namespace for workspace packages. It is not the
 name of this architecture.
-
-## Historical context
-
-[Redesign Migration Note](redesign-migration-note.md) records the prior center
-of gravity and migration rationale. It is historical and non-authoritative.
 
 ## Notation
 

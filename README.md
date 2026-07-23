@@ -1,102 +1,115 @@
-# Electron–Rust Runtime Architecture
+# Projection Runtime
 
-Projection Runtime is research into generated cross-language contracts, bounded
-publication, resource access, and lifecycle recovery between an Electron
-application and a native Rust authority.
+**Electron–Rust Runtime Architecture**
 
-The repository contains a production-shaped executable integration and a set of
-product-neutral contract packages. It is not a shipped application runtime and
-does not currently power Dekzer.
+Projection Runtime is production-shaped architecture research into generated
+cross-language contracts, bounded publication, resource access, and lifecycle
+recovery between an Electron application and a native Rust authority.
+
+**Executable proof:** a real Electron process launches a compiled standalone
+Rust authority and exercises generated contracts, typed control, bounded
+publication, renderer reload, authority replacement, explicit resubscription,
+continuity rebase, and deterministic teardown.
+
+The repository contains that executable integration and a set of
+product-neutral contract packages. It is not a shipped application runtime.
+
+[Architecture index](docs/projection-runtime/README.md) ·
+[Executable Electron–Rust proof](integration/electron-rust-warm-authority/README.md) ·
+[Implementation conformance map](docs/projection-runtime/implementation-conformance-map.md) ·
+[Current limitations](#current-limitations) ·
+[Verification](#verification)
 
 ## The problem
 
 An Electron renderer should not become the authority for native process state,
 shared-memory layout, resource lifetime, or recovery. A useful boundary needs
-more than IPC messages. It needs explicit ownership, generated agreement across
-languages, bounded delivery, invalidation, resubscription, and continuity after
-reload or process replacement.
+more than request and response IPC. It needs explicit ownership, generated
+agreement across languages, bounded delivery, invalidation, resubscription, and
+continuity rules after reload or process replacement.
 
-Projection Runtime investigates that larger boundary. The current work separates
-control intent, published state, resource access, and session lifecycle so each
-path can have its own authority and failure rules.
+Projection Runtime separates control intent, published state, resource access,
+and session lifecycle so each path can have its own authority, payload, and
+failure semantics.
 
-## The executable architecture
+## Executable architecture
 
-The implemented integration under
-`integration/electron-rust-warm-authority` runs a real Electron process and a
-real compiled Rust executable:
+The implemented
+[Electron–Rust proof](integration/electron-rust-warm-authority/README.md)
+crosses both semantic directions:
 
 ```text
-Sandboxed renderer
-  -> isolated preload
-  -> Electron main supervisor
-  -> private framed stdio
-  -> native Rust authority
+                       typed control intent
+Sandboxed renderer -> isolated preload -> Electron main supervisor -> native Rust authority
+
+                       published snapshots
+Sandboxed renderer <- isolated preload <- Electron main supervisor <- native Rust authority
 ```
 
-The renderer uses a narrow typed API exposed by the preload. Electron main owns
-process supervision and client brokering. The Rust process owns authority state,
-the simulated deck timeline, epoch identity, typed tempo mutation, subscription
-state, and complete warm publication assembly.
+These lanes share supervised process boundaries, but they do not collapse into
+one message type. The renderer sends narrowly typed control intent. Rust
+publishes complete generated-manifest-backed warm snapshots through distinct
+subscription, credit, invalidation, and continuity rules.
 
-## Authority and process ownership
+Electron main brokers a private framed-stdio stream and owns process
+supervision. The isolated preload owns a dedicated `MessagePort` for each
+renderer client. The sandboxed renderer receives validated state through a
+narrow API. Rust remains the sole authority for deck state, timeline, epoch,
+control mutation, subscription state, and publication assembly.
 
-- Rust owns the authoritative state and issues the authority epoch.
+## Authority and capability boundaries
+
+- Rust owns authoritative state and issues the authority epoch.
 - Electron main starts, supervises, replaces, and terminates the Rust process.
-- The preload retains one dedicated `MessagePort` for each renderer client.
-- The sandboxed renderer receives validated state and sends typed control intent.
+- The preload validates attachments and exposes only deck-specific operations.
+- The renderer sends typed intent and consumes validated published state.
 - Generated Rust and TypeScript artifacts agree on contract and byte identity.
+- Public `@exclave/*` packages define product-neutral contracts and codecs.
 
-The root workspace and all public packages are private research or package
-surfaces. `@exclave` is the npm publishing namespace. It is not the name of this
-architecture.
+The `@exclave` scope is the npm publishing namespace. It is not the public name
+of this architecture.
 
-## Control and publication paths
+## Lifecycle and recovery
 
-Typed control intent travels from the renderer through preload and Electron main
-to the Rust authority. The implemented proof uses `deck.setTempoRatio` and
-observes the resulting Rust-owned state in a later publication.
+Renderer reload preserves authority while replacing the client:
 
-Warm publications use generated manifest-backed decoding and bounded
-replaceable-latest delivery at both transport hops. One item may be in flight
-while one newer pending item replaces older pending work. This prevents an
-unbounded renderer backlog while preserving a complete latest snapshot.
+```text
+old renderer client + subscription -> closed
+Rust authority + authority epoch    -> remain alive and continue advancing
+replacement renderer                -> new client + explicit subscription
+new subscription                    -> complete current baseline
+```
 
-The repository also defines product-neutral contracts for hot shared-memory
-publication, warm framed snapshots, cold reopen, resources, sessions, host
-surfaces, and conformance.
+Authority replacement invalidates the old session before recovery:
 
-## Reload and failure behavior
+```text
+Rust process death       -> old authority, epoch, session, and subscription invalid
+replacement Rust process -> new non-reused authority epoch
+renderer                  -> no automatic resubscription
+renderer                  -> explicit subscription + new complete baseline
+continuity                -> rebase before later publications are consumed
+```
 
-The executable proof verifies:
-
-- renderer reload without restarting the Rust authority
-- replacement of the renderer client and subscription
-- immediate invalidation after authority process death
-- a non-reused epoch for the replacement authority
-- no automatic resubscription after replacement
-- explicit resubscription with a new baseline
-- continuity rebase before new publications are accepted
-- deterministic Electron and child-process teardown
-
-These behaviors are part of the research evidence, not a claim of a complete
-product runtime.
+The proof does not claim transparent recovery. A renderer reload and an
+authority replacement have intentionally different lifecycle rules.
 
 ## Implemented evidence
 
-- Rust-owned authority state
-- Electron main-process supervision
-- isolated preload and sandboxed renderer boundaries
-- typed control intent
-- generated Rust and TypeScript artifacts
-- deterministic hot and warm byte fixtures
-- Rust-to-TypeScript byte agreement
-- bounded publication delivery and positive coalescing evidence
-- renderer reload without authority restart
-- authority crash invalidation and epoch replacement
-- explicit resubscription and continuity rebase
-- TypeScript, Rust, generator, fixture, and integration tests
-- deterministic process teardown
+- Real Electron main, isolated preload, sandboxed renderer, and compiled Rust
+  process boundaries
+- Rust-owned state, epoch issuance, and typed tempo mutation
+- Generated Rust and TypeScript contract and byte agreement
+- Private bounded binary framing over stdio
+- One in-flight plus one replaceable pending-latest publication at each hop
+- Positive upstream and downstream coalescing evidence
+- Renderer reload without authority restart
+- Authority crash invalidation and non-reused replacement epoch
+- Explicit resubscription, new baseline, and continuity rebase
+- TypeScript, Rust, generator, fixture, integration, and teardown checks
+
+The
+[implementation conformance map](docs/projection-runtime/implementation-conformance-map.md)
+separates landed behavior from contract-only surfaces and future work.
 
 ## Current limitations
 
@@ -104,39 +117,30 @@ product runtime.
 - No real audio device or native audio engine is connected.
 - No real resource-plane implementation or waveform surface is present.
 - The private `EXCL` v0 stdio profile is proof-specific and replaceable.
-- Native mapped-memory transport is not implemented for the Electron renderer.
-- Several public packages define contracts and validation without complete
-  production runtimes.
-- The architecture is production-shaped research, not a shipped product.
-
-Dekzer motivated parts of this investigation as an example of a future desktop
-audio application. This repository is not built into Dekzer and is not the
-runtime behind it.
+- Native renderer mapping and shared-memory transport are not implemented.
+- Several public packages define contracts and validation rather than complete
+  runtimes.
+- The integration is production-shaped research, not a shipped product runtime.
+- The repository is not built into Dekzer and does not power it.
 
 ## Architecture and package map
 
-- `docs/projection-runtime`: architecture, lifecycle, codec, and conformance
-  specifications
-- `integration/electron-rust-warm-authority`: real Electron and Rust warm-path
-  proof
-- `fixtures/projection-runtime`: authored contracts, canonical manifests,
-  generated artifacts, and cross-language fixtures
-- `crates`: Rust publication and conformance code
-- `packages`: product-neutral `@exclave/*` contract, codec, compiler, binding,
-  publication, resource, session, host, and conformance packages
-- `scripts`: deterministic generators and repository verification
+- [`docs/projection-runtime`](docs/projection-runtime/README.md) contains the
+  architecture, lifecycle, codec, protocol, and conformance documents.
+- [`integration/electron-rust-warm-authority`](integration/electron-rust-warm-authority/README.md)
+  contains the real Electron and Rust warm-path proof.
+- `fixtures/projection-runtime` contains authored contracts, canonical
+  manifests, generated artifacts, and cross-language fixtures.
+- `crates` contains Rust publication and conformance code.
+- `packages` contains product-neutral `@exclave/*` contract, codec, compiler,
+  binding, publication, resource, session, host, and conformance packages.
+- `scripts` contains deterministic generators and repository verification.
 
-Start with the
-[Projection Runtime documentation index](docs/projection-runtime/README.md) and
-the [implementation conformance map](docs/projection-runtime/implementation-conformance-map.md).
+## Research boundary
 
-## Relationship to SeqWire
-
-Projection Runtime and SeqWire are separate research projects. Projection
-Runtime does not use SeqWire, and SeqWire does not generate its canonical
-artifacts. Similar systems questions were investigated at different layers, but
-no public API compatibility or runtime dependency is promised.
-
+Projection Runtime and SeqWire are separate research projects with no runtime
+dependency in either direction. Dekzer historically motivated this class of
+desktop systems problem, but neither repository is a Dekzer integration target.
 See [Research lineage](docs/projection-runtime/research-lineage.md) for the
 precise boundary.
 
