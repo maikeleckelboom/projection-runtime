@@ -37,7 +37,7 @@ describe("ExclaveError", () => {
     });
   });
 
-  it("recognizes structural Exclave errors", () => {
+  it("recognizes structural ExclaveError values", () => {
     expect(isExclaveError(new ExclaveError("demo.failed", "Demo failed", {}, meta))).toBe(true);
     expect(isExclaveError({ name: "ExclaveError", code: "demo.failed", message: "Demo" })).toBe(
       true,

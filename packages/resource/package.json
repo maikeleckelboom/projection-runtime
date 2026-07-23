@@ -2,6 +2,15 @@
   "name": "@exclave/resource",
   "version": "0.0.0",
   "description": "Resource handle descriptors, read-range contracts, and resource failures for product-neutral resource-plane payload access.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/resource"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

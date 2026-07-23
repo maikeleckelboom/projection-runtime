@@ -316,7 +316,8 @@ type OpenBrowsePageResource = {
 }
 ```
 
-These are examples, not canonical Dekzer resource contracts.
+These examples were motivated by a possible desktop audio application such as
+Dekzer. They are not current Dekzer contracts or evidence of an integration.
 
 ---
 
@@ -972,9 +973,10 @@ After authority replacement, old resource handles die and consumers must open ne
 
 ---
 
-## 17. Dekzer examples
+## 17. Motivating desktop audio examples
 
-These examples are illustrative. They are not complete product contracts.
+These examples are illustrative. Dekzer motivated the problem space, but the
+examples are not complete product contracts or a shipped Dekzer integration.
 
 ### 17.1 Waveform resource
 

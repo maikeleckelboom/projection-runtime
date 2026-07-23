@@ -1,7 +1,16 @@
 {
   "name": "@exclave/compiler",
   "version": "0.0.0",
-  "description": "Build-time compiler for Exclave authored projection contracts.",
+  "description": "Build-time compiler for authored projection contracts.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/compiler"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

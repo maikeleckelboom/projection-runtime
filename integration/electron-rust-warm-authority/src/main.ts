@@ -25,7 +25,7 @@ let allowImmediateExit = false;
 let e2eTimeout: NodeJS.Timeout | null = null;
 
 app.enableSandbox();
-app.setName("Exclave Rust warm authority proof");
+app.setName("Projection Runtime warm authority proof");
 
 app.on("web-contents-created", (_event, contents) => hardenWebContents(contents));
 app.on("window-all-closed", () => {

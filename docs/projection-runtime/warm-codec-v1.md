@@ -2,7 +2,7 @@
 
 Companion to:
 
-- Exclave Projection Spine: Canonical Architecture Spec
+- Projection Spine: Canonical Architecture Spec
 - Control Plane Session Rules
 - Cold Reopen Sequence
 

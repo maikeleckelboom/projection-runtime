@@ -1,7 +1,16 @@
 {
   "name": "@exclave/hot-binding",
   "version": "0.0.0",
-  "description": "Validated bindings from already-opened Exclave hot region bytes to ABI counter views.",
+  "description": "Validated bindings from already-opened hot region bytes to ABI counter views.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/hot-binding"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

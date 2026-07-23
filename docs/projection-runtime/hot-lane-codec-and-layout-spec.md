@@ -1,8 +1,8 @@
-# Exclave Hot Lane Codec and Layout Spec
+# Hot Lane Codec and Layout Spec
 
 Companion to:
 
-- Exclave Projection Spine: Canonical Architecture Spec
+- Projection Spine: Canonical Architecture Spec
 - Hot Lane Consumer Runtime
 - Hot SAB Lifecycle
 - Compiler and Conformance Layout

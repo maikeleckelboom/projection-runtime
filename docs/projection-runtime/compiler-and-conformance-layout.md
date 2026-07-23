@@ -2,7 +2,7 @@
 
 Companion to:
 
-- Exclave Projection Spine: Canonical Architecture Spec
+- Projection Spine: Canonical Architecture Spec
 - Hot Lane Codec and Layout Spec
 - Hot Lane Consumer Runtime
 - Warm Codec v1
@@ -12,7 +12,8 @@ Companion to:
 Status: Draft for ratification. Intended to become implementation-authoritative for build-time compiler ownership,
 generated artifacts, fixture layout, and cross-language conformance.
 
-This document defines the build-time compiler and conformance contract for Exclave projection and lane artifacts.
+This document defines the build-time compiler and conformance contract for
+Projection Runtime projection and lane artifacts.
 
 It does not redefine authored projection semantics, hot ABI layout, warm frame encoding, resource protocol behavior, or
 runtime session lifecycle. Those concerns belong to their companion documents.

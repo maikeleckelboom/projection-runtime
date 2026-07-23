@@ -1,6 +1,8 @@
 # Media Work Authority
 
-Status: Product-authority companion. This document is not Exclave substrate canon. It shows how a product authority can use Exclave control, publication, resource, and session contracts.
+Status: Product-authority companion. This document is not Projection Runtime
+architecture canon. It shows how a product authority can use the workspace
+control, publication, resource, and session contracts.
 
 This document defines the product-level authority contract for media work: waveform LOD generation, stem waveform
 generation, stem analysis generation, artwork materialization, analysis output, and other produced media resources.
@@ -129,7 +131,7 @@ state.
 
 ## 3. Boundary-plane split
 
-Media work uses the Exclave planes as follows:
+Media work uses the Projection Runtime planes as follows:
 
 ```text
 control:

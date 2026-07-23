@@ -1,7 +1,16 @@
 {
   "name": "@exclave/base",
   "version": "0.0.0",
-  "description": "Small shared foundations for Exclave packages.",
+  "description": "Small shared foundations for @exclave packages.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/base"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

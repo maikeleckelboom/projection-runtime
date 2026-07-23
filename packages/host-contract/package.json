@@ -2,6 +2,15 @@
   "name": "@exclave/host-contract",
   "version": "0.0.0",
   "description": "Product-neutral host boundary contract. Tells a client which authority-owned surface is available and which lane descriptors belong to it.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/host-contract"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

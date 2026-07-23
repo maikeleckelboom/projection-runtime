@@ -1,6 +1,6 @@
 # @exclave/hot-codec
 
-`@exclave/hot-codec` plans deterministic hot-lane layout manifests for Exclave.
+`@exclave/hot-codec` plans deterministic hot-lane layout manifests.
 
 It is build-time planning code. It owns hot ABI constants, hot field layout planning, reservation metadata, region
 sizing, `hotLayoutVersion` derivation, and pure deterministic hot field byte codec helpers.

@@ -1,7 +1,16 @@
 {
   "name": "@exclave/hot-consumer",
   "version": "0.0.0",
-  "description": "Bounded hot-lane read attempts for already-opened Exclave sequence views.",
+  "description": "Bounded hot-lane read attempts for already-opened sequence views.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/hot-consumer"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

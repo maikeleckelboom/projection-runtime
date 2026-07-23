@@ -1,6 +1,6 @@
 # @exclave/base
 
-`@exclave/base` is the small shared foundation used by Exclave packages.
+`@exclave/base` is the small shared foundation used by `@exclave/*` packages.
 
 It owns the portable pieces that every layer can agree on without pulling in
 schema, runtime composition, diagnostics, or application concerns.
@@ -25,7 +25,8 @@ schema, runtime composition, diagnostics, or application concerns.
 
 ## Error Model
 
-Exclave packages should throw `ExclaveError<Code>` for known library failures.
+`@exclave/*` packages should throw `ExclaveError<Code>` for known library
+failures.
 Every `ExclaveError` can be serialized with `toJSON()` into an `ErrorEnvelope`
 that is safe to log or send across a worker boundary.
 
@@ -53,5 +54,6 @@ throw DEMO.createError("failed", {
 });
 ```
 
-Base does not reserve or publish concrete Exclave error codes. It only provides
+Base does not reserve or publish concrete workspace error codes. It only
+provides
 the small vocabulary used by packages that own those codes.

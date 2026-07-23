@@ -1,9 +1,10 @@
-# Exclave Projection Spine: Canonical Architecture Spec
+# Projection Spine: Canonical Architecture Spec
 
 Status: Canonical. Implementation-authoritative for projection identity, lane admissibility, publication metadata,
 lifecycle rules, and hot-lane ABI foundations.
 
-This document is the canonical architecture specification for the Exclave projection spine. It defines the ownership
+This document is the canonical architecture specification for the Projection
+Runtime projection spine. It defines the ownership
 model, canonical manifest, version identity model, lane admissibility rules, hot-lane ABI foundations, publication
 metadata model, instance lifecycle rules, and the first projection family.
 
@@ -25,7 +26,7 @@ Historical comparison and redesign guidance belong in separate migration notes, 
 9. Publication Metadata: Conceptual Model and Lane-Specific Placement
 10. Instance Lifecycle
 11. First Projection Family: Replaceable Snapshot Projections
-12. Applied Dekzer Examples
+12. Motivating Desktop Audio Examples
 13. Rejected Alternatives
 
 ---
@@ -345,8 +346,10 @@ This rule has no exceptions.
 
 ### 3.7 Authoring DSL
 
-The TS DSL compiles authored input into a `ResolvedProjectionContract`. One canonical example; full Dekzer examples are
-in section 12.
+The TS DSL compiles authored input into a `ResolvedProjectionContract`. One
+canonical example appears here. Section 12 contains fuller desktop audio
+examples motivated by a possible application such as Dekzer, not a current
+integration.
 
 ```ts
 const deckRuntimeContract = defineProjectionContract({
@@ -1204,7 +1207,7 @@ This constraint is explicit doctrine, not an oversight. Dynamic instance discove
 
 ### 10.2 Instance Enumeration
 
-In Dekzer's v1 deployment:
+For the motivating desktop audio sketch:
 
 | Contract            | Instance Keys       |
 |---------------------|---------------------|
@@ -1309,10 +1312,13 @@ This is the acceptance criterion for any lane implementation claiming to support
 
 ---
 
-## 12. Applied Dekzer Examples
+## 12. Motivating Desktop Audio Examples
 
-Two canonical examples in this document. One hot+warm+cold contract. One warm-only contract. Additional domain contracts
-belong in a separate implementation brief.
+These conceptual examples were motivated by the kinds of surfaces a future
+application such as Dekzer could require. They are not current Dekzer contracts
+or evidence of a shipped integration. This document includes one hot and warm
+contract and one warm-only contract. Additional domain contracts belong in a
+separate implementation brief.
 
 ---
 

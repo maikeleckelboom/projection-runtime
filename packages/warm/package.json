@@ -2,6 +2,15 @@
   "name": "@exclave/warm",
   "version": "0.0.0",
   "description": "Product-neutral warm frame envelope shapes for observable non-audio-critical state.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/warm"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

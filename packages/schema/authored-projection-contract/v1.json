@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://exclave.dev/schema/authored-projection-contract/v1.json",
   "title": "ExclaveAuthoredProjectionContractV1",
-  "description": "Authored projection contract syntax for Exclave. This artifact validates authored structure only; compiler-owned normalization, canonical manifest emission, lane planning, version derivation, generated bindings, and conformance fixtures are out of scope.",
+  "description": "Authored projection contract syntax. This artifact validates authored structure only; compiler-owned normalization, canonical manifest emission, lane planning, version derivation, generated bindings, and conformance fixtures are out of scope.",
   "type": "object",
   "additionalProperties": false,
   "required": ["key", "family", "fields"],

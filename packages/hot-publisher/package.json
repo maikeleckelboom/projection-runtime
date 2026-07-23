@@ -1,7 +1,16 @@
 {
   "name": "@exclave/hot-publisher",
   "version": "0.0.0",
-  "description": "Writer-side hot-lane publication transitions for already-opened Exclave Block B views.",
+  "description": "Writer-side hot-lane publication transitions for already-opened Block B views.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/hot-publisher"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

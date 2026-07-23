@@ -2,6 +2,15 @@
   "name": "@exclave/control-plane",
   "version": "0.0.0",
   "description": "JSON-safe request/response envelope shapes for boundary control messages.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/control-plane"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

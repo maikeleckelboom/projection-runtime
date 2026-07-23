@@ -1,5 +1,5 @@
 /**
- * JSON-safe values used by Exclave error details and envelopes.
+ * JSON-safe values used by ExclaveError details and envelopes.
  */
 export type JsonPrimitive = string | number | boolean | null;
 

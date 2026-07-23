@@ -1,4 +1,4 @@
-# Exclave Branch Workflow
+# Projection Runtime Branch Workflow
 
 Status: Active working convention
 

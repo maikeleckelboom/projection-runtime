@@ -500,7 +500,7 @@ describe("@exclave/hot-consumer input errors and public error surface", () => {
     });
   });
 
-  it("throws typed Exclave errors for invalid programmer inputs", () => {
+  it("throws typed ExclaveError values for invalid programmer inputs", () => {
     const error = expectHotConsumerError(() =>
       tryReadHotSnapshot({
         sequence: new Uint8Array(8),

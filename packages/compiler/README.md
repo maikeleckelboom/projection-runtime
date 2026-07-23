@@ -1,6 +1,7 @@
 # @exclave/compiler
 
-`@exclave/compiler` is the build-time compiler for Exclave authored projection contracts.
+`@exclave/compiler` is the build-time compiler for authored Projection Runtime
+contracts.
 
 It accepts `AuthoredProjectionContract` values from `@exclave/schema` and emits deterministic canonical projection
 manifests plus resolved contract metadata. Schema owns authored syntax and syntactic validation only; this package owns

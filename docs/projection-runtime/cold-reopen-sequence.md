@@ -3,7 +3,7 @@
 Companion to:
 
 - Control Plane Session Rules
-- Exclave Projection Spine: Canonical Architecture Spec
+- Projection Spine: Canonical Architecture Spec
 
 Status: Draft for ratification. Intended to become implementation-authoritative for cold-backed reopen of restartable
 publication surfaces.

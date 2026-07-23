@@ -6,7 +6,8 @@ It launches a compiled standalone Rust authority through real Electron main, tra
 bundled isolated preload, and exposes generated warm deck state to a sandboxed renderer.
 
 Rust is the sole product-state authority. The Electron fixture contains private host assembly and proof-only lifecycle
-controls; it is not a public Exclave Electron package.
+controls. It is a private Projection Runtime proof, not a public Electron
+package.
 
 ## Run the focused proof
 

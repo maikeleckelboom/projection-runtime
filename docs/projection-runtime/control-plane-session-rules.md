@@ -3,7 +3,7 @@
 Companion to:
 
 - Boundary Model
-- Exclave Projection Spine: Canonical Architecture Spec
+- Projection Spine: Canonical Architecture Spec
 
 Status: Draft for ratification. Intended to become implementation-authoritative for runtime session validity and
 authority epoch rules.

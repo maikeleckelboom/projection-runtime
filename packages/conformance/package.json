@@ -1,7 +1,16 @@
 {
   "name": "@exclave/conformance",
   "version": "0.0.0",
-  "description": "Projection-runtime fixture conformance harness for Exclave.",
+  "description": "Projection Runtime fixture conformance harness.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/projection-runtime.git",
+    "directory": "packages/conformance"
+  },
+  "homepage": "https://github.com/maikeleckelboom/projection-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/projection-runtime/issues"
+  },
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

@@ -1,7 +1,8 @@
 # Electron ↔ Rust Warm Authority Profile v0
 
 Status: Implementation-authoritative for the private, non-public integration profile under
-`integration/electron-rust-warm-authority`. This profile composes existing Exclave projection, session, control,
+`integration/electron-rust-warm-authority`. This profile composes existing
+Projection Runtime projection, session, control,
 publication, and warm-codec semantics. It does not redefine them or add a public Electron transport package.
 
 ## Purpose
@@ -11,7 +12,8 @@ Electron renderer clients stop consuming, reload, disappear, and return. It uses
 contract, the `deck.setTempoRatio` control operation, a real compiled Rust executable, and a real Electron process.
 
 The proof establishes one concrete application boundary. It is not a generic authority framework, a product audio
-engine, or a promise that every drafted Exclave plane has a production runtime.
+engine, or a promise that every drafted Projection Runtime plane has a
+production runtime.
 
 ## Process topology and ownership
 
@@ -68,10 +70,12 @@ arbitrary stream chunks, accept concatenated frames, reject unknown versions and
 oversized, or truncated input as an explicit protocol failure. An attacker-declared oversized length is rejected before
 allocating that declared size. EOF is a clean stop only when no partial frame remains.
 
-Packet kinds carry authority lifecycle events, existing Exclave subscribe and control envelopes, warm publication
+Packet kinds carry authority lifecycle events, existing Projection Runtime
+subscribe and control envelopes, warm publication
 attachments, credits, diagnostics requests, unsubscribe, and shutdown. The warm publication packet carries routing
 metadata plus the canonical warm frame bytes; the outer profile does not create a second projection identity or codec.
-EXCL v0 is application-private and replaceable, not canonical Exclave transport doctrine.
+EXCL v0 is application-private and replaceable, not canonical Projection
+Runtime transport doctrine.
 
 ## Renderer channel and security boundary
 
@@ -183,7 +187,7 @@ Deliberately simulated or proof-only:
 Deliberately out of scope:
 
 - a public Electron adapter, generic transport framework, or generic authority DSL
-- a real Dekzer audio authority or resource-plane surface
+- a real audio authority or resource-plane surface
 - hot renderer mapping, native addons, shared memory, resource transport, networking, replay, persistence, and cold reopen
 - any SeqWire schema, planner, ABI, handoff, binding, runtime, or dependency
 
@@ -217,9 +221,11 @@ node scripts/check-file-names.mts
 git diff --check
 ```
 
-## Next product milestone
+## Next research milestone
 
-Integrate a real Dekzer deck/audio authority behind the proven process, control, warm-publication and restart profile,
-then add one real resource-plane surface such as waveform access.
+Replace the simulated deck authority with a real audio authority behind the
+proven process, control, warm-publication, and restart profile. Then add one
+real resource-plane surface such as waveform access. Dekzer motivated this class
+of problem, but this profile is not a Dekzer integration.
 
 Native renderer mapping remains measurement-gated.

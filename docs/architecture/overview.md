@@ -1,6 +1,7 @@
 # Architecture Overview
 
-Exclave is a typed boundary substrate for local realtime systems. It separates control-plane requests, publication-plane
+Projection Runtime is architecture research for local timing-sensitive systems.
+It separates control-plane requests, publication-plane
 state, resource-plane payload access, and session lifecycle. Its hot lane uses fixed-layout shared memory for
 low-latency publication surfaces, but shared memory is not the whole system.
 
@@ -58,7 +59,7 @@ a SeqWire, shared-memory, or native-mapping dependency.
 
 ## Out of scope
 
-Exclave does not define:
+Projection Runtime does not define:
 
 - product-specific authorities as substrate packages
 - Electron application architecture

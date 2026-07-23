@@ -1,4 +1,4 @@
-# Exclave redesign migration note
+# Projection Runtime redesign migration note
 
 ## What this redesign is solving, what it is not solving, and how to use the first attempt without repeating its mistakes
 

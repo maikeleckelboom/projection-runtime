@@ -382,7 +382,7 @@ Limits:
 - deterministic epochs, flow pause, process termination, reload checkpoints, and proof reporting are test-only
 - the fixture is not a public Electron adapter or generic authority framework
 - no resource plane, native renderer mapping, shared memory, hot handle, replay, persistence, or cold reopen is added
-- no Exclave package or integration dependency points to SeqWire
+- no Projection Runtime package or integration dependency points to SeqWire
 
 ## 12. Cold Reopen Conformance
 
@@ -431,9 +431,10 @@ session, resource, warm codec, and publication subscription foundations.
    Extend the current Rust/TypeScript payload and full-frame agreement into additional warm fixtures as new contract
    shapes are added. This is conformance depth, not the next product milestone.
 
-The next product milestone is:
-
-> Integrate a real Dekzer deck/audio authority behind the proven process, control, warm-publication and restart profile,
-> then add one real resource-plane surface such as waveform access.
+One possible next research milestone is to replace the simulated deck authority
+with a real audio authority behind the proven process, control, publication, and
+restart profile, then add one real resource-plane surface such as waveform
+access. Dekzer motivated this class of problem, but no Dekzer integration is
+present or implied.
 
 Native renderer mapping remains measurement-gated.

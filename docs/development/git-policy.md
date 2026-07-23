@@ -146,7 +146,8 @@ git diff --check
 
 Commit messages are checked with commitlint.
 
-The Windows checkout at `C:\dev\exclave` is authoritative for this project. Do not route Exclave validation through WSL.
+The Windows checkout at `C:\dev\projection-runtime` is authoritative for this
+project. Do not route Projection Runtime validation through WSL.
 
 ## Filename conventions
 

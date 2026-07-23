@@ -1,6 +1,7 @@
 # @exclave/schema
 
-`@exclave/schema` publishes authored projection contract types and syntactic validation for Exclave.
+`@exclave/schema` publishes authored projection contract types and syntactic
+validation for Projection Runtime contracts.
 
 This package owns the authored projection contract syntax: the pre-canonical contract shape that authors write before
 compiler normalization. It validates syntactic legality and structural shape, and it publishes the versioned JSON Schema
