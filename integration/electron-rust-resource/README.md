@@ -4,6 +4,9 @@ This is the executable Mission A adapter and qualification fixture. It uses the
 real `resource-runtime` registry, `@exclave/resource` consumer and Node process
 adapter. It does not contain an audio engine, waveform codec or GPU renderer.
 
+The [delivery evidence](../../docs/evidence/resource-plane/delivery.md) records
+the measured candidate, canonical gates, independent review and qualification limits.
+
 ```powershell
 pnpm build:electron-rust-resource
 pnpm test:electron-rust-resource

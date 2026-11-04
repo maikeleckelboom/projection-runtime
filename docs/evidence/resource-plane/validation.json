@@ -1,0 +1,88 @@
+{
+  "scope": "Projection Runtime Devkit v3 Mission A, owned-byte Windows profile only",
+  "productionSourceRevision": "421f3305fa6fe72ea262a24fc7faa6dde6ba51e6",
+  "finalExecutableSourceRevision": "f20b390bde7da2cd1733cfd1d22723c4ebfa0686",
+  "sourceDifference": "Only final Electron proof presentation/capture; runtime and process measurement code unchanged",
+  "canonical": {
+    "command": "pnpm verify",
+    "exitCode": 1,
+    "passed": [
+      "all TypeScript typechecks",
+      "TypeScript package build",
+      "46 TypeScript test files / 973 tests",
+      "100 Rust tests plus doc-test targets",
+      "existing Electron/Rust warm proof",
+      "new Electron/Rust resource proof"
+    ],
+    "failure": "Biome formatting only: docs/evidence/resource-plane/baseline-samples.json",
+    "log": "canonical-verify.log",
+    "logNormalization": "Trailing whitespace and line endings normalized for Git; original .cache/resource-plane-evidence/final-verify.log retained unchanged",
+    "notClaimedAsAggregatePass": true
+  },
+  "focusedClosure": [
+    {
+      "command": "pnpm exec biome check --write docs/evidence/resource-plane/baseline-samples.json",
+      "result": "Formatting corrected without changing parsed data"
+    },
+    {
+      "command": "pnpm exec biome check .",
+      "result": "Passed after formatting correction; passed again across 309 files after final evidence additions"
+    },
+    {
+      "command": "node scripts/check-file-names.mts",
+      "result": "Passed"
+    },
+    {
+      "command": "node .cache/resource-plane-evidence/runRemainingGuards.mts",
+      "result": "Passed remaining source guards extracted verbatim from canonical scripts/verify.mts",
+      "canonicalScriptSha256": "c62c46e42d44d9b470a6b01634c6bdf7565391ec5a50a4615f4fd0d4c9d6bd3e"
+    },
+    {
+      "command": "pnpm typecheck:electron-rust-resource; pnpm exec biome check integration/electron-rust-resource/src/main.ts integration/electron-rust-resource/src/renderer.ts",
+      "result": "Passed after capture-only fixture correction"
+    },
+    {
+      "command": "pnpm build:electron-rust-resource; pnpm test:electron-rust-resource",
+      "result": "Passed on final executable source; success screenshot visually checked, both native PIDs verified exited"
+    },
+    {
+      "command": "pnpm measure:resource",
+      "result": "Passed all frozen checks: 200 pairs, 20 control observations, 8 retention rounds",
+      "report": "measurement.json"
+    },
+    {
+      "command": "cargo clippy -p resource-runtime -p authority-session -p electron-rust-resource -p electron-rust-warm-authority --all-targets --locked -- -D warnings",
+      "result": "Passed affected crates"
+    }
+  ],
+  "additionalCheckLimitation": {
+    "command": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+    "result": "Failed pre-existing manual_is_multiple_of lint at crates/hot-abi-conformance/src/main.rs:1489 with Rust 1.96.1; unrelated source unchanged"
+  },
+  "independentReview": {
+    "architectureAndOwnership": "Completed; actionable findings resolved",
+    "implementation": "No remaining actionable findings on production source",
+    "independentReruns": "11 real Rust-process tests and 14 framing/consumer tests passed",
+    "captureCorrection": "Reviewed separately; no actionable finding",
+    "evidenceAudit": "Counts, hashes, raw-report copies, screenshot and measured bounds checked independently; quantile method and byte-counter directions clarified"
+  },
+  "preservedLocalEvidence": [
+    ".cache/resource-plane-evidence/final-verify.log",
+    ".cache/resource-plane-evidence/focused-biome.log",
+    ".cache/resource-plane-evidence/focused-source-guards.log",
+    ".cache/resource-plane-evidence/remainingGuards.mts",
+    ".cache/resource-plane-evidence/final-measure.log",
+    ".cache/resource-plane-evidence/measure-2026-11-04T22-47-19-242Z/measurement.json",
+    ".cache/electron-rust-resource/2026-11-04T22-45-12-842Z",
+    ".cache/electron-rust-resource/2026-11-04T22-50-49-329Z"
+  ],
+  "unrun": [
+    "Product waveform/CUE/source-grant integration",
+    "Audio callback/output-frame/acoustic timing",
+    "WebGPU feasibility, upload/residency/device loss",
+    "Stems semantics and presentation",
+    "Non-Windows platform qualification",
+    "Installer/signing qualification",
+    "Long-duration DJ workload and memory soak"
+  ]
+}
