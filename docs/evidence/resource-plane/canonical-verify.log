@@ -1,0 +1,453 @@
+$ node scripts/verify.mts
+
+[verify] typecheck
+[verify] pnpm typecheck
+
+$ pnpm typecheck:packages && pnpm typecheck:tooling && pnpm typecheck:electron-rust-warm-authority && pnpm typecheck:electron-rust-resource
+$ tsc -b tsconfig.packages.json --pretty false
+$ tsc -p tsconfig.json --pretty false
+$ tsc -p integration/electron-rust-warm-authority/tsconfig.json --pretty false
+$ tsc -p integration/electron-rust-resource/tsconfig.json --pretty false
+
+
+[verify] build Electron/Rust resource proof
+[verify] pnpm build:electron-rust-resource
+
+$ node integration/electron-rust-resource/scripts/build.mts
+    Finished `release` profile [optimized] target(s) in 0.06s
+Built resource proof: C:\dev\projection-runtime\.cache\electron-rust-resource\2026-11-04T22-45-12-842Z
+
+
+[verify] test
+[verify] pnpm test
+
+$ vitest run
+
+ RUN  v4.1.6 C:/dev/projection-runtime
+
+
+ Test Files  46 passed (46)
+      Tests  973 passed (973)
+   Start at  23:45:14
+   Duration  19.09s (transform 29.32s, setup 0ms, import 45.49s, tests 19.34s, environment 7ms)
+
+
+
+[verify] build
+[verify] pnpm build
+
+$ tsc -b tsconfig.packages.json
+
+
+[verify] cargo test
+[verify] cargo test
+
+   Compiling hot-publication v0.0.0 (C:\dev\projection-runtime\crates\hot-publication)
+   Compiling warm-codec v0.0.0 (C:\dev\projection-runtime\crates\warm-codec)
+   Compiling electron-rust-warm-authority v0.0.0 (C:\dev\projection-runtime\integration\electron-rust-warm-authority\authority)
+   Compiling warm-abi-conformance v0.0.0 (C:\dev\projection-runtime\crates\warm-abi-conformance)
+   Compiling hot-abi-conformance v0.0.0 (C:\dev\projection-runtime\crates\hot-abi-conformance)
+   Compiling electron-rust-resource v0.0.0 (C:\dev\projection-runtime\integration\electron-rust-resource\authority)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.66s
+     Running unittests src\lib.rs (target\debug\deps\authority_session-a3d363d9c68de240.exe)
+
+running 3 tests
+test tests::generated_epoch_is_nonzero ... ok
+test tests::injected_epoch_requires_nonzero_canonical_decimal ... ok
+test tests::wire_epoch_parser_accepts_canonical_zero_but_not_aliases ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\electron_rust_resource-e80c38678e222291.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\electron_rust_warm_authority-09d28067408226da.exe)
+
+running 27 tests
+test deck_state::tests::deck_starts_playing_with_unity_tempo_and_stems ... ok
+test messages::tests::shutdown_payload_is_exact_empty_object ... ok
+test deck_state::tests::engine_advance_and_typed_tempo_control_mutate_rust_state ... ok
+test process::tests::cli_test_epoch_and_ready_delay_require_explicit_test_mode ... ok
+test messages::tests::warm_publication_metadata_length_prefix_preserves_raw_frame_bytes ... ok
+test contract::tests::embedded_resolved_contract_is_the_only_codec_schema_authority ... ok
+test authority::tests::starting_session_rejects_epochless_subscribe_as_not_ready ... ok
+test authority::tests::control_is_fully_prepared_before_deck_state_mutation ... ok
+test authority::tests::tempo_control_reports_the_applied_f32_authority_value ... ok
+test authority::tests::typed_tempo_control_succeeds_and_stale_epoch_is_binding_invalid ... ok
+test authority::tests::tempo_control_rejects_extra_payload_keys_and_out_of_range_values ... ok
+test authority::tests::process_continuity_generation_is_authoritative_in_ack_and_frames ... ok
+test authority::tests::ready_precedes_ack_and_initial_complete_warm_snapshot ... ok
+test wire::tests::declared_oversize_is_rejected_from_prefix_without_allocating_declared_size ... ok
+test authority::tests::one_in_flight_and_one_latest_pending_survive_stale_credit ... ok
+test authority::tests::unsubscribe_and_resubscribe_preserve_projection_scoped_sequence ... ok
+test wire::tests::decoder_reports_unknown_kind_and_truncated_eof_explicitly ... ok
+test wire::tests::encoder_enforces_total_one_mebibyte_cap ... ok
+test wire::tests::incremental_decoder_accepts_every_fragment_boundary_and_concatenation ... ok
+test wire::tests::malformed_magic_and_version_are_explicit ... ok
+test wire::tests::protocol_v0_kind_numbers_are_stable ... ok
+test process::tests::early_subscribe_is_processed_while_test_ready_delay_is_active ... ok
+test process::tests::truncated_eof_is_reported_after_workers_are_stopped ... ok
+test process::tests::ready_event_follows_starting_after_runtime_initialization ... ok
+test process::tests::publication_worker_failure_wakes_a_coordinator_with_quiet_stdin ... ok
+test deck_state::tests::engine_thread_advances_without_any_subscription_or_delivery_work ... ok
+test process::tests::eof_and_explicit_shutdown_stop_and_join_workers_cleanly ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\main.rs (target\debug\deps\electron_rust_warm_authority-ccc06ca6d21e34a2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\hot_abi_conformance-652b6697eb2b7750.exe)
+
+running 15 tests
+test tests::formats_u64_hex_with_prefix_and_sixteen_digits ... ok
+test tests::rejects_writer_active_seqlock_counter ... ok
+test tests::reads_only_bounded_array_logical_values ... ok
+test tests::generated_hot_exchange_writer_handles_fixed_strings_and_vectors ... ok
+test tests::generated_writer_publishes_little_endian_block_b_values ... ok
+test tests::generated_writer_rejects_bounded_array_overflow_before_writing ... ok
+test tests::generated_writer_zeroes_unused_bounded_array_slots ... ok
+test tests::generated_hot_exchange_writer_rejects_fixed_string_non_ascii_before_publishing ... ok
+test tests::rejects_bounded_array_count_overflow ... ok
+test tests::generated_hot_exchange_writer_rejects_fixed_string_too_long_before_publishing ... ok
+test tests::repeated_generated_writer_publish_increments_seqlock ... ok
+test tests::repeated_generated_writer_publish_preserves_prior_block_b_state ... ok
+test tests::repeated_generated_writer_publish_increments_publication_sequence ... ok
+test tests::repeated_generated_writer_publish_returns_accumulated_previous_values ... ok
+test tests::writes_block_a_header_values ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\hot_publication-1bdf3b5b798b1c31.exe)
+
+running 29 tests
+test tests::baseline_epoch_offset_before_block_a_rejects_before_mutation ... ok
+test tests::baseline_epoch_offset_overlapping_seqlock_rejects_before_mutation ... ok
+test tests::bind_returns_region_handle_for_valid_layout ... ok
+test tests::block_a_length_mismatch_rejects_deterministically ... ok
+test tests::closure_writes_are_preserved_after_publication ... ok
+test tests::continuity_generation_offset_before_block_a_rejects_before_mutation ... ok
+test tests::continuity_generation_offset_overlapping_baseline_epoch_rejects_before_mutation ... ok
+test tests::field_writer_cannot_corrupt_baseline_epoch_in_final_publication ... ok
+test tests::field_writer_cannot_corrupt_block_a_in_final_publication ... ok
+test tests::field_writer_receives_only_logical_region ... ok
+test tests::field_writer_cannot_corrupt_continuity_generation_in_final_publication ... ok
+test tests::invalid_baseline_epoch_offset_rejects_deterministically_before_mutation ... ok
+test tests::invalid_continuity_generation_offset_rejects_deterministically_before_mutation ... ok
+test tests::invalid_block_a_range_rejects_deterministically_before_mutation ... ok
+test tests::invalid_publication_sequence_offset_rejects_deterministically_before_mutation ... ok
+test tests::invalid_seqlock_offset_rejects_deterministically_before_mutation ... ok
+test tests::offset_arithmetic_overflow_rejects_deterministically ... ok
+test tests::publication_sequence_offset_before_block_a_rejects_before_mutation ... ok
+test tests::publication_sequence_offset_overlapping_continuity_generation_rejects_before_mutation ... ok
+test tests::publication_sequence_offset_overlapping_seqlock_rejects_before_mutation ... ok
+test tests::publication_sequence_overflow_rejects_deterministically ... ok
+test tests::publish_via_region_writes_block_a_bytes ... ok
+test tests::publish_via_region_writes_block_b_metadata ... ok
+test tests::region_too_short_rejects_deterministically ... ok
+test tests::repeated_publish_through_region_increments_publication_sequence_by_one ... ok
+test tests::repeated_publish_through_region_increments_seqlock_by_two ... ok
+test tests::seqlock_offset_before_block_a_rejects_before_mutation ... ok
+test tests::seqlock_overflow_rejects_deterministically ... ok
+test tests::writer_active_odd_seqlock_rejects_before_mutation ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\resource_runtime-add6213ba691ef98.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\lifetime.rs (target\debug\deps\lifetime-c3f382f1ea9a9550.exe)
+
+running 6 tests
+test frame_golden_partial_writes_and_failed_writes ... ok
+test close_and_cancel_a_preserve_b_and_owned_bytes ... ok
+test completion_from_another_registry_cannot_return_capacity ... ok
+test quotas_and_cross_client_epoch_and_ranges_fail_closed ... ok
+test receipt_writer_close_revoke_races_never_recycle_pinned_backing ... ok
+test finite_handles_and_resource_admission ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\warm_abi_conformance-1631e4e18f6a3388.exe)
+
+running 2 tests
+test tests::warm_payload_v0_matches_committed_payload_and_frame_bytes ... ok
+test tests::warm_payload_v0_output_matches_committed_rust_artifact ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\warm_codec-cb2d9ffcba15cba9.exe)
+
+running 18 tests
+test frame::tests::malformed_declared_length_is_rejected ... ok
+test frame::tests::frame_round_trips_without_changing_bytes_or_metadata ... ok
+test frame::tests::configurable_max_is_enforced_for_encode_and_decode ... ok
+test frame::tests::default_max_matches_typescript_and_rejects_oversized_frames ... ok
+test frame::tests::invalid_max_is_rejected_before_codec_work ... ok
+test payload::tests::false_nan_sentinel_is_rejected_like_the_typescript_manifest ... ok
+test payload::tests::nan_sentinel_is_rejected_at_the_json_profile_boundary ... ok
+test payload::tests::null_optional_shape_properties_are_not_treated_as_absent ... ok
+test payload::tests::fixed_vector_and_bounded_maxima_cannot_exceed_the_one_mib_profile ... ok
+test payload::tests::bounded_map_live_count_must_fit_fixed_entries_before_key_allocation ... ok
+test payload::tests::bounded_array_live_count_must_fit_remaining_payload_before_reservation ... ok
+test frame::tests::declared_oversize_is_rejected_before_length_mismatch_or_body_decode ... ok
+test payload::tests::nested_enum_variant_count_is_validated_against_storage_width ... ok
+test payload::tests::enum_discriminants_at_the_storage_boundary_do_not_truncate ... ok
+test payload::tests::variable_map_live_count_is_bounded_by_minimum_recursive_entry_size ... ok
+test payload::tests::recursive_manifest_validation_rejects_duplicate_enum_variants ... ok
+test payload::tests::payload_input_and_output_are_capped_to_the_one_mib_profile ... ok
+test payload::tests::recursive_manifest_depth_is_capped_before_unbounded_walk ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests authority_session
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests electron_rust_warm_authority
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hot_publication
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests resource_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests warm_codec
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+
+[verify] build Electron/Rust warm authority proof
+[verify] pnpm build:electron-rust-warm-authority
+
+$ node integration/electron-rust-warm-authority/scripts/build.mts
+   Compiling electron-rust-warm-authority v0.0.0 (C:\dev\projection-runtime\integration\electron-rust-warm-authority\authority)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.78s
+
+  .cache\electron-rust-warm-authority\renderer.js      26.8kb
+  .cache\electron-rust-warm-authority\renderer.js.map  44.6kb
+
+Done in 13ms
+
+  .cache\electron-rust-warm-authority\main.cjs      132.1kb
+  .cache\electron-rust-warm-authority\main.cjs.map  271.9kb
+
+Done in 40ms
+
+  .cache\electron-rust-warm-authority\preload.cjs      106.3kb
+  .cache\electron-rust-warm-authority\preload.cjs.map  276.6kb
+
+Done in 42ms
+Built Electron/Rust warm authority proof at electron-rust-warm-authority (electron-rust-warm-authority.exe).
+
+
+[verify] test Electron/Rust warm authority proof
+[verify] pnpm test:electron-rust-warm-authority
+
+$ node integration/electron-rust-warm-authority/scripts/run-e2e.mts
+Electron/Rust warm proof passed: epochs 101 -> 202, coalesced 25/7, reload preserved the replacement authority.
+
+
+[verify] test Electron/Rust resource proof
+[verify] pnpm test:electron-rust-resource
+
+$ node integration/electron-rust-resource/scripts/run.mts
+Resource Electron proof passed. Evidence: C:\dev\projection-runtime\.cache\electron-rust-resource\2026-11-04T22-45-12-842Z\electron-report.json
+
+
+[verify] biome check
+[verify] pnpm exec biome check .
+
+docs\evidence\resource-plane\baseline-samples.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+
+     15 15 │     "wireBytes": 349543,
+     16 16 │     "samplesMs": [
+     17    │ - ····20.03519999999935,
+     18    │ - ····2.838199999999233,
+     19    │ - ····2.224699999999757,
+     20    │ - ····2.1830999999992855,
+     21    │ - ····2.5176000000001295,
+     22    │ - ····2.7415000000000873,
+     23    │ - ····4.544400000000678,
+     24    │ - ····1.6336999999994077,
+     25    │ - ····3.3502000000007683,
+     26    │ - ····1.5677000000005137,
+     27    │ - ····1.876299999999901,
+     28    │ - ····2.873700000000099,
+     29    │ - ····1.2033999999994194,
+     30    │ - ····2.513600000000224,
+     31    │ - ····1.0801000000001295,
+     32    │ - ····1.4873999999999796,
+     33    │ - ····2.1282000000001062,
+     34    │ - ····1.0502000000005864,
+     35    │ - ····1.9534000000003289,
+     36    │ - ····1.4836000000004788,
+     37    │ - ····1.7028000000000247,
+     38    │ - ····2.448599999999715,
+     39    │ - ····1.8239999999996144,
+     40    │ - ····2.9244000000007873,
+     41    │ - ····1.3560999999999694,
+     42    │ - ····1.8455999999996493,
+     43    │ - ····1.3972999999996318,
+     44    │ - ····1.7372999999997774,
+     45    │ - ····2.7200000000002547,
+     46    │ - ····2.149999999999636,
+     47    │ - ····1.555500000000393,
+     48    │ - ····1.1985999999997148,
+     49    │ - ····1.7430999999996857,
+     50    │ - ····3.485099999999875,
+     51    │ - ····1.65979999999945,
+     52    │ - ····2.2001000000000204,
+     53    │ - ····1.5294000000003507,
+     54    │ - ····1.4463999999998123,
+     55    │ - ····3.2935999999999694,
+     56    │ - ····1.5145000000002256,
+     57    │ - ····2.019899999999325,
+     58    │ - ····1.9697999999998501,
+     59    │ - ····2.03689999999915,
+     60    │ - ····4.203399999999419,
+     61    │ - ····1.9864999999999782,
+     62    │ - ····1.5132000000003245,
+     63    │ - ····1.0537999999996828,
+     64    │ - ····0.9853000000002794,
+     65    │ - ····2.5528999999996813,
+     66    │ - ····1.324200000000019,
+     67    │ - ····1.4241000000001804,
+     68    │ - ····1.6860999999998967,
+     69    │ - ····2.4106999999994514,
+     70    │ - ····3.2953999999999724,
+     71    │ - ····1.9549000000006345,
+     72    │ - ····1.5720000000001164,
+     73    │ - ····0.9538999999995212,
+     74    │ - ····1.1260000000002037,
+     75    │ - ····3.3355000000001382,
+     76    │ - ····1.788300000000163,
+     77    │ - ····1.7489999999997963,
+     78    │ - ····1.6619000000000597,
+     79    │ - ····1.67029999999977,
+     80    │ - ····2.449999999999818,
+     81    │ - ····1.3613000000004831,
+     82    │ - ····2.4919000000008964,
+     83    │ - ····1.6444000000001324,
+     84    │ - ····1.8320999999996275,
+     85    │ - ····3.1563999999998487,
+     86    │ - ····1.4925999999995838,
+     87    │ - ····1.0473999999994703,
+     88    │ - ····1.7667999999994208,
+     89    │ - ····2.130500000000211,
+     90    │ - ····3.5911000000005515,
+     91    │ - ····1.9588999999996304,
+     92    │ - ····1.7348000000001775,
+     93    │ - ····1.5941000000002532,
+     94    │ - ····1.6428999999998268,
+     95    │ - ····2.6569999999992433,
+     96    │ - ····1.7142999999996391,
+     97    │ - ····2.127900000000409,
+     98    │ - ····1.6742999999996755,
+     99    │ - ····2.05580000000009,
+    100    │ - ····3.8969999999999345,
+    101    │ - ····2.4404999999997017,
+    102    │ - ····2.5330000000003565,
+    103    │ - ····0.9612000000006446,
+    104    │ - ····1.4670999999998457,
+    105    │ - ····1.75879999999961,
+    106    │ - ····1.6873999999997977,
+    107    │ - ····2.1301000000003114,
+    108    │ - ····1.1278000000002066,
+    109    │ - ····1.7973999999994703,
+    110    │ - ····5.021200000000135,
+    111    │ - ····2.1651999999994587,
+    112    │ - ····1.4117999999998574,
+    113    │ - ····1.966799999999239,
+    114    │ - ····1.9309999999995853,
+    115    │ - ····1.2051000000001295,
+    116    │ - ····1.2933000000002721,
+    117    │ - ····1.5109000000002197,
+    118    │ - ····2.1093000000000757,
+    119    │ - ····2.1700000000000728,
+    120    │ - ····1.985000000000582,
+    121    │ - ····5.167000000000371,
+    122    │ - ····2.240600000000086,
+Checked 306 files in 230ms. No fixes applied.
+Found 1 error.
+    123    │ - ····1.4773999999997613,
+    124    │ - ····2.71559999999954,
+    125    │ - ····1.7496000000001004,
+    126    │ - ····0.8635999999996784,
+    127    │ - ····0.999800000000505,
+    128    │ - ····1.491399999999885,
+    129    │ - ····1.933999999999287,
+    130    │ - ····2.039900000000671,
+    131    │ - ····4.922599999999875,
+    132    │ - ····1.5591999999996915,
+    133    │ - ····1.6089999999994689,
+    134    │ - ····1.8995999999997366,
+    135    │ - ····1.0759999999991123,
+    136    │ - ····1.2509000000000015
+        17 │ + ····20.03519999999935,·2.838199999999233,·2.224699999999757,·2.1830999999992855,·2.5176000000001295,
+        18 │ + ····2.7415000000000873,·4.544400000000678,·1.6336999999994077,·3.3502000000007683,
+        19 │ + ····1.5677000000005137,·1.876299999999901,·2.873700000000099,·1.2033999999994194,·2.513600000000224,
+        20 │ + ····1.0801000000001295,·1.4873999999999796,·2.1282000000001062,·1.0502000000005864,
+        21 │ + ····1.9534000000003289,·1.4836000000004788,·1.7028000000000247,·2.448599999999715,
+        22 │ + ····1.8239999999996144,·2.9244000000007873,·1.3560999999999694,·1.8455999999996493,
+        23 │ + ····1.3972999999996318,·1.7372999999997774,·2.7200000000002547,·2.149999999999636,
+        24 │ + ····1.555500000000393,·1.1985999999997148,·1.7430999999996857,·3.485099999999875,·1.65979999999945,
+        25 │ + ····2.2001000000000204,·1.5294000000003507,·1.4463999999998123,·3.2935999999999694,
+        26 │ + ····1.5145000000002256,·2.019899999999325,·1.9697999999998501,·2.03689999999915,·4.203399999999419,
+        27 │ + ····1.9864999999999782,·1.5132000000003245,·1.0537999999996828,·0.9853000000002794,
+        28 │ + ····2.5528999999996813,·1.324200000000019,·1.4241000000001804,·1.6860999999998967,
+        29 │ + ····2.4106999999994514,·3.2953999999999724,·1.9549000000006345,·1.5720000000001164,
+        30 │ + ····0.9538999999995212,·1.1260000000002037,·3.3355000000001382,·1.788300000000163,
+        31 │ + ····1.7489999999997963,·1.6619000000000597,·1.67029999999977,·2.449999999999818,·1.3613000000004831,
+        32 │ + ····2.4919000000008964,·1.6444000000001324,·1.8320999999996275,·3.1563999999998487,
+        33 │ + ····1.4925999999995838,·1.0473999999994703,·1.7667999999994208,·2.130500000000211,
+        34 │ + ····3.5911000000005515,·1.9588999999996304,·1.7348000000001775,·1.5941000000002532,
+        35 │ + ····1.6428999999998268,·2.6569999999992433,·1.7142999999996391,·2.127900000000409,
+        36 │ + ····1.6742999999996755,·2.05580000000009,·3.8969999999999345,·2.4404999999997017,
+        37 │ + ····2.5330000000003565,·0.9612000000006446,·1.4670999999998457,·1.75879999999961,
+        38 │ + ····1.6873999999997977,·2.1301000000003114,·1.1278000000002066,·1.7973999999994703,
+        39 │ + ····5.021200000000135,·2.1651999999994587,·1.4117999999998574,·1.966799999999239,
+        40 │ + ····1.9309999999995853,·1.2051000000001295,·1.2933000000002721,·1.5109000000002197,
+        41 │ + ····2.1093000000000757,·2.1700000000000728,·1.985000000000582,·5.167000000000371,·2.240600000000086,
+        42 │ + ····1.4773999999997613,·2.71559999999954,·1.7496000000001004,·0.8635999999996784,·0.999800000000505,
+        43 │ + ····1.491399999999885,·1.933999999999287,·2.039900000000671,·4.922599999999875,·1.5591999999996915,
+        44 │ + ····1.6089999999994689,·1.8995999999997366,·1.0759999999991123,·1.2509000000000015
+  2 more lines truncated
+
+
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+
+
+
+[verify failed] biome check
+[verify failed] pnpm exec biome check .
+
+[ELIFECYCLE] Command failed with exit code 1.

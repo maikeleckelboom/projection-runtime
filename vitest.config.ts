@@ -42,6 +42,14 @@ export default defineConfig({
   test: {
     projects: [
       {
+        resolve: { alias: workspaceAliases },
+        test: {
+          name: "electron-rust-resource",
+          environment: "node",
+          include: ["integration/electron-rust-resource/tests/**/*.test.ts"],
+        },
+      },
+      {
         resolve: {
           alias: workspaceAliases,
         },

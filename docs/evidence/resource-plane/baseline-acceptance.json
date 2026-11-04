@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-04",
+  "baselineRevision": "92c328818148bb4fe2c98cc90c5b4ec01f23310c",
+  "workload": "256 KiB immutable pre-serialized bytes; real optimized Rust process, Windows pipes, Node consumer; 120 baseline reads; 150 ms paused bulk reader",
+  "baseline": {
+    "payloadBytes": 262144,
+    "jsonBase64WireBytes": 349543,
+    "medianReadMs": 1.824,
+    "maximumReadMs": 20.0352,
+    "pausedReaderControlReplyMs": 154.7951
+  },
+  "budgets": {
+    "controlAdmissionMaxMs": 20,
+    "nativeAppliedUpperBoundMaxMs": 75,
+    "controlReplyMaxMs": 75,
+    "nativeResidentBytes": 8388608,
+    "perClientInFlightBytes": 1048576,
+    "globalInFlightBytes": 2097152,
+    "maxChunkBytes": 262144,
+    "perClientResidentBytes": 2097152,
+    "globalResidentBytes": 4194304,
+    "perClientTransfers": 4,
+    "globalTransfers": 8,
+    "perClientHandles": 16,
+    "globalHandles": 32,
+    "urgentControlSlots": 8,
+    "ordinaryControlSlots": 24
+  },
+  "acceptance": {
+    "wireReductionMinimumPercent": 24,
+    "control": "All three limits must hold while the independent bulk reader is paused for 150 ms, including a second command. Native application is a fixture command, never an audio output boundary.",
+    "latency": "Report paired samples and maxima; no required speedup or DJ end-to-end performance claim. Reject product adoption claims from this upstream fixture.",
+    "memory": "Enforce application-owned caps and settle to zero after cancellation/reload; report process memory separately.",
+    "ownership": "Owned results survive normal close. Mapping is unsupported, not qualified. Credits remain reserved after cancellation until completion/discard or reconciled teardown."
+  },
+  "frozenBeforeCandidateSelection": true,
+  "scopeLimit": "Engineering acceptance for Mission A only. This is not a product baseline, GPU proof, audio timing qualification or user-approved product cutover budget."
+}

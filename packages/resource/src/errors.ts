@@ -5,6 +5,10 @@ import {
 } from "@exclave/base";
 
 const RESOURCE_DEFS = {
+  backpressure: {
+    message: "Resource capacity is temporarily exhausted",
+    meta: { severity: "warning", recoverable: true, boundarySafe: true },
+  },
   inputRejected: {
     message: "Resource input rejected",
     meta: {
@@ -19,6 +23,7 @@ export const resourceErrorDomain: ErrorDomainWithFactory<"resource", typeof RESO
   defineErrorDomain("resource", RESOURCE_DEFS);
 
 type ResourceErrorDetails = {
+  readonly backpressure: { readonly scope: "handle" | "consumer" | "authority" };
   readonly inputRejected: {
     readonly detail: string;
   };
@@ -31,4 +36,8 @@ export const createResourceError: KeyedErrorFactoryOf<
 
 export function throwInputRejected(detail: string): never {
   throw createResourceError("inputRejected", { detail });
+}
+
+export function throwResourceBackpressure(scope: "handle" | "consumer" | "authority"): never {
+  throw createResourceError("backpressure", { scope });
 }

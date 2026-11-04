@@ -115,7 +115,9 @@ separates landed behavior from contract-only surfaces and future work.
 
 - The deck engine and meter evolution are simulated.
 - No real audio device or native audio engine is connected.
-- No real resource-plane implementation or waveform surface is present.
+- A bounded owned-resource runtime and real sandboxed Electron/Rust byte path are
+  implemented in the [resource profile](integration/electron-rust-resource/README.md).
+  No product waveform surface, mapped resource access or audio qualification is present.
 - The private `EXCL` v0 stdio profile is proof-specific and replaceable.
 - Native renderer mapping and shared-memory transport are not implemented.
 - Several public packages define contracts and validation rather than complete

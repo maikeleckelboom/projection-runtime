@@ -1,0 +1,23 @@
+body {
+  margin: 2rem;
+  font:
+    1rem / 1.5 system-ui,
+    sans-serif;
+  color: #202020;
+  background: #fafafa;
+}
+main {
+  max-inline-size: 70rem;
+  margin-inline: auto;
+}
+h1 {
+  font-size: 1.5rem;
+}
+#status {
+  min-block-size: 3em;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}

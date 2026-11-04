@@ -1,0 +1,1754 @@
+{
+  "nativeExecutableSha256": "bfaa7f817bd2b4b920ce436bc94e9ca8f93810f3d8239b61555a81ed5e397f5a",
+  "date": "2026-11-04",
+  "sourceRevision": "421f3305fa6fe72ea262a24fc7faa6dde6ba51e6",
+  "acceptanceSha256": "fc207f681291663d501abd7e0b2730cf6166d12053ec8d3b2b60841d1fbe70fa",
+  "environment": {
+    "node": "v24.15.0",
+    "os": "10.0.26300",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics     "
+  },
+  "payloadSha256": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b",
+  "payloadBytes": 262144,
+  "baselineWireBytes": 349543,
+  "candidateBulkBytes": 262192,
+  "wireReductionPercent": 24.990058447744623,
+  "pairedSummary": {
+    "baseline": {
+      "count": 200,
+      "medianMs": 1.2197000000001026,
+      "sampleP95Ms": 3.0192000000001826,
+      "maxMs": 4.214799999999968
+    },
+    "candidate": {
+      "count": 200,
+      "medianMs": 0.5389999999999873,
+      "sampleP95Ms": 1.1281000000001313,
+      "maxMs": 2.5593999999999824
+    }
+  },
+  "pairs": [
+    {
+      "baselineMs": 2.8968999999999596,
+      "candidateMs": 1.5138000000000602,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.100999999999999,
+      "candidateMs": 1.341099999999983,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.0448999999999842,
+      "candidateMs": 0.7097999999999729,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.5661000000000058,
+      "candidateMs": 0.8603999999999132,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5029000000000678,
+      "candidateMs": 0.8001999999999043,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.3628999999999678,
+      "candidateMs": 0.5957999999999402,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5668999999999187,
+      "candidateMs": 2.5593999999999824,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2695000000001073,
+      "candidateMs": 0.7098999999999478,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3489000000000715,
+      "candidateMs": 0.9309000000000651,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.137100000000032,
+      "candidateMs": 0.7608999999999924,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2346999999999753,
+      "candidateMs": 0.529100000000085,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.140800000000013,
+      "candidateMs": 0.4875000000000682,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.9139000000000124,
+      "candidateMs": 0.6105999999999767,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9599000000000615,
+      "candidateMs": 0.4680000000000746,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.6450999999999567,
+      "candidateMs": 0.7641000000000986,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9580999999999449,
+      "candidateMs": 0.6212999999999056,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3619999999999663,
+      "candidateMs": 0.5786000000000513,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.2834000000000287,
+      "candidateMs": 0.4757000000000744,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3845000000000027,
+      "candidateMs": 0.7478999999999587,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.2123000000000275,
+      "candidateMs": 0.4942999999999529,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2513000000000147,
+      "candidateMs": 0.8115999999999985,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0535000000000991,
+      "candidateMs": 0.44450000000006185,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.48599999999999,
+      "candidateMs": 0.5053000000000338,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.4136999999999489,
+      "candidateMs": 0.6664999999999281,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.336599999999976,
+      "candidateMs": 0.8823999999999614,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0792000000000144,
+      "candidateMs": 0.45799999999997,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2557999999999083,
+      "candidateMs": 0.8197000000000116,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.8928000000000793,
+      "candidateMs": 0.6070999999999458,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.852800000000002,
+      "candidateMs": 0.6994999999999436,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.5799999999999272,
+      "candidateMs": 0.5350999999999431,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.578800000000001,
+      "candidateMs": 0.7765000000000555,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1476000000000113,
+      "candidateMs": 0.7328999999999724,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.64569999999992,
+      "candidateMs": 0.8698000000000548,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.6599999999999682,
+      "candidateMs": 0.5788000000000011,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.835299999999961,
+      "candidateMs": 0.46270000000004075,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2310000000001082,
+      "candidateMs": 0.4601999999999862,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5593000000000075,
+      "candidateMs": 0.768100000000004,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.6788999999999987,
+      "candidateMs": 0.7787999999999329,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3132999999999129,
+      "candidateMs": 0.560100000000034,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.4963999999999942,
+      "candidateMs": 0.43420000000003256,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3929999999999154,
+      "candidateMs": 1.236699999999928,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0326000000000022,
+      "candidateMs": 0.4899999999998954,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.5194999999999936,
+      "candidateMs": 0.4799000000000433,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1865999999999985,
+      "candidateMs": 0.5126999999999953,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.7697999999999183,
+      "candidateMs": 0.48090000000001965,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8804000000000087,
+      "candidateMs": 0.5307999999999993,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.988999999999919,
+      "candidateMs": 0.8721000000000458,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9997000000000753,
+      "candidateMs": 0.5881999999999152,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2135000000000673,
+      "candidateMs": 0.5113000000000056,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.4078999999999269,
+      "candidateMs": 1.7008999999999332,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 4.170100000000048,
+      "candidateMs": 1.0609999999999218,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.052500000000009,
+      "candidateMs": 0.5512999999999693,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.400700000000029,
+      "candidateMs": 0.9855000000000018,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1496999999999389,
+      "candidateMs": 0.5527999999999338,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.0499999999999545,
+      "candidateMs": 0.9914999999999736,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.6544000000000096,
+      "candidateMs": 0.572400000000016,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2125999999999522,
+      "candidateMs": 1.0837000000000216,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7676999999999907,
+      "candidateMs": 0.5221000000000231,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8318000000000438,
+      "candidateMs": 0.4215000000000373,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.7060999999999922,
+      "candidateMs": 0.6317999999999984,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.8361999999999625,
+      "candidateMs": 1.3120999999999867,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0371999999999844,
+      "candidateMs": 0.37779999999997926,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.158200000000079,
+      "candidateMs": 0.6505999999999403,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.5293000000000347,
+      "candidateMs": 0.49500000000000455,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.409400000000005,
+      "candidateMs": 0.571399999999926,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8653000000000475,
+      "candidateMs": 0.45269999999993615,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 3.468599999999924,
+      "candidateMs": 0.5832000000000335,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.713899999999967,
+      "candidateMs": 0.5599999999999454,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.0449000000000979,
+      "candidateMs": 0.6798999999999751,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.9424000000000206,
+      "candidateMs": 0.53449999999998,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1123999999999796,
+      "candidateMs": 0.671100000000024,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.457899999999995,
+      "candidateMs": 0.44470000000001164,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1277999999999793,
+      "candidateMs": 0.7829000000000406,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2847000000000435,
+      "candidateMs": 0.4920999999999367,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5312000000000126,
+      "candidateMs": 0.950800000000072,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9901000000000977,
+      "candidateMs": 0.5825999999999567,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.182299999999941,
+      "candidateMs": 0.5071000000000367,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 3.538400000000024,
+      "candidateMs": 0.9484999999999673,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.4613000000000511,
+      "candidateMs": 0.48250000000007276,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8722000000000207,
+      "candidateMs": 0.2726999999999862,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.276200000000017,
+      "candidateMs": 0.650000000000091,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7555999999999585,
+      "candidateMs": 0.3831000000000131,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.531400000000076,
+      "candidateMs": 0.48450000000002547,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7587999999999511,
+      "candidateMs": 0.35560000000009495,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3110000000000355,
+      "candidateMs": 0.476099999999974,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0311000000000377,
+      "candidateMs": 0.5579000000000178,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.9116000000000213,
+      "candidateMs": 0.4298000000000002,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.744100000000003,
+      "candidateMs": 0.38409999999998945,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.251800000000003,
+      "candidateMs": 0.4477999999999156,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7396999999999707,
+      "candidateMs": 0.4999000000000251,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7574999999999363,
+      "candidateMs": 0.6014000000000124,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9529999999999745,
+      "candidateMs": 0.4733999999999696,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8648000000000593,
+      "candidateMs": 0.3935999999999922,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.495300000000043,
+      "candidateMs": 0.2705999999999449,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1742000000000417,
+      "candidateMs": 0.5923000000000229,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1368999999999687,
+      "candidateMs": 0.41010000000005675,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.796100000000024,
+      "candidateMs": 0.39189999999996417,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1107000000000653,
+      "candidateMs": 0.43279999999992924,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.1748999999999796,
+      "candidateMs": 0.732599999999934,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7496999999999616,
+      "candidateMs": 0.41240000000004784,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1067999999999074,
+      "candidateMs": 0.5171000000000276,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9390000000000782,
+      "candidateMs": 0.5258000000000038,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8330999999999449,
+      "candidateMs": 0.7771999999999935,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8570000000000846,
+      "candidateMs": 0.4914999999999736,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.16700000000003,
+      "candidateMs": 0.5991999999999962,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9489999999999554,
+      "candidateMs": 0.413599999999974,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8287000000000262,
+      "candidateMs": 0.38029999999992015,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8079999999999927,
+      "candidateMs": 0.2921000000000049,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7804999999999609,
+      "candidateMs": 0.5243000000000393,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.3583999999999605,
+      "candidateMs": 0.4231999999999516,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8491000000000213,
+      "candidateMs": 0.6282999999999674,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1737000000000535,
+      "candidateMs": 0.36580000000003565,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8183999999999969,
+      "candidateMs": 0.7383000000000948,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9492999999999938,
+      "candidateMs": 0.4196999999999207,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.3085000000000946,
+      "candidateMs": 0.6043000000000802,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2023000000000366,
+      "candidateMs": 0.6841999999999189,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.285099999999943,
+      "candidateMs": 0.6088999999999487,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8089999999999691,
+      "candidateMs": 0.3776999999998907,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2025999999999613,
+      "candidateMs": 0.6272000000000162,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7983999999999014,
+      "candidateMs": 0.37599999999997635,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 4.214799999999968,
+      "candidateMs": 0.45270000000004984,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7150000000000318,
+      "candidateMs": 0.2381000000000313,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.4048999999999978,
+      "candidateMs": 0.5805000000000291,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8842999999999392,
+      "candidateMs": 0.5346999999999298,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.133299999999963,
+      "candidateMs": 0.8430000000000746,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.9773999999999887,
+      "candidateMs": 0.6664000000000669,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5024999999999409,
+      "candidateMs": 1.1695000000000846,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1479000000000497,
+      "candidateMs": 0.6055000000000064,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7104000000000497,
+      "candidateMs": 0.45019999999999527,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1287999999999556,
+      "candidateMs": 0.40609999999992397,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.496599999999944,
+      "candidateMs": 0.5637000000000398,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 3.0336999999999534,
+      "candidateMs": 0.24759999999992033,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7848999999999933,
+      "candidateMs": 0.5493000000000166,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0679000000000087,
+      "candidateMs": 0.4733999999999696,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.5755000000000337,
+      "candidateMs": 0.6349999999999909,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.835700000000088,
+      "candidateMs": 0.5960000000000036,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.834799999999973,
+      "candidateMs": 0.6322999999999865,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.25649999999996,
+      "candidateMs": 0.3693999999999278,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.4628000000000156,
+      "candidateMs": 0.6779999999999973,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7371000000000549,
+      "candidateMs": 0.3288000000000011,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.0612999999999602,
+      "candidateMs": 0.6322999999999865,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.155600000000163,
+      "candidateMs": 0.3385999999999285,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.8443999999999505,
+      "candidateMs": 0.9244000000001051,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7627999999999702,
+      "candidateMs": 0.445699999999988,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.3293999999998505,
+      "candidateMs": 0.4492000000000189,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9738999999999578,
+      "candidateMs": 0.28939999999988686,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.4447999999999865,
+      "candidateMs": 1.1281000000001313,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 3.04300000000012,
+      "candidateMs": 0.5797999999999774,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.9257999999999811,
+      "candidateMs": 0.5342000000000553,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.3164999999999054,
+      "candidateMs": 0.43449999999984357,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.418999999999869,
+      "candidateMs": 0.47329999999988104,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8705999999999676,
+      "candidateMs": 0.3614000000000033,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 3.0192000000001826,
+      "candidateMs": 0.554300000000012,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8213999999998123,
+      "candidateMs": 0.29950000000008004,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7738999999999123,
+      "candidateMs": 0.5779999999999745,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.373700000000099,
+      "candidateMs": 0.5745999999999185,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8209999999999127,
+      "candidateMs": 0.5389999999999873,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0544999999999618,
+      "candidateMs": 0.3405999999999949,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 3.4990000000000236,
+      "candidateMs": 0.47710000000006403,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2338000000002012,
+      "candidateMs": 0.40059999999994034,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.342600000000175,
+      "candidateMs": 0.7509000000000015,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0664000000001579,
+      "candidateMs": 0.6675000000000182,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.335800000000063,
+      "candidateMs": 1.052599999999984,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.2197000000001026,
+      "candidateMs": 0.4513999999999214,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.4826000000000477,
+      "candidateMs": 0.9268999999999323,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.5438999999998941,
+      "candidateMs": 0.4046000000000731,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.7440000000001419,
+      "candidateMs": 0.8713000000000193,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.059400000000096,
+      "candidateMs": 0.6182000000001153,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 4.16619999999989,
+      "candidateMs": 0.9783999999999651,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.5633000000000266,
+      "candidateMs": 0.9589000000000851,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8312000000000808,
+      "candidateMs": 0.39570000000003347,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.7828999999999269,
+      "candidateMs": 0.3473999999998796,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.2074999999999818,
+      "candidateMs": 0.44869999999991705,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8803000000000338,
+      "candidateMs": 0.5617999999999483,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.6419999999998254,
+      "candidateMs": 0.656400000000076,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.3854999999998654,
+      "candidateMs": 0.5914000000000215,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1412000000000262,
+      "candidateMs": 0.3634999999999309,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.7945999999999458,
+      "candidateMs": 0.3062999999999647,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 3.928000000000111,
+      "candidateMs": 1.2309000000000196,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.928899999999885,
+      "candidateMs": 0.3299000000001797,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.7557999999999083,
+      "candidateMs": 0.8098999999999705,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9115999999999076,
+      "candidateMs": 0.29959999999982756,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.060799999999972,
+      "candidateMs": 0.3987000000001899,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.1564999999998236,
+      "candidateMs": 0.41960000000017317,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.1965999999999894,
+      "candidateMs": 0.39190000000007785,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9062999999998738,
+      "candidateMs": 0.4089999999998781,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.9174000000000433,
+      "candidateMs": 0.6348000000000411,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9053999999998723,
+      "candidateMs": 0.42830000000003565,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 2.595100000000002,
+      "candidateMs": 1.294700000000148,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.8066000000001168,
+      "candidateMs": 0.32770000000004984,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7489000000000487,
+      "candidateMs": 0.38210000000003674,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9517000000000735,
+      "candidateMs": 0.39289999999982683,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.7501999999999498,
+      "candidateMs": 0.39829999999983556,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.9855999999999767,
+      "candidateMs": 0.38769999999999527,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.0804000000000542,
+      "candidateMs": 0.41089999999985594,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 0.7097999999998592,
+      "candidateMs": 0.23099999999999454,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 0.8312000000000808,
+      "candidateMs": 0.3628000000001066,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 1.0561999999999898,
+      "candidateMs": 0.5914999999999964,
+      "first": "candidate"
+    },
+    {
+      "baselineMs": 1.297900000000027,
+      "candidateMs": 0.595600000000104,
+      "first": "baseline"
+    },
+    {
+      "baselineMs": 2.9974999999999454,
+      "candidateMs": 0.37400000000002365,
+      "first": "candidate"
+    }
+  ],
+  "wireCounters": {
+    "before": {
+      "inFlight": {
+        "bytes": 0,
+        "items": 0,
+        "peakBytes": 0,
+        "peakItems": 0,
+        "settled": 0,
+        "duplicateSettlements": 0
+      },
+      "copiedBytes": 0,
+      "bodyAllocations": 0,
+      "pendingControls": 0,
+      "controlInputBytes": 399,
+      "controlOutputBytes": 623,
+      "bulkInputBytes": 0
+    },
+    "after": {
+      "inFlight": {
+        "bytes": 0,
+        "items": 0,
+        "peakBytes": 262144,
+        "peakItems": 1,
+        "settled": 200,
+        "duplicateSettlements": 0
+      },
+      "copiedBytes": 52438400,
+      "bodyAllocations": 200,
+      "pendingControls": 0,
+      "controlInputBytes": 86194,
+      "controlOutputBytes": 42526,
+      "bulkInputBytes": 52438400
+    }
+  },
+  "clock": {
+    "calibration": {
+      "rtt": 0.06179999999994834,
+      "lowerOffset": 712.6318000000001,
+      "upperOffset": 712.6926
+    },
+    "calibrations": [
+      {
+        "rtt": 0.07159999999998945,
+        "lowerOffset": 712.626,
+        "upperOffset": 712.6956
+      },
+      {
+        "rtt": 0.07649999999989632,
+        "lowerOffset": 712.6405000000001,
+        "upperOffset": 712.717
+      },
+      {
+        "rtt": 0.0807999999999538,
+        "lowerOffset": 712.6323,
+        "upperOffset": 712.7121
+      },
+      {
+        "rtt": 0.09580000000005384,
+        "lowerOffset": 712.6299999999999,
+        "upperOffset": 712.7257999999999
+      },
+      {
+        "rtt": 0.09390000000007603,
+        "lowerOffset": 712.6297,
+        "upperOffset": 712.7226
+      },
+      {
+        "rtt": 0.08719999999993888,
+        "lowerOffset": 712.6267,
+        "upperOffset": 712.7129
+      },
+      {
+        "rtt": 0.08930000000009386,
+        "lowerOffset": 712.6306999999999,
+        "upperOffset": 712.719
+      },
+      {
+        "rtt": 0.07719999999994798,
+        "lowerOffset": 712.6279,
+        "upperOffset": 712.7040999999999
+      },
+      {
+        "rtt": 0.06179999999994834,
+        "lowerOffset": 712.6318000000001,
+        "upperOffset": 712.6926
+      },
+      {
+        "rtt": 0.10849999999982174,
+        "lowerOffset": 712.6270000000002,
+        "upperOffset": 712.7344999999999
+      },
+      {
+        "rtt": 0.09600000000000364,
+        "lowerOffset": 712.6198,
+        "upperOffset": 712.7148000000001
+      },
+      {
+        "rtt": 0.12629999999990105,
+        "lowerOffset": 712.6217000000001,
+        "upperOffset": 712.747
+      },
+      {
+        "rtt": 0.10839999999984684,
+        "lowerOffset": 712.6163000000001,
+        "upperOffset": 712.7237
+      },
+      {
+        "rtt": 0.09239999999999782,
+        "lowerOffset": 712.6296,
+        "upperOffset": 712.722
+      },
+      {
+        "rtt": 0.08999999999991815,
+        "lowerOffset": 712.6268,
+        "upperOffset": 712.7158
+      },
+      {
+        "rtt": 0.09610000000020591,
+        "lowerOffset": 712.6236999999999,
+        "upperOffset": 712.7188000000001
+      },
+      {
+        "rtt": 0.08820000000014261,
+        "lowerOffset": 712.6315999999999,
+        "upperOffset": 712.7188000000001
+      },
+      {
+        "rtt": 0.08909999999991669,
+        "lowerOffset": 712.6258,
+        "upperOffset": 712.7149
+      },
+      {
+        "rtt": 0.14670000000000982,
+        "lowerOffset": 712.6221,
+        "upperOffset": 712.7678000000001
+      },
+      {
+        "rtt": 0.11059999999997672,
+        "lowerOffset": 712.6141,
+        "upperOffset": 712.7247
+      },
+      {
+        "rtt": 0.10570000000006985,
+        "lowerOffset": 712.6268,
+        "upperOffset": 712.7315
+      },
+      {
+        "rtt": 0.06749999999988177,
+        "lowerOffset": 712.6271,
+        "upperOffset": 712.6945999999999
+      },
+      {
+        "rtt": 0.09110000000009677,
+        "lowerOffset": 712.6283,
+        "upperOffset": 712.7184000000001
+      },
+      {
+        "rtt": 0.08159999999998035,
+        "lowerOffset": 712.6276,
+        "upperOffset": 712.7082
+      },
+      {
+        "rtt": 0.07549999999991996,
+        "lowerOffset": 712.6291,
+        "upperOffset": 712.7035999999998
+      },
+      {
+        "rtt": 0.08529999999996107,
+        "lowerOffset": 712.6352999999999,
+        "upperOffset": 712.7195999999999
+      },
+      {
+        "rtt": 0.09740000000010696,
+        "lowerOffset": 712.6216,
+        "upperOffset": 712.7180000000001
+      },
+      {
+        "rtt": 0.10900000000015098,
+        "lowerOffset": 712.6211999999999,
+        "upperOffset": 712.7302000000001
+      },
+      {
+        "rtt": 0.0865000000001146,
+        "lowerOffset": 712.6157,
+        "upperOffset": 712.7012
+      },
+      {
+        "rtt": 0.07729999999992287,
+        "lowerOffset": 712.6319000000001,
+        "upperOffset": 712.7092
+      }
+    ],
+    "uncertainty": "min-RTT offset interval widened by 1 ms for this short same-host run; not audio-clock calibration"
+  },
+  "controls": [
+    {
+      "round": 0,
+      "admissionMs": 0.0038000000001829903,
+      "nativeAppliedLowerMs": -0.8231999999998152,
+      "nativeAppliedUpperMs": 1.2376000000001568,
+      "replyMs": 0.4130000000000109,
+      "nativeReceivedUs": "434672",
+      "nativeAppliedUs": "434673"
+    },
+    {
+      "round": 0,
+      "admissionMs": 0.011499999999841748,
+      "nativeAppliedLowerMs": -0.9686999999998989,
+      "nativeAppliedUpperMs": 1.0920999999998457,
+      "replyMs": 0.12869999999998072,
+      "nativeReceivedUs": "434965",
+      "nativeAppliedUs": "434967"
+    },
+    {
+      "round": 1,
+      "admissionMs": 0.003300000000081127,
+      "nativeAppliedLowerMs": -0.9239999999997508,
+      "nativeAppliedUpperMs": 1.1367999999999938,
+      "replyMs": 0.30600000000004,
+      "nativeReceivedUs": "596343",
+      "nativeAppliedUs": "596344"
+    },
+    {
+      "round": 1,
+      "admissionMs": 0.03279999999995198,
+      "nativeAppliedLowerMs": -0.97199999999998,
+      "nativeAppliedUpperMs": 1.0887999999997646,
+      "replyMs": 0.18909999999982574,
+      "nativeReceivedUs": "596604",
+      "nativeAppliedUs": "596605"
+    },
+    {
+      "round": 2,
+      "admissionMs": 0.004000000000132786,
+      "nativeAppliedLowerMs": -0.8774999999998272,
+      "nativeAppliedUpperMs": 1.1832999999999174,
+      "replyMs": 0.35550000000012005,
+      "nativeReceivedUs": "751365",
+      "nativeAppliedUs": "751366"
+    },
+    {
+      "round": 2,
+      "admissionMs": 0.03919999999993706,
+      "nativeAppliedLowerMs": -0.9809999999997672,
+      "nativeAppliedUpperMs": 1.0797999999999774,
+      "replyMs": 0.1326000000001386,
+      "nativeReceivedUs": "751620",
+      "nativeAppliedUs": "751621"
+    },
+    {
+      "round": 3,
+      "admissionMs": 0.005499999999983629,
+      "nativeAppliedLowerMs": -0.8432000000000244,
+      "nativeAppliedUpperMs": 1.2175999999999476,
+      "replyMs": 0.37439999999992324,
+      "nativeReceivedUs": "905955",
+      "nativeAppliedUs": "905957"
+    },
+    {
+      "round": 3,
+      "admissionMs": 0.03719999999998436,
+      "nativeAppliedLowerMs": -0.9822999999996682,
+      "nativeAppliedUpperMs": 1.0785000000000764,
+      "replyMs": 0.09920000000010987,
+      "nativeReceivedUs": "906194",
+      "nativeAppliedUs": "906195"
+    },
+    {
+      "round": 4,
+      "admissionMs": 0.0059000000001105946,
+      "nativeAppliedLowerMs": -0.8063999999999396,
+      "nativeAppliedUpperMs": 1.2544000000000324,
+      "replyMs": 0.3915999999999258,
+      "nativeReceivedUs": "1062310",
+      "nativeAppliedUs": "1062311"
+    },
+    {
+      "round": 4,
+      "admissionMs": 0.04189999999994143,
+      "nativeAppliedLowerMs": -0.9752999999998337,
+      "nativeAppliedUpperMs": 1.0855000000001382,
+      "replyMs": 0.10280000000011569,
+      "nativeReceivedUs": "1062537",
+      "nativeAppliedUs": "1062537"
+    },
+    {
+      "round": 5,
+      "admissionMs": 0.003500000000030923,
+      "nativeAppliedLowerMs": -0.8693999999998141,
+      "nativeAppliedUpperMs": 1.1913999999999305,
+      "replyMs": 0.39439999999990505,
+      "nativeReceivedUs": "1219457",
+      "nativeAppliedUs": "1219458"
+    },
+    {
+      "round": 5,
+      "admissionMs": 0.03219999999987522,
+      "nativeAppliedLowerMs": -0.9744000000000597,
+      "nativeAppliedUpperMs": 1.086399999999685,
+      "replyMs": 0.21049999999991087,
+      "nativeReceivedUs": "1219752",
+      "nativeAppliedUs": "1219754"
+    },
+    {
+      "round": 6,
+      "admissionMs": 0.0032999999998537533,
+      "nativeAppliedLowerMs": -0.9124000000001615,
+      "nativeAppliedUpperMs": 1.1484000000000378,
+      "replyMs": 0.34160000000019863,
+      "nativeReceivedUs": "1371492",
+      "nativeAppliedUs": "1371494"
+    },
+    {
+      "round": 6,
+      "admissionMs": 0.03680000000031214,
+      "nativeAppliedLowerMs": -0.980199999999968,
+      "nativeAppliedUpperMs": 1.0806000000002314,
+      "replyMs": 0.10650000000032378,
+      "nativeReceivedUs": "1371770",
+      "nativeAppliedUs": "1371771"
+    },
+    {
+      "round": 7,
+      "admissionMs": 0.0032999999998537533,
+      "nativeAppliedLowerMs": -0.9407000000001062,
+      "nativeAppliedUpperMs": 1.1200999999996384,
+      "replyMs": 0.18460000000004584,
+      "nativeReceivedUs": "1526908",
+      "nativeAppliedUs": "1526908"
+    },
+    {
+      "round": 7,
+      "admissionMs": 0.01859999999987849,
+      "nativeAppliedLowerMs": -0.993199999999888,
+      "nativeAppliedUpperMs": 1.0675999999998567,
+      "replyMs": 0.11149999999997817,
+      "nativeReceivedUs": "1527041",
+      "nativeAppliedUs": "1527042"
+    },
+    {
+      "round": 8,
+      "admissionMs": 0.0036000000000058208,
+      "nativeAppliedLowerMs": -0.9173999999998159,
+      "nativeAppliedUpperMs": 1.1433999999999287,
+      "replyMs": 0.33120000000008076,
+      "nativeReceivedUs": "1683637",
+      "nativeAppliedUs": "1683638"
+    },
+    {
+      "round": 8,
+      "admissionMs": 0.03519999999980428,
+      "nativeAppliedLowerMs": -0.9696999999996478,
+      "nativeAppliedUpperMs": 1.0911000000000968,
+      "replyMs": 0.13630000000011933,
+      "nativeReceivedUs": "1683920",
+      "nativeAppliedUs": "1683921"
+    },
+    {
+      "round": 9,
+      "admissionMs": 0.005000000000109139,
+      "nativeAppliedLowerMs": -0.8802999999993517,
+      "nativeAppliedUpperMs": 1.180500000000393,
+      "replyMs": 0.2998000000002321,
+      "nativeReceivedUs": "1839822",
+      "nativeAppliedUs": "1839823"
+    },
+    {
+      "round": 9,
+      "admissionMs": 0.027300000000195723,
+      "nativeAppliedLowerMs": -0.9917999999997846,
+      "nativeAppliedUpperMs": 1.06899999999996,
+      "replyMs": 0.11299999999982901,
+      "nativeReceivedUs": "1840013",
+      "nativeAppliedUs": "1840014"
+    }
+  ],
+  "retention": [
+    {
+      "round": 0,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 368,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 368,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 96486656,
+        "bodyAllocations": 368,
+        "pendingControls": 0,
+        "controlInputBytes": 165256,
+        "controlOutputBytes": 85579,
+        "bulkInputBytes": 96486656
+      },
+      "hostMemory": {
+        "rss": 71651328,
+        "heapTotal": 41353216,
+        "heapUsed": 5959504,
+        "external": 10862024,
+        "arrayBuffers": 2230184
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6500352,
+        "PrivateMemorySize64": 2953216,
+        "CPU": 0.03125
+      }
+    },
+    {
+      "round": 1,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 496,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 496,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 130047232,
+        "bodyAllocations": 496,
+        "pendingControls": 0,
+        "controlInputBytes": 221270,
+        "controlOutputBytes": 113531,
+        "bulkInputBytes": 130047232
+      },
+      "hostMemory": {
+        "rss": 71974912,
+        "heapTotal": 41353216,
+        "heapUsed": 5937632,
+        "external": 10862065,
+        "arrayBuffers": 2230185
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6500352,
+        "PrivateMemorySize64": 2953216,
+        "CPU": 0.03125
+      }
+    },
+    {
+      "round": 2,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 624,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 624,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 163607808,
+        "bodyAllocations": 624,
+        "pendingControls": 0,
+        "controlInputBytes": 277484,
+        "controlOutputBytes": 141683,
+        "bulkInputBytes": 163607808
+      },
+      "hostMemory": {
+        "rss": 72273920,
+        "heapTotal": 41615360,
+        "heapUsed": 5976944,
+        "external": 10862064,
+        "arrayBuffers": 2230184
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6500352,
+        "PrivateMemorySize64": 2953216,
+        "CPU": 0.0625
+      }
+    },
+    {
+      "round": 3,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 752,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 752,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 197168384,
+        "bodyAllocations": 752,
+        "pendingControls": 0,
+        "controlInputBytes": 333698,
+        "controlOutputBytes": 169835,
+        "bulkInputBytes": 197168384
+      },
+      "hostMemory": {
+        "rss": 72462336,
+        "heapTotal": 41615360,
+        "heapUsed": 6019400,
+        "external": 10862064,
+        "arrayBuffers": 2230184
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6500352,
+        "PrivateMemorySize64": 2953216,
+        "CPU": 0.0625
+      }
+    },
+    {
+      "round": 4,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 880,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 880,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 230728960,
+        "bodyAllocations": 880,
+        "pendingControls": 0,
+        "controlInputBytes": 390174,
+        "controlOutputBytes": 197989,
+        "bulkInputBytes": 230728960
+      },
+      "hostMemory": {
+        "rss": 72540160,
+        "heapTotal": 41615360,
+        "heapUsed": 6027944,
+        "external": 10862064,
+        "arrayBuffers": 2230184
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6500352,
+        "PrivateMemorySize64": 2953216,
+        "CPU": 0.0625
+      }
+    },
+    {
+      "round": 5,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 1008,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 1008,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 264289536,
+        "bodyAllocations": 1008,
+        "pendingControls": 0,
+        "controlInputBytes": 446668,
+        "controlOutputBytes": 226145,
+        "bulkInputBytes": 264289536
+      },
+      "hostMemory": {
+        "rss": 73125888,
+        "heapTotal": 41615360,
+        "heapUsed": 6019304,
+        "external": 10862066,
+        "arrayBuffers": 2230186
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6504448,
+        "PrivateMemorySize64": 2957312,
+        "CPU": 0.09375
+      }
+    },
+    {
+      "round": 6,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 1136,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 1136,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 297850112,
+        "bodyAllocations": 1136,
+        "pendingControls": 0,
+        "controlInputBytes": 503400,
+        "controlOutputBytes": 254300,
+        "bulkInputBytes": 297850112
+      },
+      "hostMemory": {
+        "rss": 72552448,
+        "heapTotal": 41877504,
+        "heapUsed": 6025720,
+        "external": 10862066,
+        "arrayBuffers": 2230186
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6504448,
+        "PrivateMemorySize64": 2957312,
+        "CPU": 0.09375
+      }
+    },
+    {
+      "round": 7,
+      "completed": 112,
+      "cancelled": 16,
+      "native": {
+        "clients": 0,
+        "duplicateReceipts": 0,
+        "handles": 0,
+        "inFlightBytes": 0,
+        "residentBytes": 2097152,
+        "settled": 1264,
+        "transfers": 0
+      },
+      "host": {
+        "inFlight": {
+          "bytes": 0,
+          "items": 0,
+          "peakBytes": 1048576,
+          "peakItems": 4,
+          "settled": 1264,
+          "duplicateSettlements": 0
+        },
+        "copiedBytes": 331410688,
+        "bodyAllocations": 1264,
+        "pendingControls": 0,
+        "controlInputBytes": 560132,
+        "controlOutputBytes": 282456,
+        "bulkInputBytes": 331410688
+      },
+      "hostMemory": {
+        "rss": 73195520,
+        "heapTotal": 41615360,
+        "heapUsed": 6052320,
+        "external": 10862067,
+        "arrayBuffers": 2230187
+      },
+      "nativeProcess": {
+        "WorkingSet64": 6504448,
+        "PrivateMemorySize64": 2957312,
+        "CPU": 0.109375
+      }
+    }
+  ],
+  "limitations": [
+    "Resource-shaped immutable fixture, not Dekzer waveform workload",
+    "Node-process timings exclude Electron; Electron report is separate and not directly paired to this baseline",
+    "No audio callback or acoustic measurement",
+    "RSS/working set is observed process memory, not unique application-owned bytes",
+    "200 pairs permit sample quantiles, not precise tail guarantees"
+  ]
+}

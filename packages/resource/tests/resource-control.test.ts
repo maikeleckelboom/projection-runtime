@@ -303,6 +303,14 @@ describe("Resource Control Envelopes", () => {
 describe("Public API exports", () => {
   it("public value exports are exactly intended", () => {
     const expectedValueExports = new Set([
+      "ResourceBudget",
+      "ResourceClient",
+      "ResourceFrameDecoder",
+      "decodeResourceHeader",
+      "decodeOpaqueResourceHandle",
+      "RESOURCE_HEADER_BYTES",
+      "RESOURCE_MAX_CHUNK_BYTES",
+      "RESOURCE_WIRE_VERSION",
       "RESOURCE_CLOSE_HANDLE_OPERATION_KEY",
       "RESOURCE_CLOSE_MAPPING_OPERATION_KEY",
       "RESOURCE_MAP_WINDOW_OPERATION_KEY",
