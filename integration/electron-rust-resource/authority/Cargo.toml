@@ -1,0 +1,11 @@
+[package]
+name = "electron-rust-resource"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+authority-session = { path = "../../../crates/session" }
+resource-runtime = { path = "../../../crates/resource" }
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -19,7 +19,11 @@
   "scripts": {
     "clean": "node scripts/clean.mts",
     "build": "tsc -b tsconfig.packages.json",
-    "typecheck": "pnpm typecheck:packages && pnpm typecheck:tooling && pnpm typecheck:electron-rust-warm-authority",
+    "typecheck": "pnpm typecheck:packages && pnpm typecheck:tooling && pnpm typecheck:electron-rust-warm-authority && pnpm typecheck:electron-rust-resource",
+    "typecheck:electron-rust-resource": "tsc -p integration/electron-rust-resource/tsconfig.json --pretty false",
+    "build:electron-rust-resource": "node integration/electron-rust-resource/scripts/build.mts",
+    "test:electron-rust-resource": "node integration/electron-rust-resource/scripts/run.mts",
+    "measure:resource": "node --expose-gc integration/electron-rust-resource/scripts/measure.mts",
     "typecheck:packages": "tsc -b tsconfig.packages.json --pretty false",
     "typecheck:tooling": "tsc -p tsconfig.json --pretty false",
     "typecheck:electron-rust-warm-authority": "tsc -p integration/electron-rust-warm-authority/tsconfig.json --pretty false",

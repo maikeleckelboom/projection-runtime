@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "authority-session"
+version = "0.0.0"
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -47,9 +51,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "electron-rust-resource"
+version = "0.0.0"
+dependencies = [
+ "authority-session",
+ "resource-runtime",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "electron-rust-warm-authority"
 version = "0.0.0"
 dependencies = [
+ "authority-session",
  "serde",
  "serde_json",
  "warm-codec",
@@ -113,6 +128,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41f2619966050689382d2b44f664f4bc593e129785a36d6ee376ddf37259b924"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "resource-runtime"
+version = "0.0.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

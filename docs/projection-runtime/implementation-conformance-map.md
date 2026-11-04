@@ -253,11 +253,16 @@ Implemented in source and tests:
 
 Remaining gaps:
 
-- no real resource authority, registry, transport, file IO, cache, media decoder, or product resource ownership exists
+- The owned-resource slice now implements a finite Rust registry, per-client/global
+  reservations, immutable shared backing, consuming writer completion, a linear
+  binary decoder, Node supervision and sandboxed Electron/worker delivery. See the
+  [resource profile](../../integration/electron-rust-resource/README.md) for its
+  measured limits and the distinction between transfer credits and resident bytes.
+- Filesystem IO, content decoding and product source ownership remain adapter-owned.
 - no physical mapped-window backing is implemented
 - the older JSON-safe read-range receipt skeleton remains as an internal legacy/test control-envelope helper; it is not part of the public `@exclave/resource` package surface, is not part of Resource Plane v1, and is not advertised by host resource-plane grants
-- protocol surface and validation/model helpers are implemented; runtime authority registry and physical byte transport
-  are not implemented
+- Borrowed/mapped backing, product GPU consumption and real audio timing are not
+  qualified by the owned-resource fixture.
 
 ## 9. Warm Codec Conformance
 

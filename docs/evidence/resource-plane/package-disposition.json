@@ -1,0 +1,243 @@
+{
+  "baseRevision": "92c328818148bb4fe2c98cc90c5b4ec01f23310c",
+  "inventoryScope": "candidate source; package-manifest reverse dependencies, not bundle-size attribution",
+  "packages": [
+    {
+      "name": "@exclave/base",
+      "dependencies": [],
+      "sourceBytes": 21224,
+      "sourceLines": 811,
+      "sourceFiles": 9,
+      "directImporters": [
+        "@exclave/compiler",
+        "@exclave/conformance",
+        "@exclave/control-plane",
+        "@exclave/host-contract",
+        "@exclave/hot-binding",
+        "@exclave/hot-codec",
+        "@exclave/hot-consumer",
+        "@exclave/hot-publisher",
+        "@exclave/publication",
+        "@exclave/resource",
+        "@exclave/warm"
+      ],
+      "transitiveImporters": [
+        "@exclave/compiler",
+        "@exclave/conformance",
+        "@exclave/control-plane",
+        "@exclave/host-contract",
+        "@exclave/hot-binding",
+        "@exclave/hot-codec",
+        "@exclave/hot-consumer",
+        "@exclave/hot-publisher",
+        "@exclave/publication",
+        "@exclave/resource",
+        "@exclave/warm"
+      ],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/compiler",
+      "dependencies": ["@exclave/base", "@exclave/hot-codec", "@exclave/schema"],
+      "sourceBytes": 52709,
+      "sourceLines": 1812,
+      "sourceFiles": 12,
+      "directImporters": ["@exclave/conformance"],
+      "transitiveImporters": ["@exclave/conformance"],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/conformance",
+      "dependencies": [
+        "@exclave/base",
+        "@exclave/compiler",
+        "@exclave/hot-binding",
+        "@exclave/hot-codec",
+        "@exclave/hot-publisher",
+        "@exclave/warm"
+      ],
+      "sourceBytes": 73964,
+      "sourceLines": 2376,
+      "sourceFiles": 15,
+      "directImporters": [],
+      "transitiveImporters": [],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/control-plane",
+      "dependencies": ["@exclave/base", "@exclave/session"],
+      "sourceBytes": 18507,
+      "sourceLines": 632,
+      "sourceFiles": 4,
+      "directImporters": ["@exclave/host-contract", "@exclave/resource"],
+      "transitiveImporters": ["@exclave/host-contract", "@exclave/resource"],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/host-contract",
+      "dependencies": [
+        "@exclave/base",
+        "@exclave/control-plane",
+        "@exclave/publication",
+        "@exclave/resource",
+        "@exclave/session",
+        "@exclave/warm"
+      ],
+      "sourceBytes": 41270,
+      "sourceLines": 1263,
+      "sourceFiles": 11,
+      "directImporters": [],
+      "transitiveImporters": [],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/hot-binding",
+      "dependencies": ["@exclave/base", "@exclave/hot-codec"],
+      "sourceBytes": 14422,
+      "sourceLines": 488,
+      "sourceFiles": 3,
+      "directImporters": ["@exclave/conformance"],
+      "transitiveImporters": ["@exclave/conformance"],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/hot-codec",
+      "dependencies": ["@exclave/base"],
+      "sourceBytes": 87868,
+      "sourceLines": 2917,
+      "sourceFiles": 23,
+      "directImporters": ["@exclave/compiler", "@exclave/conformance", "@exclave/hot-binding"],
+      "transitiveImporters": ["@exclave/compiler", "@exclave/conformance", "@exclave/hot-binding"],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/hot-consumer",
+      "dependencies": ["@exclave/base"],
+      "sourceBytes": 11168,
+      "sourceLines": 400,
+      "sourceFiles": 3,
+      "directImporters": [],
+      "transitiveImporters": [],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/hot-publisher",
+      "dependencies": ["@exclave/base"],
+      "sourceBytes": 10332,
+      "sourceLines": 326,
+      "sourceFiles": 3,
+      "directImporters": ["@exclave/conformance"],
+      "transitiveImporters": ["@exclave/conformance"],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/publication",
+      "dependencies": ["@exclave/base", "@exclave/session", "@exclave/warm"],
+      "sourceBytes": 37129,
+      "sourceLines": 1182,
+      "sourceFiles": 6,
+      "directImporters": ["@exclave/host-contract"],
+      "transitiveImporters": ["@exclave/host-contract"],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/resource",
+      "dependencies": ["@exclave/base", "@exclave/control-plane", "@exclave/session"],
+      "sourceBytes": 89197,
+      "sourceLines": 2708,
+      "sourceFiles": 14,
+      "directImporters": ["@exclave/host-contract"],
+      "transitiveImporters": ["@exclave/host-contract"],
+      "disposition": "complete owned resource slice",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/schema",
+      "dependencies": [],
+      "sourceBytes": 18990,
+      "sourceLines": 654,
+      "sourceFiles": 4,
+      "directImporters": ["@exclave/compiler"],
+      "transitiveImporters": ["@exclave/compiler", "@exclave/conformance"],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/session",
+      "dependencies": [],
+      "sourceBytes": 7004,
+      "sourceLines": 259,
+      "sourceFiles": 2,
+      "directImporters": [
+        "@exclave/control-plane",
+        "@exclave/host-contract",
+        "@exclave/publication",
+        "@exclave/resource",
+        "@exclave/warm"
+      ],
+      "transitiveImporters": [
+        "@exclave/conformance",
+        "@exclave/control-plane",
+        "@exclave/host-contract",
+        "@exclave/publication",
+        "@exclave/resource",
+        "@exclave/warm"
+      ],
+      "disposition": "retain existing owner",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    },
+    {
+      "name": "@exclave/warm",
+      "dependencies": ["@exclave/base", "@exclave/session"],
+      "sourceBytes": 78489,
+      "sourceLines": 2689,
+      "sourceFiles": 11,
+      "directImporters": ["@exclave/conformance", "@exclave/host-contract", "@exclave/publication"],
+      "transitiveImporters": [
+        "@exclave/conformance",
+        "@exclave/host-contract",
+        "@exclave/publication"
+      ],
+      "disposition": "retain isolated research; not a dependency of new resource path",
+      "productionDekzerCaller": "none; Dekzer unchanged",
+      "perPackageBuildTime": "not separately measured; canonical gate reports aggregate evidence",
+      "restorationCost": "retain source, fixtures and history; no removal justified"
+    }
+  ]
+}

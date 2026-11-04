@@ -1,3 +1,7 @@
+export type { ResourceBudgetLimits, ResourceBudgetSnapshot } from "./resource-budget";
+export { ResourceBudget } from "./resource-budget";
+export type { OwnedResourceChunk, ResourceReadOptions } from "./resource-client";
+export { ResourceClient } from "./resource-client";
 export type { ResourcePlaneV1OperationKey } from "./resource-control";
 export {
   createResourceControlFailure,
@@ -74,3 +78,13 @@ export {
   validateResourceCapabilities,
   validateResourceHandleAccess,
 } from "./resource-protocol";
+export type { ResourceFrame, ResourceFrameHeader } from "./resource-wire";
+export {
+  decodeResourceHeader,
+  RESOURCE_HEADER_BYTES,
+  RESOURCE_MAX_CHUNK_BYTES,
+  RESOURCE_WIRE_VERSION,
+  ResourceFrameDecoder,
+} from "./resource-wire";
+export type { OpaqueResourceDescriptor, OpaqueResourceHandle } from "./resource-wire-values";
+export { decodeOpaqueResourceHandle } from "./resource-wire-values";

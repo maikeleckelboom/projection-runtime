@@ -1,5 +1,8 @@
 [workspace]
 members = [
+    "crates/resource",
+    "crates/session",
+    "integration/electron-rust-resource/authority",
     "crates/hot-publication",
     "crates/hot-abi-conformance",
     "crates/warm-codec",

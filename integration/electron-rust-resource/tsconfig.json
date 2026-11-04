@@ -1,0 +1,4 @@
+{
+  "extends": "../electron-rust-warm-authority/tsconfig.json",
+  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.mts"]
+}

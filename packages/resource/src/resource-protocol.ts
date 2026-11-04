@@ -477,7 +477,7 @@ function scanDescriptorValue(value: unknown, path: string, stack: object[]): voi
 
   if (
     value instanceof ArrayBuffer ||
-    value instanceof SharedArrayBuffer ||
+    (typeof SharedArrayBuffer !== "undefined" && value instanceof SharedArrayBuffer) ||
     ArrayBuffer.isView(value)
   ) {
     throwInputRejected(`${path} must not carry byte-like object data`);
