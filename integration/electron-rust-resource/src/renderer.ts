@@ -140,9 +140,10 @@ async function run(client: ResourceClient): Promise<void> {
       () => true,
     );
     check(rejected, "revoked resource reopened");
-    if (status)
-      status.textContent =
-        "Native bytes, worker transfer, cancellation, reload and revocation passed.";
+    check(status && results, "verification result elements are absent");
+    await window.resourceProof.checkpoint({ kind: "presentResults" });
+    status.textContent =
+      "Native bytes, worker transfer, cancellation, reload and revocation passed.";
     const report = {
       kind: "complete",
       nodeAbsent,
@@ -152,7 +153,7 @@ async function run(client: ResourceClient): Promise<void> {
       revocation: true,
       resident: client.diagnostics(),
     };
-    if (results) results.textContent = JSON.stringify(report, null, 2);
+    results.textContent = JSON.stringify(report, null, 2);
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );

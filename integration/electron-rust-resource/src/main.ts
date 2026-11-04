@@ -159,6 +159,12 @@ void app.whenReady().then(async () => {
       await host.command("fixture.revoke", {}, true);
       return;
     }
+    if (m.kind === "presentResults") {
+      // A never-shown Windows window can retain the first compositor frame.
+      // Show without focus only after timing/recovery checks, before the final paint.
+      window.showInactive();
+      return;
+    }
     if (m.kind === "complete") {
       if (first?.epoch === m.reloadEpoch || recovery === undefined)
         throw new Error("authority recovery not proven");
